@@ -1,0 +1,11 @@
+name = "HydroElasticFEM"
+uuid = "e85360b2-c40c-44d1-92ad-66f8d48f49a1"
+authors = ["Shagun Agarwal <shagun.1994@gmail.com>", "Oriol Colomes <J.O.ColomesGene@tudelft.nl>"]
+version = "0.1.0"
+
+[deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Gridap = "56d4f2e9-7ea1-5844-9cf6-b9c51ca7ce8e"
+GridapGmsh = "3025c34a-b394-11e9-2a55-3fee550c04c8"
+TickTock = "9ff05d80-102d-5586-aa04-3a8bd1a90d20"
+WaveSpec = "908d4cf6-a6c0-449c-92e4-852c8f288332"
