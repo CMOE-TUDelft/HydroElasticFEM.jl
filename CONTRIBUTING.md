@@ -1,5 +1,4 @@
-We follow the following styling guide from Gridap.jl.
-[Gridap.jl CONTRIBUTING.md](https://github.com/gridap/Gridap.jl/blob/master/CONTRIBUTING.md)
+We follow the following styling guide from [Gridap.jl CONTRIBUTING.md](https://github.com/gridap/Gridap.jl/blob/master/CONTRIBUTING.md)
 
 Gridap Style Guides
 ===
@@ -16,3 +15,5 @@ Gridap Style Guides
 * Wrap multiline expressions in parentheses to avoid errors
 
 See [the Julia CONTRIBUTING.md](https://github.com/JuliaLang/julia/blob/master/CONTRIBUTING.md) for further information.
+
+---
