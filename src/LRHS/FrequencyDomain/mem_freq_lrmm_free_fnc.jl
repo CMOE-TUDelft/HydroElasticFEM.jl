@@ -2,7 +2,6 @@ module Memb2D
 
 using Gridap
 using Plots
-using DrWatson
 using WaveSpec
 using WaveSpec.Constants
 using WaveSpec.Jonswap
@@ -11,7 +10,7 @@ using DataFrames:Matrix
 using TickTock
 using Parameters
 using Printf
-using MonolithicFEMVLFS.Resonator
+using HydroElasticFEM.Resonator
 
 
 function powerDissipatedResonator(ω, resonator, q, η)
