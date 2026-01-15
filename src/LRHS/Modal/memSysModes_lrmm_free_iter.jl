@@ -246,7 +246,8 @@ function run_case( params )
   # --------------------Start--------------------
   function run_freq(ω)
 
-    k = dispersionRelAng(H0, ω; msg=false)
+    ωreal = real(ω)
+    k = dispersionRelAng(H0, ωreal; msg=false)
     @show ω, k
   
     # Weak form: ω dependent
@@ -294,17 +295,17 @@ function run_case( params )
     # # @show real.(λ[1:nωₙ])
     # # ωₙ = sqrt.(real.(λ))
 
-    # Eigen values memb only
-    # Sol = MFull \ KFull # Keeping the complex valued matrices
-    MFullReal = real.(MFull)
-    Sol = MFullReal \ KFull
+    # Eigen values System
+    Sol = MFull \ KFull # Keeping the complex valued matrices
+    # MFullReal = real.(MFull)
+    # Sol = MFullReal \ KFull
 
     # Sol = MFull \ KFull
     λ = LinearAlgebra.eigvals(Sol)
     V = LinearAlgebra.eigvecs(Sol)      
 
-    # meff = diag(transpose(V[:,1:nωₙ]) * MFull * V[:,1:nωₙ])
-    meff = diag(transpose(V[:,1:nωₙ]) * MFullReal * V[:,1:nωₙ])
+    meff = diag(transpose(V[:,1:nωₙ]) * MFull * V[:,1:nωₙ])
+    # meff = diag(transpose(V[:,1:nωₙ]) * MFullReal * V[:,1:nωₙ])
 
     # Wrong
     # Ur, S, Vr = svd(Mtot\Matrix(K11))    
@@ -337,20 +338,23 @@ function run_case( params )
     local V, lIter, meff
     lIter = 0    
     Δω = 1 
-    ω = ωₙ[i]    
+    ω = ωₙ[i]   
+    ωₒ = ω 
     while ((Δω > 1e-3) && (lIter < maxIter))
       
-      ωᵣ = real(ω)
+      ωᵣ = αRelax * ω + (1 - αRelax) * ωₒ
+      # ωᵣ = real(ωᵣ)
+
       λ, V, meff = run_freq(ωᵣ)
       ωₒ = ω      
       ω = sqrt(λ[i])
 
-      ω = αRelax * ω + (1 - αRelax) * ωₒ
       Δω = abs((ω - ωₒ)/ωₒ)
       lIter += 1
       # @show ωₙ
       @show i, ω, Δω, lIter
     end    
+
     da_ωₙ[i] = ω    
     da_iter[i] = lIter
     push!(da_V, V[:,i]) 
