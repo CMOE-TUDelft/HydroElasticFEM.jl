@@ -156,15 +156,15 @@ function run_case( params )
     vector_type=Vector{ComplexF64})
   V_Γκ = TestFESpace(Γκ, reffe, conformity=:H1, 
     vector_type=Vector{ComplexF64})
-  # V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
-  #   vector_type=Vector{ComplexF64},
-  #   dirichlet_tags=["mem_bnd"]) #diri
   V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
-    vector_type=Vector{ComplexF64})
+    vector_type=Vector{ComplexF64},
+    dirichlet_tags=["mem_bnd"]) #diri
+#   V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
+#     vector_type=Vector{ComplexF64})
   U_Ω = TrialFESpace(V_Ω)
   U_Γκ = TrialFESpace(V_Γκ)
-  # U_Γη = TrialFESpace(V_Γη, gη) #diri
-  U_Γη = TrialFESpace(V_Γη)
+  U_Γη = TrialFESpace(V_Γη, gη) #diri
+#   U_Γη = TrialFESpace(V_Γη)
 
     
   # Weak form: Constant matrices
@@ -173,12 +173,12 @@ function run_case( params )
   m11(η,v) = ∫( mᵨ*v*η )dΓm
   
   k11(η,v) = 
-    ∫( v*g*η + Tᵨ*∇(v)⋅∇(η) )dΓm #+  
-    # ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri    
+    ∫( v*g*η + Tᵨ*∇(v)⋅∇(η) )dΓm +  
+    ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri    
   
   k11Dry(η,v) = 
-    ∫( Tᵨ*∇(v)⋅∇(η) )dΓm 
-    # ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri
+    ∫( Tᵨ*∇(v)⋅∇(η) )dΓm +
+    ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri
 
 
   c12(ϕ,v) = ∫( v*ϕ )dΓm
@@ -324,7 +324,7 @@ function run_case( params )
     while ((Δω > 1e-3) && (lIter < maxIter))
       
       ωᵣ = αRelax * ω + (1 - αRelax) * ωₒ      
-      ωᵣ = real(ωᵣ)
+      # ωᵣ = real(ωᵣ)
 
       λ, V, meff = run_freq(ωᵣ, :Real)
       ωₒ = ω      

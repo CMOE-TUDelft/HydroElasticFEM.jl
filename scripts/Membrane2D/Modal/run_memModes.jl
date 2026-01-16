@@ -2,13 +2,21 @@ using Parameters
 using Gridap
 using Printf
 using WaveSpec.Constants
-using HydroElasticFEM.Resonator
+# using HydroElasticFEM.Resonator
 using HydroElasticFEM: PKG_ROOT
 
 
 # include(srcdir("lrmmModal","memModes_lrmm_free_iter.jl"))
+# include(joinpath(PKG_ROOT,
+#   "src","LRHS","Modal","memSysModes_lrmm_free_iter.jl"))
+
+# caseTypeName = "memb_free"
+# include(joinpath(PKG_ROOT,
+#   "src","Membrane2D","Modal","memModes_free_iter.jl"))
+
+caseTypeName = "memb_fix"
 include(joinpath(PKG_ROOT,
-  "src","LRHS","Modal","memSysModes_lrmm_free_iter.jl"))
+  "src","Membrane2D","Modal","memModes_fix_iter.jl"))
 
 
 # Directory for results
@@ -23,13 +31,6 @@ resDir::String = "data/sims_202512/mem_modes_free/"
 
 mfac = [0.9] 
 tfac = [0.1] 
-
-# ωr = collect(1.0:0.1:5.0)
-# resMᵨ = ones(length(ωr))
-# resKᵨ = [ iM*iωr*iωr for (iM, iωr) in zip(resMᵨ, ωr) ]
-
-resMᵨ = [ 0.001 ]
-resKᵨ = [ 0.1*0.1*0.001 ]
 
 H0 = 10
 
@@ -58,43 +59,38 @@ paramsBase = Membrane_modes.MembLR_params(
 
 
 # Loop over all combinations of mfac, tfac and resonator parameters
-for (iresMᵨ, iresKᵨ) in zip(resMᵨ, resKᵨ)  
+for imfac in mfac
+  for itfac in tfac
 
-  rS = Resonator.Single( iresMᵨ, iresKᵨ, 0.0, Point(30.0, 0.0) )
-  resonatorName = "res_m=" * @sprintf("%0.2f", iresMᵨ) *
-    "_k=" * @sprintf("%0.2f", iresKᵨ)*"_mem"
+    membName = "mfac=" * @sprintf("%0.2f", imfac) *
+      "_tfac=" * @sprintf("%0.2f", itfac)
 
-  for imfac in mfac
-    for itfac in tfac
+    # Case directory
+    # caseName = "mem_modes_ten" * @sprintf("%0.2f", itfac) *
+    #   "_mass" * @sprintf("%0.2f", imfac)
+    caseName = "run"
 
-      # Case directory
-      # caseName = "mem_modes_ten" * @sprintf("%0.2f", itfac) *
-      #   "_mass" * @sprintf("%0.2f", imfac)
-      caseName = "run"
+    caseDir = resDir*caseName
+    # if( isdir(caseDir) )
+    #   rm(caseDir, recursive=true) #remove old data
+    #   @printf("Removed old data in %s\n", caseDir)
+    #   # return
+    # end
+    # mkdir(caseDir)
+    
 
-      caseDir = resDir*caseName
-      # if( isdir(caseDir) )
-      #   rm(caseDir, recursive=true) #remove old data
-      #   @printf("Removed old data in %s\n", caseDir)
-      #   # return
-      # end
-      # mkdir(caseDir)
-      
+    # Update paramsBase for each run
+    params = Membrane_modes.MembLR_params(
+      paramsBase;
 
-      # Update paramsBase for each run
-      params = Membrane_modes.MembLR_params(
-        paramsBase;
+      resDir = caseDir,
+      fileName = caseTypeName*"_"*membName,
 
-        resDir = caseDir,
-        fileName = resonatorName,
+      mfac = imfac,
+      tfac = itfac,      
+    )
 
-        mfac = imfac,
-        tfac = itfac,
-        rS_by_ρw = rS
-      )
-
-      # Run case
-      Membrane_modes.run_case(params)
-    end
+    # Run case
+    Membrane_modes.run_case(params)
   end
 end
