@@ -33,6 +33,9 @@ function run_case( params )
   mᵨ = mfac  #mass per unit area of membrane / ρw
   Tᵨ = tfac *g*H0*H0 #T/ρw
 
+  # Stabilisation
+  βh = 1.0#0.5
+
   # Domain 
   @unpack nx, ny, mesh_ry, LΩ = params
   @unpack x₀, xm₀, xm₁ = params
@@ -195,7 +198,7 @@ function run_case( params )
 
   c21(η,w) = ∫( w*η )dΓm  
 
-  k33(κ,u) = ∫( u*g*κ )dΓfs
+  k33(κ,u) = ∫( βh*u*g*κ )dΓfs
 
   c14(q,v) = -rS_by_ρw.K * δ_p( v*(q⋅î1) ) 
   c41(η,ξ) = -rS_by_ρw.K * δ_p((ξ⋅î1)*η)
@@ -247,16 +250,17 @@ function run_case( params )
   function run_freq(ω)
 
     ωreal = real(ω)
+    αh = -im*ω/g*(1-βh)/βh #Disabled if βh=1.0
     k = dispersionRelAng(H0, ωreal; msg=false)
-    @show ω, k
+    @show ω, k, αh
   
     # Weak form: ω dependent
-    k22(ϕ,w) = ∫( ∇(w)⋅∇(ϕ) )dΩ +
+    k22(ϕ,w) = ∫( ∇(w)⋅∇(ϕ) )dΩ + ∫(-im*ω*ϕ * βh*αh*w)dΓfs +
         ∫( -w * im * k * ϕ )dΓin + ∫( -w * im * k * ϕ )dΓot
   
-    c23(κ,w) = ∫( im*ω*w*κ )dΓfs 
+    c23(κ,w) = ∫( im*ω*w*κ )dΓfs + ∫(αh*βh*w*g*κ)dΓfs
   
-    c32(ϕ,u) = ∫( -im*ω*u*ϕ )dΓfs 
+    c32(ϕ,u) = ∫( -im*ω*u*ϕ*βh )dΓfs 
     
     # Global matrices: ω dependent
     K22 = get_matrix(AffineFEOperator( k22, l2, U_Ω, V_Ω ))
@@ -302,7 +306,12 @@ function run_case( params )
 
     # Sol = MFull \ KFull
     λ = LinearAlgebra.eigvals(Sol)
-    V = LinearAlgebra.eigvecs(Sol)      
+    V = LinearAlgebra.eigvecs(Sol)
+    
+    # ω_all = sqrt.(λ)
+    # @show λ_idx = sortperm(ω_all, by=real)
+    # λ = λ[λ_idx]
+    # V = V[:,λ_idx]
 
     meff = diag(transpose(V[:,1:nωₙ]) * MFull * V[:,1:nωₙ])
     # meff = diag(transpose(V[:,1:nωₙ]) * MFullReal * V[:,1:nωₙ])
@@ -343,7 +352,7 @@ function run_case( params )
     while ((Δω > 1e-3) && (lIter < maxIter))
       
       ωᵣ = αRelax * ω + (1 - αRelax) * ωₒ
-      # ωᵣ = real(ωᵣ)
+      ωᵣ = real(ωᵣ)
 
       λ, V, meff = run_freq(ωᵣ)
       ωₒ = ω      
