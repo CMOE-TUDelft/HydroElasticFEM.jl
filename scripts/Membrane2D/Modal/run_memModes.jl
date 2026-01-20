@@ -16,7 +16,7 @@ using HydroElasticFEM: PKG_ROOT
 
 caseTypeName = "memb_fix"
 include(joinpath(PKG_ROOT,
-  "src","Membrane2D","Modal","memModes_fix_iter.jl"))
+  "src","Membrane2D","Modal","memModes_free_iterNew.jl"))
 
 
 # Directory for results
@@ -42,12 +42,15 @@ paramsBase = Membrane_modes.MembLR_params(
 
   H0 = H0, #m #still-water depth
   Lm = 2*H0, #m
+
+  # nx = 60,
+  # ny = 5,
   
   # mfac = imfac,
   # tfac = itfac,
   # rS_by_ρw = rS,
 
-  nωₙ = 3, #number of natural frequencies to compute
+  nωₙ = 4, #number of natural frequencies to compute
 
   # Iterative solution for wet natural frequencies
   αRelax = 0.5,
