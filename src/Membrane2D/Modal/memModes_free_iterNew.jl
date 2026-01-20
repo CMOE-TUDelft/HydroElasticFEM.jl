@@ -261,27 +261,41 @@ function run_case( params )
     ## Radiation damping matrix
     C = - imag( Sol )*ω
 
-    MTot = M11 - Sol
-    CTot = C*0.0
+    # # Version 1: Works, Complex Valued
+    # MTot = M11 - Sol
     # KTot = K11
+    # AFull = MTot \ KTot
+
+    # λ = LinearAlgebra.eigvals(AFull)
+
+    # return λ
+
+    # Version 2: Damped system
+    MTot = M11 + A
+    CTot = C
     KTot = K11
 
-    # sz = size(MTot,1)
-    # AFull = [ zeros(sz, sz) I(sz);
-    #           - (MTot\KTot)               zeros(sz, sz) ]
+    sz = size(MTot,1)
+    AFull = [ zeros(sz, sz)           I(sz);
+              -MTot\KTot        -MTot\CTot ]
 
-    # AFull = Matrix(AFull)    
+    AFull = Matrix(AFull)    
 
-    AFull = MTot \ KTot
+    λ, V = LinearAlgebra.eigen(AFull)
+    
 
-    λ = LinearAlgebra.eigvals(AFull)
-    # V = LinearAlgebra.eigvecs(AFull, BFull)    
+    λ_idx = sortperm(abs.(imag.(λ)))
 
-    # @show imag.(sort(λ, by=abs))
-
-    return λ
+    λ = λ[λ_idx]
+    V = V[:, λ_idx]
+    # @show λ
+    return λ, V
     
   end
+
+  λ = zeros(ComplexF64, nωₙ) #REMOVE THIS LATER
+  VMode1 = 0.0
+  VMode2 = 0.0
 
   for i in 3:3
     local V, lIter, meff
@@ -289,15 +303,26 @@ function run_case( params )
     Δω = 1 
     ω = dfDry.ωn[i]
     ωₒ = ω 
-    while ((Δω > 1e-3) && (lIter < maxIter))
+    while ((Δω > 1e-5) && (lIter < maxIter))
       
       ωᵣ = αRelax * ω + (1 - αRelax) * ωₒ      
       ωᵣ = real(ωᵣ)
 
-      λ = run_freq(ωᵣ)
+      λ, V = run_freq(ωᵣ)
       ωₒ = ω      
-      ω = sqrt(λ[i])
-      ω = real(ω)
+
+      # # Version 1: Works, Complex Valued
+      # ω = sqrt(λ[i])
+      # ω = real(ω)
+      
+      # Version 2: Damped system
+      # @show λ[2*i-1]
+      # @show λ[2*i]
+      VMode1 = V[:,2*i-1]
+      VMode2 = V[:,2*i]
+      
+      ω = abs.(imag.(λ[2*i]))
+      
 
       Δω = abs((ω - ωₒ)/ωₒ)
       lIter += 1
@@ -305,14 +330,18 @@ function run_case( params )
       @show i, ω, Δω, lIter
     end        
   end
-
-  λ = run_freq(3.27)
   # ---------------------End---------------------
 
   plot(real.(λ), imag.(λ), seriestype=:scatter,
     title="Eigenvalues", xlabel="Real(λ)", ylabel="Imag(λ)")
   # plot!(xlim = (-5,5))
   savefig(fileName*"_eigenvalues_iter1.png")
+
+
+  plot(real.(VMode1))
+  plot!(real.(VMode2))
+  # plot!(xlim = (-5,5))
+  savefig(fileName*"_eigenvMode_iter1.png")
   
   
 
