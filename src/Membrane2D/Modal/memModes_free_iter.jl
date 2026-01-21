@@ -32,9 +32,6 @@ function run_case( params )
   mᵨ = mfac  #mass per unit area of membrane / ρw
   Tᵨ = tfac *g*H0*H0 #T/ρw
 
-  # Stabilisation
-  βh = 1.0#0.5
-
   # Domain 
   @unpack nx, ny, mesh_ry, LΩ = params
   @unpack x₀, xm₀, xm₁ = params
@@ -148,68 +145,83 @@ function run_case( params )
 
 
   # Dirichlet Fnc
-  gη(x) = ComplexF64(0.0)
+  # gη(x) = ComplexF64(0.0)
+  gη(x) = 0.0
 
   # FE spaces
   reffe = ReferenceFE(lagrangian,Float64,order)
-  V_Ω = TestFESpace(Ω, reffe, conformity=:H1, 
+  V_Ω = TestFESpace(Ω, reffe, conformity=:H1,
     vector_type=Vector{ComplexF64})
-  V_Γκ = TestFESpace(Γκ, reffe, conformity=:H1, 
+  V_Γκ = TestFESpace(Γκ, reffe, conformity=:H1,
     vector_type=Vector{ComplexF64})
-  # V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
-  #   vector_type=Vector{ComplexF64},
-  #   dirichlet_tags=["mem_bnd"]) #diri
-  V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
+  V_Γη = TestFESpace(Γη, reffe, conformity=:H1,
     vector_type=Vector{ComplexF64})
+    # dirichlet_tags=["mem_bnd"]) #diri
+#   V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
+#     vector_type=Vector{ComplexF64})
   U_Ω = TrialFESpace(V_Ω)
   U_Γκ = TrialFESpace(V_Γκ)
   # U_Γη = TrialFESpace(V_Γη, gη) #diri
-  U_Γη = TrialFESpace(V_Γη)
+  U_Γη = TrialFESpace(V_Γη)  
 
-    
-  # Weak form: Constant matrices
+  ## Weak form: Constant matrices
+  # --------------------Start--------------------
   ∇ₙ(ϕ) = ∇(ϕ)⋅VectorValue(0.0,1.0)
   
-  m11(η,v) = ∫( mᵨ*v*η )dΓm
-  
+  m11(η,v) = ∫( mᵨ*v*η )dΓm  
+
+
+  c12(ϕ,v) = ∫( v*ϕ )dΓm
+
+  c21(η,w) = ∫( -w*η )dΓm  
+
+  c22_tmp(ϕ,w) =  ∫( w * ϕ )dΓin + ∫( w * ϕ )dΓot
+
+  c23(κ,w) = ∫( -w*κ )dΓfs 
+
+  c32(ϕ,u) = ∫( u*ϕ )dΓfs 
+
+
   k11(η,v) = 
     ∫( v*g*η + Tᵨ*∇(v)⋅∇(η) )dΓm #+  
     # ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri    
   
   k11Dry(η,v) = 
-    ∫( Tᵨ*∇(v)⋅∇(η) )dΓm 
+    ∫( Tᵨ*∇(v)⋅∇(η) )dΓm #+
     # ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri
 
+  k22(ϕ,w) = ∫( ∇(w)⋅∇(ϕ) )dΩ
 
-  c12(ϕ,v) = ∫( v*ϕ )dΓm
-
-  c21(η,w) = ∫( w*η )dΓm  
-
-  k33(κ,u) = ∫( βh*u*g*κ )dΓfs  
+  k33(κ,u) = ∫( u*g*κ )dΓfs  
 
   l1(v) = ∫( 0*v )dΓm
   l2(w) = ∫( 0*w )dΩ
   l3(u) = ∫( 0*u )dΓfs 
-  l4(ξ) = ∫( 0*(ξ⋅î1) )dΩ 
   println("[MSG] Done Weak form")
 
   # Global matrices: constant matrices
   M11 = get_matrix(AffineFEOperator( m11, l1, U_Γη, V_Γη ))
+  
+  C12 = get_matrix(AffineFEOperator( c12, l1, U_Ω, V_Γη ))
+  C21 = get_matrix(AffineFEOperator( c21, l2, U_Γη, V_Ω ))
+  C22_tmp = get_matrix(AffineFEOperator( c22_tmp, l2, U_Ω, V_Ω ))
+  C23 = get_matrix(AffineFEOperator( c23, l2, U_Γκ, V_Ω ))
+  C32 = get_matrix(AffineFEOperator( c32, l3, U_Ω, V_Γκ ))
+
   K11 = get_matrix(AffineFEOperator( k11, l1, U_Γη, V_Γη ))
   K11Dry = get_matrix(AffineFEOperator( k11Dry, l1, U_Γη, V_Γη ))
-  C12 = get_matrix(AffineFEOperator( c12, l1, U_Ω, V_Γη ))
+  K22 = get_matrix(AffineFEOperator( k22, l2, U_Ω, V_Ω ))
+  K33 = get_matrix(AffineFEOperator( k33, l3, U_Γκ, V_Γκ ))  
 
-  C21 = get_matrix(AffineFEOperator( c21, l2, U_Γη, V_Ω ))
+  # Eliminate η equation
+  M22 = - C23 * (Matrix(K33) \ C32)
 
-  K33 = get_matrix(AffineFEOperator( k33, l3, U_Γκ, V_Γκ ))
-
-
-  println("[MSG] Done Global matrices")
-  println(K11 == transpose(K11))
+  println("[MSG] Done Global matrices")  
+  # ----------------------End---------------------
 
   #xp = range(xm₀, xm₁, size(V,2)+2)  
 
-  ## Dry Natural Frequencies
+  ## DRY NATURAL FREQUENCIES
   # --------------------Start--------------------
   λDry = LinearAlgebra.eigvals(M11\Matrix(K11Dry))
   VDry = LinearAlgebra.eigvecs(M11\Matrix(K11Dry))
@@ -226,192 +238,122 @@ function run_case( params )
   # ---------------------End---------------------
 
 
-  ## Function to run the frequency analysis 
-  #  for a given membrane mass and tension factor
+  ## WET NATURAL FREQUENCIES  
+  # ===================================================
+
+  ## Nonlinear System
   # --------------------Start--------------------
-  function run_freq(ω, MassType = :Complex)
-
-    ωreal = real(ω)
-    αh = -im*ω/g*(1-βh)/βh #Disabled if βh=1.0
-    k = dispersionRelAng(H0, ωreal; msg=false)
-    @show ω, k, αh
-  
-    # Weak form: ω dependent
-    k22(ϕ,w) = ∫( ∇(w)⋅∇(ϕ) )dΩ + ∫(-im*ω*ϕ * βh*αh*w)dΓfs +
-        ∫( -w * im * k * ϕ )dΓin + ∫( -w * im * k * ϕ )dΓot
-  
-    c23(κ,w) = ∫( im*ω*w*κ )dΓfs + ∫(αh*βh*w*g*κ)dΓfs
-  
-    c32(ϕ,u) = ∫( -im*ω*u*ϕ*βh )dΓfs 
+  function run_freq(ω)
+    """
+    Run one iteration of the frequency calculation
+    Here ω is Real
+    """
     
-    # Global matrices: ω dependent
-    K22 = get_matrix(AffineFEOperator( k22, l2, U_Ω, V_Ω ))
-    C23 = get_matrix(AffineFEOperator( c23, l2, U_Γκ, V_Ω ))
-    C32 = get_matrix(AffineFEOperator( c32, l3, U_Ω, V_Γκ ))
-  
-    # Solution
-    tick()
-    Mϕ = K22 - ( C23 * (Matrix(K33) \ C32) )
-    Mhat = C12 * (Mϕ \ C21)
-    Mtot = M11 + Mhat
-    tock()    
-
-    
-    # # Eigen values memb only
-    # λ = LinearAlgebra.eigvals(Mtot\Matrix(K11 + DTot))
-    # V = LinearAlgebra.eigvecs(Mtot\Matrix(K11 + DTot))      
-    # # @show real.(λ[1:nωₙ])
-    # # ωₙ = sqrt.(real.(λ))
-
-    # Eigen values System Complex
-    if( MassType == :Complex )          
-      println("[MSG] Using Complex Mass Matrix for Eigenvalue Problem")
-      # Keeping the complex valued matrices
-      Sol = Mtot \ K11 
-    elseif( MassType == :Real )
-      println("[MSG] Using Real Mass Matrix for Eigenvalue Problem")
-      # Eigen values System Real only
-      MtotReal = real.(Mtot)
-      Sol = MtotReal \ K11
+    if(ω isa Complex)
+      error("ω should be Real, but got Complex ω = ", ω)    
     end
 
-    # Sol = MFull \ KFull
-    λ = LinearAlgebra.eigvals(Sol)
-    V = LinearAlgebra.eigvecs(Sol)
+    k = dispersionRelAng(H0, ω; msg=false)
     
-    # ω_all = sqrt.(λ)
-    # @show λ_idx = sortperm(ω_all, by=real)
-    # λ = λ[λ_idx]
-    # V = V[:,λ_idx]
+    Mϕ = -ω^2 * M22 - im*k*C22_tmp + K22
 
-    meff = diag(transpose(V[:,1:nωₙ]) * Mtot * V[:,1:nωₙ])
-    # meff = diag(transpose(V[:,1:nωₙ]) * MFullReal * V[:,1:nωₙ])
+    Sol = C12 * (Mϕ \ C21)  # This is the slow step
 
-    # Wrong
-    # Ur, S, Vr = svd(Mtot\Matrix(K11))    
-    # λ = reverse(S)
-    # V = reverse(Vr, dims=2)
-    # rλ = real.(λ[1:nωₙ])
-    # @show rλ    
-    # return(rλ[1:nωₙ], V[:,1:nωₙ])
+    # Version 1: Works, Complex Valued
+    MTot = M11 - Sol
+    KTot = K11
 
-    @show sqrt.(λ[1:nωₙ])
-    println()
-    return(λ[1:nωₙ], V[:,1:nωₙ], meff)
+    AFull = MTot \ KTot
+    
+    λ, V = LinearAlgebra.eigen(AFull)    
+
+    cache = (MTot = MTot, K11 = K11)
+
+    return λ, V, cache    
+    
   end
   # ---------------------End---------------------
 
-
-  ## Wet Natural Frequencies Real
-  # --------------------Start--------------------  
-  da_ωₙ = zeros(Float64, nωₙ) 
-  println("[MSG] Starting iterative solution for wet natural frequencies with Real Mass Matrix")
-  println(ωn_guess)
-  ωₙ = zeros(Float64, nωₙ) .+ real.(ωn_guess)
+  ## Iterative Solution for each mode
+  # --------------------Start--------------------
+  da_ωₙ = zeros(ComplexF64, nωₙ) 
+  println("[MSG] Starting iterative solution for wet natural frequencies")    
   da_V = []
   da_meff=[]
   da_iter = zeros(Int, nωₙ)
 
-  
-  for i in 1:nωₙ
-    # global da_ωₙ, da_V  
-    # global ωₙ, ω
-    local V, lIter, meff
+  # Push zeros in first mode for free membrane
+  push!(da_V, zeros(ComplexF64,size(M11,1)))
+  push!(da_meff, 0.0*im)
+
+  for i in 2:nωₙ #Skip first mode for free membrane
+    
+    local lIter, λ, VMode, ωc, meff
     lIter = 0    
     Δω = 1 
-    ω = ωₙ[i]   
+    ω = dfDry.ωn[i]
     ωₒ = ω 
     while ((Δω > 1e-3) && (lIter < maxIter))
       
       ωᵣ = αRelax * ω + (1 - αRelax) * ωₒ      
       ωᵣ = real(ωᵣ)
 
-      λ, V, meff = run_freq(ωᵣ, :Real)
+      λ, V, cache = run_freq(ωᵣ)
+      
       ωₒ = ω      
-      ω = sqrt(λ[i])
+
+      # Version 1: Works, Complex Valued
+      ωc = sqrt(λ[i])
+      ω = real(ωc)      
+
+      VMode = V[:,i]
+      meff = transpose(VMode) * cache.MTot * VMode      
 
       Δω = abs((ω - ωₒ)/ωₒ)
       lIter += 1
       # @show ωₙ
       @show i, ω, Δω, lIter
-    end    
+    end        
 
-    da_ωₙ[i] = ω    
+    # Store results
+    da_ωₙ[i] = ωc
     da_iter[i] = lIter
-    push!(da_V, V[:,i]) 
-    push!(da_meff, meff[i])
+    push!(da_V, VMode) 
+    push!(da_meff, meff)
+
+    # Plot the eigenvalues for this mode iteration
+    scatter(real.(λ), imag.(λ), label = "All Eigenvalues",
+      title="Eigenvalues Mode $(i)", xlabel="Real(λ)", ylabel="Imag(λ)")
+    scatter!([real.(λ[i])], [imag.(λ[i])], label = "Mode $(i)", 
+      markersize=5, color=:red)    
+    # plot!(xlim = (-5,5))
+    savefig(fileName*"_eigenvalues_mode_$(lpad(i, 3, '0')).png")
+
   end
 
-  dfWetReal = DataFrame(
+  dfWet = DataFrame(
     ωn = da_ωₙ,
     V = da_V,
     meff = da_meff,
     iter = da_iter
   )
   # ---------------------End---------------------
-
-
-
-  ## Wet Natural Frequencies Complex
-  # --------------------Start--------------------  
-  da_ωₙ = zeros(ComplexF64, nωₙ)
-  println("\n[MSG] Starting iterative solution for wet natural frequencies Complex")  
-  ωₙ = dfWetReal[:,"ωn"] .+ 0.0*im
-  da_V = []
-  da_meff=[]
-  da_iter = zeros(Int, nωₙ)
 
   
-  for i in 1:nωₙ
-    # global da_ωₙ, da_V  
-    # global ωₙ, ω
-    local V, lIter, meff
-    lIter = 0    
-    Δω = 1 
-    ω = ωₙ[i]   
-    ωₒ = ω 
-    while ((Δω > 1e-3) && (lIter < maxIter))
-      
-      ωᵣ = αRelax * ω + (1 - αRelax) * ωₒ
-      # ωᵣ = real(ωᵣ)
 
-      λ, V, meff = run_freq(ωᵣ, :Complex)
-      ωₒ = ω      
-      ω = sqrt(λ[i])
-
-      Δω = abs((ω - ωₒ)/ωₒ)
-      lIter += 1
-      # @show ωₙ
-      @show i, ω, Δω, lIter
-    end    
-
-    da_ωₙ[i] = ω    
-    da_iter[i] = lIter
-    push!(da_V, V[:,i]) 
-    push!(da_meff, meff[i])
-  end
-
-  dfWetComplex = DataFrame(
-    ωn = da_ωₙ,
-    V = da_V,
-    meff = da_meff,
-    iter = da_iter
-  )
-  # ---------------------End---------------------
-
-
+  ## Print and Save Output
+  # --------------------Start--------------------
   @show dfDry  
-  @show dfWetReal
-  @show dfWetComplex
+  @show dfWet
 
   data = Dict(
     "params" => params,
     "dfDry" => dfDry,
-    "dfWetReal" => dfWetReal,
-    "dfWetComplex" => dfWetComplex
+    "dfWet" => dfWet
   )
 
   save(fileName*"_modesdata.jld2", data)
+  # ---------------------End---------------------
 end
 
 
