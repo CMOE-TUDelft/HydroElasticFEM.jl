@@ -6,13 +6,15 @@ using WaveSpec.Constants
 using HydroElasticFEM: PKG_ROOT
 
 
-memBndType = "free" # "free" or "fixed"
-include(joinpath(PKG_ROOT,
-  "src","Membrane2D","Modal","memModes_complexMass.jl"))
-
-# caseTypeName = "memb_free"
+# memBndType = "free" # "free" or "fixed"
+# analysisType = "complexMass" 
 # include(joinpath(PKG_ROOT,
-#   "src","Membrane2D","Modal","memModes_dampedSys_free.jl"))
+#   "src","Membrane2D","Modal","memModes_complexMass.jl"))
+
+memBndType = "free" # "free" or "fixed"
+analysisType = "dampedSys" 
+include(joinpath(PKG_ROOT,
+  "src","Membrane2D","Modal","memModes_dampedSys.jl"))
 
 
 # Directory for results
@@ -85,7 +87,7 @@ for imfac in mfac
       paramsBase;
 
       resDir = caseDir,
-      fileName = "mem_"*memBndType*"_"*membName,
+      fileName = "mem_"*analysisType*"_"*memBndType*"_"*membName,
 
       mfac = imfac,
       tfac = itfac,      

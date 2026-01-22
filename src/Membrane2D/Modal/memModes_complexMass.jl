@@ -15,7 +15,9 @@ struct Free <: MemBndType end
 struct Fixed <: MemBndType end
 
 function run_case( params )  
-    
+  
+  @printf("\n[MSG] Method 1: Complex Mass\n\n")
+
   @unpack mfac, tfac = params
   @unpack memBndType = params
   @unpack order, vtk_output = params

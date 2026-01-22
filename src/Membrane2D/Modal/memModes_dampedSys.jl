@@ -15,6 +15,8 @@ struct Free <: MemBndType end
 struct Fixed <: MemBndType end
 
 function run_case( params )
+
+  @printf("\n[MSG] Method 2: Damped System\n\n")
     
   @unpack mfac, tfac = params
   @unpack memBndType = params
