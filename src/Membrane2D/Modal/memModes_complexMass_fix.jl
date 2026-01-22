@@ -253,9 +253,15 @@ function run_case( params )
 
     k = dispersionRelAng(H0, ω; msg=false)
     
-    Mϕ = -ω^2 * M22 - im*k*C22_tmp + K22
+    # # Easy implementation : Very slow 3s per call
+    # Mϕ = -ω^2 * M22 - im*k*C22_tmp + K22
+    # Sol = C12 * (Mϕ \ C21)  # This is the slow step
 
-    Sol = C12 * (Mϕ \ C21)  # This is the slow step
+    # Faster implementation : 0.5s per call
+    α = ComplexF64(-ω^2)
+    β = ComplexF64(-im*k)
+    Mϕ = (α .* M22) .+ (β .* C22_tmp) .+ K22
+    Sol = C12 * (Mϕ \ Matrix(C21))
 
     # Version 1: Works, Complex Valued
     MTot = M11 - Sol
@@ -289,7 +295,7 @@ function run_case( params )
     ωₒ = ω 
     while ((Δω > 1e-3) && (lIter < maxIter))
       
-      ωᵣ = αRelax * ω + (1 - αRelax) * ωₒ      
+      ωᵣ = αRelax * ω + (1 - αRelax) * ωₒ # Here ωᵣ is Real already
       ωᵣ = real(ωᵣ)
 
       λ, V, cache = run_freq(ωᵣ)
@@ -321,7 +327,9 @@ function run_case( params )
     scatter!([real.(λ[i])], [imag.(λ[i])], label = "Mode $(i)", 
       markersize=5, color=:red)    
     # plot!(xlim = (-5,5))
-    savefig(fileName*"_eigenvalues_mode_$(lpad(i, 3, '0')).png")
+    
+    isdir(fileName*"_figs") || mkpath(fileName*"_figs")
+    savefig(fileName*"_figs/eigenvalues_mode_$(lpad(i, 3, '0')).png")
 
   end
 
