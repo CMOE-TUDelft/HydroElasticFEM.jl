@@ -238,7 +238,8 @@ function run_case( params )
   # ---------------------End---------------------
 
 
-  ## Wet Natural Frequencies
+  ## WET NATURAL FREQUENCIES  
+  ## Nonlinear System
   # --------------------Start--------------------
   function run_freq(ω)
     """
@@ -252,9 +253,15 @@ function run_case( params )
 
     k = dispersionRelAng(H0, ω; msg=false)
     
-    Mϕ = -ω^2 * M22 - im*k*C22_tmp + K22
+    # # Easy implementation : Very slow 3s per call
+    # Mϕ = -ω^2 * M22 - im*k*C22_tmp + K22
+    # Sol = C12 * (Mϕ \ C21) # This is the slow step
 
-    Sol = C12 * (Mϕ \ C21)
+    # Faster implementation : 0.5s per call
+    α = ComplexF64(-ω^2)
+    β = ComplexF64(-im*k)
+    Mϕ = (α .* M22) .+ (β.*C22_tmp) .+ K22
+    Sol = C12 * (Mϕ \ Matrix(C21))
 
     ## Added mass matrix
     A = - real( Sol )
@@ -283,8 +290,7 @@ function run_case( params )
 
     λ, V = LinearAlgebra.eigen(AFull)
     
-
-    λ_idx = sortperm(abs.(imag.(λ)))
+    λ_idx = sortperm(abs.(imag.(λ)))    
 
     λ = λ[λ_idx]
     V = V[:, λ_idx]
@@ -292,17 +298,34 @@ function run_case( params )
     return λ, V
     
   end
+  # ---------------------End---------------------
+  
 
-  λ = zeros(ComplexF64, nωₙ) #REMOVE THIS LATER
-  VMode1 = 0.0
-  VMode2 = 0.0
+  #  Iterative Solution for each mode
+  # --------------------Start--------------------
+  da_ωnneg = []
+  da_ωnpos = []
+  println("[MSG] Starting iterative solution for wet natural frequencies")    
+  da_Vneg = []
+  da_Vpos = []
+  da_meff=[]
+  da_iter = zeros(Int, nωₙ)
 
-  for i in 3:3
-    local V, lIter, meff
+  # Push zeros in first mode for free membrane
+  push!(da_ωnneg, 0.0im)
+  push!(da_ωnpos, 0.0im)
+  push!(da_Vneg, zeros(ComplexF64,2*size(M11,1)) )
+  push!(da_Vpos, zeros(ComplexF64,2*size(M11,1)) )
+
+  for i in 2:nωₙ
+
+    local V, lIter, meff, λ, cache
+    local ω_save, VMode_neg, VMode_pos
+
     lIter = 0    
     Δω = 1 
     ω = dfDry.ωn[i]
-    ωₒ = ω 
+    ωₒ = ω     
     while ((Δω > 1e-5) && (lIter < maxIter))
       
       ωᵣ = αRelax * ω + (1 - αRelax) * ωₒ      
@@ -311,47 +334,62 @@ function run_case( params )
       λ, V = run_freq(ωᵣ)
       ωₒ = ω      
 
-      # # Version 1: Works, Complex Valued
-      # ω = sqrt(λ[i])
-      # ω = real(ω)
-      
+      jneg = imag(λ[2*i]) < 0 ? 2i : 2i-1 # Mode with neg imag part
+      jpos = jneg == 2i ? 2i-1 : 2i       # Mode with pos imag part
+
       # Version 2: Damped system
-      # @show λ[2*i-1]
-      # @show λ[2*i]
-      VMode1 = V[:,2*i-1]
-      VMode2 = V[:,2*i]
-      
-      ω = abs.(imag.(λ[2*i]))
-      
+      ω = -imag(λ[jneg])
+
+      ω_save = [λ[jneg], λ[jpos]]  # Complex conjugate pair      
+      VMode_neg = V[:, jneg]
+      VMode_pos = V[:, jpos]
 
       Δω = abs((ω - ωₒ)/ωₒ)
       lIter += 1
       # @show ωₙ
       @show i, ω, Δω, lIter
     end        
+
+    # Store results
+    push!(da_ωnneg, ω_save[1])
+    push!(da_ωnpos, ω_save[2])
+    da_iter[i] = lIter
+    push!(da_Vneg, VMode_neg) 
+    push!(da_Vpos, VMode_pos)
+    # push!(da_meff, meff)
+
+    # Plot the eigenvalues for this mode iteration
+    scatter(real.(λ), imag.(λ), label = "All Eigenvalues",
+      title="Eigenvalues Mode $(i)", xlabel="Real(λ)", ylabel="Imag(λ)")
+    scatter!(real.(ω_save), imag.(ω_save), label = "Mode $(i)", 
+      markersize=5, color=:red)    
+    # plot!(xlim = (-5,5))
+
+    isdir(fileName*"_figs") || mkpath(fileName*"_figs")
+    savefig(fileName*"_figs/eigenvalues_mode_$(lpad(i, 3, '0')).png")
   end
+
+  dfWet = DataFrame(
+    ωnneg = da_ωnneg,
+    ωnpos = da_ωnpos,
+    Vneg = da_Vneg,
+    Vpos = da_Vpos,
+    # meff = da_meff,
+    iter = da_iter
+  )
   # ---------------------End---------------------
 
-  plot(real.(λ), imag.(λ), seriestype=:scatter,
-    title="Eigenvalues", xlabel="Real(λ)", ylabel="Imag(λ)")
-  # plot!(xlim = (-5,5))
-  savefig(fileName*"_eigenvalues_iter1.png")
-
-
-  plot(real.(VMode1))
-  plot!(real.(VMode2))
-  # plot!(xlim = (-5,5))
-  savefig(fileName*"_eigenvMode_iter1.png")
-  
   
 
   ## Print and Save Output
   # --------------------Start--------------------
   @show dfDry  
+  @show dfWet
 
   data = Dict(
     "params" => params,
     "dfDry" => dfDry,
+    "dfWet" => dfWet
   )
 
   save(fileName*"_modesdata.jld2", data)

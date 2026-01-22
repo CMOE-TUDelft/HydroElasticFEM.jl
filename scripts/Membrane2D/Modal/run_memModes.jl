@@ -6,17 +6,13 @@ using WaveSpec.Constants
 using HydroElasticFEM: PKG_ROOT
 
 
-# include(srcdir("lrmmModal","memModes_lrmm_free_iter.jl"))
-# include(joinpath(PKG_ROOT,
-#   "src","LRHS","Modal","memSysModes_lrmm_free_iter.jl"))
-
 # caseTypeName = "memb_free"
 # include(joinpath(PKG_ROOT,
-#   "src","Membrane2D","Modal","memModes_free_iter.jl"))
+#   "src","Membrane2D","Modal","memModes_complexMass_free.jl"))
 
-caseTypeName = "memb_fix"
+caseTypeName = "memb_free"
 include(joinpath(PKG_ROOT,
-  "src","Membrane2D","Modal","memModes_free_iterNew.jl"))
+  "src","Membrane2D","Modal","memModes_dampedSys_free.jl"))
 
 
 # Directory for results
