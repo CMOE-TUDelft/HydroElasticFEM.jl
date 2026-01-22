@@ -26,6 +26,7 @@ function run_case( params )
 
   @unpack resDir, fileName = params
 
+  fileName = resDir*"/"*fileName
 
   # Validate and convert memBndType to symbol
   memBndType = if memBndType == "free"
@@ -35,10 +36,7 @@ function run_case( params )
   else
     error("memBndType should be either 'free' or 'fixed', got: ", memBndType)
   end
-  @show memBndType
-  
-  
-  fileName = resDir*"/"*fileName
+  @show memBndType  
 
   # Constants
   ρw = 1025 #kg/m3 water    
@@ -203,6 +201,7 @@ function run_case( params )
 
   c32(ϕ,u) = ∫( u*ϕ )dΓfs 
 
+  
   k11(η,v) = k11(η,v,memBndType)
   k11Dry(η,v) = k11Dry(η,v,memBndType)
     
@@ -282,8 +281,6 @@ function run_case( params )
     Here ω is Real
     """
     
-    tick()
-
     if(ω isa Complex)
       error("ω should be Real, but got Complex ω = ", ω)    
     end
@@ -310,8 +307,6 @@ function run_case( params )
 
     cache = (MTot = MTot, K11 = K11)
 
-    tock()
-
     return λ, V, cache    
     
   end
@@ -337,13 +332,15 @@ function run_case( params )
 
   for i in startIndex:nωₙ 
     
-    local lIter, λ, VMode, ωc, meff
+    local lIter, λ, VMode, ωc, meff, runTime
+
     lIter = 0    
     Δω = 1 
     ω = dfDry.ωn[i]
     ωₒ = ω 
     while ((Δω > 1e-3) && (lIter < maxIter))
       
+      runTime = time_ns()
       ωᵣ = αRelax * ω + (1 - αRelax) * ωₒ # Here ωᵣ is Real already
       ωᵣ = real(ωᵣ)
 
@@ -360,8 +357,9 @@ function run_case( params )
 
       Δω = abs((ω - ωₒ)/ωₒ)
       lIter += 1
+      runTime = (time_ns() - runTime)/1e9
       # @show ωₙ
-      @show i, ω, Δω, lIter
+      @show i, lIter, ω, Δω, runTime
     end        
 
     # Store results

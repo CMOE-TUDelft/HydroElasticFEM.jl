@@ -1,4 +1,4 @@
-module Membrane_modes
+module MembraneModes
 
 using Parameters
 using JLD2
@@ -10,10 +10,14 @@ using TickTock
 using DataFrames
 using Printf
 
+abstract type MemBndType end
+struct Free <: MemBndType end
+struct Fixed <: MemBndType end
 
 function run_case( params )
     
   @unpack mfac, tfac = params
+  @unpack memBndType = params
   @unpack order, vtk_output = params
   @unpack H0, Lm = params
   @unpack nωₙ = params
@@ -23,6 +27,16 @@ function run_case( params )
   @unpack resDir, fileName = params
   
   fileName = resDir*"/"*fileName
+
+  # Validate and convert memBndType to symbol
+  memBndType = if memBndType == "free"
+    Free()
+  elseif memBndType == "fixed"
+    Fixed()
+  else
+    error("memBndType should be either 'free' or 'fixed', got: ", memBndType)
+  end
+  @show memBndType  
 
   # Constants
   ρw = 1025 #kg/m3 water    
@@ -145,8 +159,7 @@ function run_case( params )
 
 
   # Dirichlet Fnc
-  # gη(x) = ComplexF64(0.0)
-  gη(x) = 0.0
+  gη(x) = ComplexF64(0.0)
 
   # FE spaces
   reffe = ReferenceFE(lagrangian,Float64,order)
@@ -154,15 +167,22 @@ function run_case( params )
     vector_type=Vector{ComplexF64})
   V_Γκ = TestFESpace(Γκ, reffe, conformity=:H1,
     vector_type=Vector{ComplexF64})
-  V_Γη = TestFESpace(Γη, reffe, conformity=:H1,
-    vector_type=Vector{ComplexF64})
-    # dirichlet_tags=["mem_bnd"]) #diri
-#   V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
-#     vector_type=Vector{ComplexF64})
   U_Ω = TrialFESpace(V_Ω)
   U_Γκ = TrialFESpace(V_Γκ)
-  # U_Γη = TrialFESpace(V_Γη, gη) #diri
-  U_Γη = TrialFESpace(V_Γη)  
+  
+  if(memBndType == Free())
+    V_Γη = TestFESpace(Γη, reffe, conformity=:H1,
+      vector_type=Vector{ComplexF64})
+    U_Γη = TrialFESpace(V_Γη)      
+  elseif(memBndType == Fixed())
+    V_Γη = TestFESpace(Γη, reffe, conformity=:H1,
+      vector_type=Vector{ComplexF64},
+      dirichlet_tags=["mem_bnd"]) #diri
+    U_Γη = TrialFESpace(V_Γη, gη) #diri
+  else
+    error("memBndType should be either 'free' or 'fixed', got: ", memBndType)
+  end
+
 
   ## Weak form: Constant matrices
   # --------------------Start--------------------
@@ -182,14 +202,26 @@ function run_case( params )
   c32(ϕ,u) = ∫( u*ϕ )dΓfs 
 
 
-  k11(η,v) = 
+  k11(η,v) = k11(η,v,memBndType)
+  k11Dry(η,v) = k11Dry(η,v,memBndType)
+    
+  k11(η,v,::Free) = 
     ∫( v*g*η + Tᵨ*∇(v)⋅∇(η) )dΓm #+  
     # ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri    
   
-  k11Dry(η,v) = 
+  k11Dry(η,v,::Free) = 
     ∫( Tᵨ*∇(v)⋅∇(η) )dΓm #+
     # ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri
 
+  k11(η,v,::Fixed) = 
+    ∫( v*g*η + Tᵨ*∇(v)⋅∇(η) )dΓm +  
+    ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri    
+  
+  k11Dry(η,v,::Fixed) = 
+    ∫( Tᵨ*∇(v)⋅∇(η) )dΓm +
+    ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri
+
+  
   k22(ϕ,w) = ∫( ∇(w)⋅∇(ϕ) )dΩ
 
   k33(κ,u) = ∫( u*g*κ )dΓfs  
@@ -238,7 +270,8 @@ function run_case( params )
   # ---------------------End---------------------
 
 
-  ## Wet Natural Frequencies
+  ## WET NATURAL FREQUENCIES  
+  ## Nonlinear System
   # --------------------Start--------------------
   function run_freq(ω)
     """
@@ -252,9 +285,15 @@ function run_case( params )
 
     k = dispersionRelAng(H0, ω; msg=false)
     
-    Mϕ = -ω^2 * M22 - im*k*C22_tmp + K22
+    # # Easy implementation : Very slow 3s per call
+    # Mϕ = -ω^2 * M22 - im*k*C22_tmp + K22
+    # Sol = C12 * (Mϕ \ C21) # This is the slow step
 
-    Sol = C12 * (Mϕ \ C21)
+    # Faster implementation : 0.5s per call
+    α = ComplexF64(-ω^2)
+    β = ComplexF64(-im*k)
+    Mϕ = (α .* M22) .+ (β.*C22_tmp) .+ K22
+    Sol = C12 * (Mϕ \ Matrix(C21))
 
     ## Added mass matrix
     A = - real( Sol )
@@ -283,8 +322,7 @@ function run_case( params )
 
     λ, V = LinearAlgebra.eigen(AFull)
     
-
-    λ_idx = sortperm(abs.(imag.(λ)))
+    λ_idx = sortperm(abs.(imag.(λ)))    
 
     λ = λ[λ_idx]
     V = V[:, λ_idx]
@@ -292,66 +330,106 @@ function run_case( params )
     return λ, V
     
   end
+  # ---------------------End---------------------
+  
 
-  λ = zeros(ComplexF64, nωₙ) #REMOVE THIS LATER
-  VMode1 = 0.0
-  VMode2 = 0.0
+  #  Iterative Solution for each mode
+  # --------------------Start--------------------
+  da_ωnneg = []
+  da_ωnpos = []
+  println("[MSG] Starting iterative solution for wet natural frequencies")    
+  da_Vneg = []
+  da_Vpos = []
+  da_meff=[]
+  da_iter = zeros(Int, nωₙ)
 
-  for i in 3:3
-    local V, lIter, meff
+  startIndex = 1
+
+  if(memBndType == Free())
+    startIndex = 2 # First mode is zero frequency mode for free membrane
+  
+    # Push zeros in first mode for free membrane
+    push!(da_ωnneg, 0.0im)
+    push!(da_ωnpos, 0.0im)
+    push!(da_Vneg, zeros(ComplexF64,2*size(M11,1)) )
+    push!(da_Vpos, zeros(ComplexF64,2*size(M11,1)) )
+  end
+
+  for i in startIndex:nωₙ
+
+    local V, lIter, meff, λ, cache, runTime
+    local ω_save, VMode_neg, VMode_pos
+
     lIter = 0    
     Δω = 1 
     ω = dfDry.ωn[i]
-    ωₒ = ω 
+    ωₒ = ω     
     while ((Δω > 1e-5) && (lIter < maxIter))
       
+      runTime = time_ns()
       ωᵣ = αRelax * ω + (1 - αRelax) * ωₒ      
       ωᵣ = real(ωᵣ)
-
+      
       λ, V = run_freq(ωᵣ)
       ωₒ = ω      
 
-      # # Version 1: Works, Complex Valued
-      # ω = sqrt(λ[i])
-      # ω = real(ω)
-      
+      jneg = imag(λ[2*i]) < 0 ? 2i : 2i-1 # Mode with neg imag part
+      jpos = jneg == 2i ? 2i-1 : 2i       # Mode with pos imag part
+
       # Version 2: Damped system
-      # @show λ[2*i-1]
-      # @show λ[2*i]
-      VMode1 = V[:,2*i-1]
-      VMode2 = V[:,2*i]
-      
-      ω = abs.(imag.(λ[2*i]))
-      
+      ω = -imag(λ[jneg])
+
+      ω_save = [λ[jneg], λ[jpos]]  # Complex conjugate pair      
+      VMode_neg = V[:, jneg]
+      VMode_pos = V[:, jpos]
 
       Δω = abs((ω - ωₒ)/ωₒ)
       lIter += 1
+      runTime = (time_ns() - runTime)/1e9
       # @show ωₙ
-      @show i, ω, Δω, lIter
+      @show i, lIter, ω, Δω, runTime
     end        
+
+    # Store results
+    push!(da_ωnneg, ω_save[1])
+    push!(da_ωnpos, ω_save[2])
+    da_iter[i] = lIter
+    push!(da_Vneg, VMode_neg) 
+    push!(da_Vpos, VMode_pos)
+    # push!(da_meff, meff)
+
+    # Plot the eigenvalues for this mode iteration
+    scatter(real.(λ), imag.(λ), label = "All Eigenvalues",
+      title="Eigenvalues Mode $(i)", xlabel="Real(λ)", ylabel="Imag(λ)")
+    scatter!(real.(ω_save), imag.(ω_save), label = "Mode $(i)", 
+      markersize=5, color=:red)    
+    # plot!(xlim = (-5,5))
+
+    isdir(fileName*"_figs") || mkpath(fileName*"_figs")
+    savefig(fileName*"_figs/eigenvalues_mode_$(lpad(i, 3, '0')).png")
   end
+
+  dfWet = DataFrame(
+    ωnneg = da_ωnneg,
+    ωnpos = da_ωnpos,
+    Vneg = da_Vneg,
+    Vpos = da_Vpos,
+    # meff = da_meff,
+    iter = da_iter
+  )
   # ---------------------End---------------------
 
-  plot(real.(λ), imag.(λ), seriestype=:scatter,
-    title="Eigenvalues", xlabel="Real(λ)", ylabel="Imag(λ)")
-  # plot!(xlim = (-5,5))
-  savefig(fileName*"_eigenvalues_iter1.png")
-
-
-  plot(real.(VMode1))
-  plot!(real.(VMode2))
-  # plot!(xlim = (-5,5))
-  savefig(fileName*"_eigenvMode_iter1.png")
-  
   
 
   ## Print and Save Output
   # --------------------Start--------------------
   @show dfDry  
+  @show dfWet
 
   data = Dict(
     "params" => params,
     "dfDry" => dfDry,
+    "dfWet" => dfWet
   )
 
   save(fileName*"_modesdata.jld2", data)
@@ -364,7 +442,7 @@ Memb_params
 
 Parameters for the VIV.jl module.
 """
-@with_kw struct MembLR_params
+@with_kw struct Memb_params
 
   resDir::String = "data/sims_202508/mem_modes_free/"
   fileName::String = "mem"
@@ -372,6 +450,7 @@ Parameters for the VIV.jl module.
   order::Int = 2
   vtk_output::Bool = true  
 
+  memBndType::String = "free"  #"fixed" or "free"
   H0 = 10 #m #still-water depth
   Lm = 2*H0 #m
 
