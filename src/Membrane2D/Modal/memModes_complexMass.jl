@@ -1,4 +1,4 @@
-module Membrane_modes
+module MembraneModes
 
 using Parameters
 using JLD2
@@ -10,10 +10,14 @@ using TickTock
 using DataFrames
 using Printf
 
+abstract type MemBndType end
+struct Free <: MemBndType end
+struct Fixed <: MemBndType end
 
-function run_case( params )
+function run_case( params )  
     
   @unpack mfac, tfac = params
+  @unpack memBndType = params
   @unpack order, vtk_output = params
   @unpack H0, Lm = params
   @unpack nωₙ = params
@@ -21,6 +25,18 @@ function run_case( params )
   @unpack αRelax, maxIter, ωn_guess = params
 
   @unpack resDir, fileName = params
+
+
+  # Validate and convert memBndType to symbol
+  memBndType = if memBndType == "free"
+    Free()
+  elseif memBndType == "fixed"
+    Fixed()
+  else
+    error("memBndType should be either 'free' or 'fixed', got: ", memBndType)
+  end
+  @show memBndType
+  
   
   fileName = resDir*"/"*fileName
 
@@ -144,9 +160,8 @@ function run_case( params )
   @show nΛmb = get_normal_vector(Λmb)
 
 
-  # Dirichlet Fnc
-  # gη(x) = ComplexF64(0.0)
-  gη(x) = 0.0
+  # Dirichlet Fnc  
+  gη(x) = ComplexF64(0.0)
 
   # FE spaces
   reffe = ReferenceFE(lagrangian,Float64,order)
@@ -154,15 +169,22 @@ function run_case( params )
     vector_type=Vector{ComplexF64})
   V_Γκ = TestFESpace(Γκ, reffe, conformity=:H1,
     vector_type=Vector{ComplexF64})
-  V_Γη = TestFESpace(Γη, reffe, conformity=:H1,
-    vector_type=Vector{ComplexF64})
-    # dirichlet_tags=["mem_bnd"]) #diri
-#   V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
-#     vector_type=Vector{ComplexF64})
   U_Ω = TrialFESpace(V_Ω)
   U_Γκ = TrialFESpace(V_Γκ)
-  # U_Γη = TrialFESpace(V_Γη, gη) #diri
-  U_Γη = TrialFESpace(V_Γη)  
+  
+  if(memBndType == Free())
+    V_Γη = TestFESpace(Γη, reffe, conformity=:H1,
+      vector_type=Vector{ComplexF64})
+    U_Γη = TrialFESpace(V_Γη)      
+  elseif(memBndType == Fixed())
+    V_Γη = TestFESpace(Γη, reffe, conformity=:H1,
+      vector_type=Vector{ComplexF64},
+      dirichlet_tags=["mem_bnd"]) #diri
+    U_Γη = TrialFESpace(V_Γη, gη) #diri
+  else
+    error("memBndType should be either 'free' or 'fixed', got: ", memBndType)
+  end
+
 
   ## Weak form: Constant matrices
   # --------------------Start--------------------
@@ -181,14 +203,25 @@ function run_case( params )
 
   c32(ϕ,u) = ∫( u*ϕ )dΓfs 
 
-
-  k11(η,v) = 
+  k11(η,v) = k11(η,v,memBndType)
+  k11Dry(η,v) = k11Dry(η,v,memBndType)
+    
+  k11(η,v,::Free) = 
     ∫( v*g*η + Tᵨ*∇(v)⋅∇(η) )dΓm #+  
     # ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri    
   
-  k11Dry(η,v) = 
+  k11Dry(η,v,::Free) = 
     ∫( Tᵨ*∇(v)⋅∇(η) )dΓm #+
     # ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri
+
+  k11(η,v,::Fixed) = 
+    ∫( v*g*η + Tᵨ*∇(v)⋅∇(η) )dΓm +  
+    ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri    
+  
+  k11Dry(η,v,::Fixed) = 
+    ∫( Tᵨ*∇(v)⋅∇(η) )dΓm +
+    ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri
+  
 
   k22(ϕ,w) = ∫( ∇(w)⋅∇(ϕ) )dΩ
 
@@ -292,11 +325,17 @@ function run_case( params )
   da_meff=[]
   da_iter = zeros(Int, nωₙ)
 
-  # Push zeros in first mode for free membrane
-  push!(da_V, zeros(ComplexF64,size(M11,1)))
-  push!(da_meff, 0.0*im)
+  startIndex = 1
 
-  for i in 2:nωₙ #Skip first mode for free membrane
+  if(memBndType == Free())
+    startIndex = 2  # Skip first mode for free membrane
+  
+    # Push zeros in first mode for free membrane
+    push!(da_V, zeros(ComplexF64,size(M11,1)))
+    push!(da_meff, 0.0*im)
+  end
+
+  for i in startIndex:nωₙ 
     
     local lIter, λ, VMode, ωc, meff
     lIter = 0    
@@ -374,7 +413,7 @@ Memb_params
 
 Parameters for the VIV.jl module.
 """
-@with_kw struct MembLR_params
+@with_kw struct Memb_params
 
   resDir::String = "data/sims_202508/mem_modes_free/"
   fileName::String = "mem"
@@ -382,6 +421,7 @@ Parameters for the VIV.jl module.
   order::Int = 2
   vtk_output::Bool = true  
 
+  memBndType::String = "free"  #"fixed" or "free"
   H0 = 10 #m #still-water depth
   Lm = 2*H0 #m
 

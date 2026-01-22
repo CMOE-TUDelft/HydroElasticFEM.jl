@@ -6,13 +6,13 @@ using WaveSpec.Constants
 using HydroElasticFEM: PKG_ROOT
 
 
+memBndType = "free" # "free" or "fixed"
+include(joinpath(PKG_ROOT,
+  "src","Membrane2D","Modal","memModes_complexMass.jl"))
+
 # caseTypeName = "memb_free"
 # include(joinpath(PKG_ROOT,
-#   "src","Membrane2D","Modal","memModes_complexMass_free.jl"))
-
-caseTypeName = "memb_free"
-include(joinpath(PKG_ROOT,
-  "src","Membrane2D","Modal","memModes_dampedSys_free.jl"))
+#   "src","Membrane2D","Modal","memModes_dampedSys_free.jl"))
 
 
 # Directory for results
@@ -32,9 +32,11 @@ H0 = 10
 
 
 # Common parameters for all runs
-paramsBase = Membrane_modes.MembLR_params(
+paramsBase = MembraneModes.Memb_params(
 
   vtk_output = false,
+
+  memBndType = memBndType,
 
   H0 = H0, #m #still-water depth
   Lm = 2*H0, #m
@@ -79,17 +81,17 @@ for imfac in mfac
     
 
     # Update paramsBase for each run
-    params = Membrane_modes.MembLR_params(
+    params = MembraneModes.Memb_params(
       paramsBase;
 
       resDir = caseDir,
-      fileName = caseTypeName*"_"*membName,
+      fileName = "mem_"*memBndType*"_"*membName,
 
       mfac = imfac,
       tfac = itfac,      
     )
 
     # Run case
-    Membrane_modes.run_case(params)
+    MembraneModes.run_case(params)
   end
 end
