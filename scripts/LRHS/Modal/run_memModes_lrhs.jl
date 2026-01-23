@@ -14,7 +14,7 @@ include(joinpath(PKG_ROOT,
 # memBndType = "free" # "free" or "fixed"
 # analysisType = "dampedSys" 
 # include(joinpath(PKG_ROOT,
-#   "src","Membrane2D","Modal","memModes_dampedSys.jl"))
+#   "src","LRHS","Modal","memModes_lrhs_dampedSys.jl"))
 
 
 # Directory for results
@@ -76,12 +76,12 @@ for imfac in mfac
       "_tfac=" * @sprintf("%0.2f", itfac)
 
     caseDir = resDir*membName
-    if( isdir(caseDir) )
-      rm(caseDir, recursive=true) #remove old data
-      @printf("Removed old data in %s\n", caseDir)
-      # return
-    end
-    mkdir(caseDir)
+    # if( isdir(caseDir) )
+    #   rm(caseDir, recursive=true) #remove old data
+    #   @printf("Removed old data in %s\n", caseDir)
+    #   # return
+    # end
+    # mkdir(caseDir)
     
 
     # Update paramsBase for each run

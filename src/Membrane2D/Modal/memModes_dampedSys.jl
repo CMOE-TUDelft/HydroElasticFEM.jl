@@ -325,9 +325,9 @@ function run_case( params )
     λ, V = LinearAlgebra.eigen(AFull)
     
     λ_idx = sortperm(abs.(imag.(λ)))    
-
     λ = λ[λ_idx]
     V = V[:, λ_idx]
+    
     # @show λ
     return λ, V
     

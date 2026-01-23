@@ -43,6 +43,7 @@ function run_case( params )
   @show memBndType
   
   @show resn_ρw
+  @show resn_ρw.XZ
 
   # Constants
   ρw = 1025 #kg/m3 water    
@@ -365,6 +366,12 @@ function run_case( params )
     
     λ, V = LinearAlgebra.eigen(AFullResn)
 
+    ω_tmp = real.(sqrt.(λ))
+    λ_idx = sortperm(abs.(ω_tmp))
+    λ = λ[λ_idx]
+    V = V[:,λ_idx]
+    @show ω_tmp[1:nωₙ]
+
     cache = (MTotResn = MTotResn, KTotResn = KTotResn)
 
     return λ, V, cache    
@@ -398,7 +405,7 @@ function run_case( params )
     Δω = 1 
     ω = dfDry.ωn[i]
     ωₒ = ω 
-    while ((Δω > 1e-3) && (lIter < maxIter))
+    while ((Δω > 1e-5) && (lIter < maxIter))
       
       runTime = time_ns()
       ωᵣ = αRelax * ω + (1 - αRelax) * ωₒ # Here ωᵣ is Real already
@@ -420,6 +427,7 @@ function run_case( params )
       runTime = (time_ns() - runTime)/1e9
       # @show ωₙ
       @show i, lIter, ω, Δω, runTime
+      println()
     end        
 
     # Store results

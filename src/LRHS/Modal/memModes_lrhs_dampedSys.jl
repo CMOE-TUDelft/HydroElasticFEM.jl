@@ -9,17 +9,19 @@ using LinearAlgebra
 using TickTock
 using DataFrames
 using Printf
+using HydroElasticFEM.Resonator
 
 abstract type MemBndType end
 struct Free <: MemBndType end
 struct Fixed <: MemBndType end
 
-function run_case( params )  
-  
-  @printf("\n[MSG] Method 1: Complex Mass\n\n")
+function run_case( params )
 
+  @printf("\n[MSG] Method 2: Damped System\n\n")
+    
   @unpack mfac, tfac = params
   @unpack memBndType = params
+  @unpack resn_ρw = params
   @unpack order, vtk_output = params
   @unpack H0, Lm = params
   @unpack nωₙ = params
@@ -27,7 +29,7 @@ function run_case( params )
   @unpack αRelax, maxIter, ωn_guess = params
 
   @unpack resDir, fileName = params
-
+  
   fileName = resDir*"/"*fileName
 
   # Validate and convert memBndType to symbol
@@ -39,6 +41,9 @@ function run_case( params )
     error("memBndType should be either 'free' or 'fixed', got: ", memBndType)
   end
   @show memBndType  
+
+  @show resn_ρw
+  @show resn_ρw.XZ
 
   # Constants
   ρw = 1025 #kg/m3 water    
@@ -160,7 +165,7 @@ function run_case( params )
   @show nΛmb = get_normal_vector(Λmb)
 
 
-  # Dirichlet Fnc  
+  # Dirichlet Fnc
   gη(x) = ComplexF64(0.0)
 
   # FE spaces
@@ -185,6 +190,19 @@ function run_case( params )
     error("memBndType should be either 'free' or 'fixed', got: ", memBndType)
   end
 
+  
+  # Resonator FE Spaces
+  # ---------------------Start---------------------
+  V_Γq = ConstantFESpace( Ω, 
+    vector_type=Vector{ComplexF64}, 
+    field_type=VectorValue{1,ComplexF64} )     
+  U_Γq = TrialFESpace(V_Γq)
+  î1 = VectorValue(1.0)
+
+  δ_p = DiracDelta(Γ, resn_ρw.XZ)
+  # ----------------------End----------------------
+
+
 
   ## Weak form: Constant matrices
   # --------------------Start--------------------
@@ -203,34 +221,42 @@ function run_case( params )
 
   c32(ϕ,u) = ∫( u*ϕ )dΓfs 
 
-  
+
   k11(η,v) = k11(η,v,memBndType)
   k11Dry(η,v) = k11Dry(η,v,memBndType)
     
   k11(η,v,::Free) = 
-    ∫( v*g*η + Tᵨ*∇(v)⋅∇(η) )dΓm #+  
-    # ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri    
+    ∫( v*g*η + Tᵨ*∇(v)⋅∇(η) )dΓm +  
+    resn_ρw.K * δ_p( v*η ) #Resonator
   
   k11Dry(η,v,::Free) = 
-    ∫( Tᵨ*∇(v)⋅∇(η) )dΓm #+
-    # ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri
+    ∫( Tᵨ*∇(v)⋅∇(η) )dΓm +  
+    resn_ρw.K * δ_p( v*η ) #Resonator
 
   k11(η,v,::Fixed) = 
     ∫( v*g*η + Tᵨ*∇(v)⋅∇(η) )dΓm +  
-    ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri    
+    ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb + #diri
+    resn_ρw.K * δ_p( v*η ) #Resonator    
   
   k11Dry(η,v,::Fixed) = 
     ∫( Tᵨ*∇(v)⋅∇(η) )dΓm +
-    ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb #diri
+    ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb + #diri
+    resn_ρw.K * δ_p( v*η ) #Resonator    
   
 
   k22(ϕ,w) = ∫( ∇(w)⋅∇(ϕ) )dΩ
 
   k33(κ,u) = ∫( u*g*κ )dΓfs  
+  
+  m44(q,ξ) = resn_ρw.M * δ_p(q⋅ξ)
+  k44(q,ξ) = resn_ρw.K * δ_p(q⋅ξ)
+  k14(q,v) = -resn_ρw.K * δ_p( v*(q⋅î1) ) 
+  k41(η,ξ) = -resn_ρw.K * δ_p((ξ⋅î1)*η)
 
   l1(v) = ∫( 0*v )dΓm
   l2(w) = ∫( 0*w )dΩ
   l3(u) = ∫( 0*u )dΓfs 
+  l4(ξ) = ∫( 0*(ξ⋅î1) )dΩ 
   println("[MSG] Done Weak form")
 
   # Global matrices: constant matrices
@@ -247,34 +273,54 @@ function run_case( params )
   K22 = get_matrix(AffineFEOperator( k22, l2, U_Ω, V_Ω ))
   K33 = get_matrix(AffineFEOperator( k33, l3, U_Γκ, V_Γκ ))  
 
+  # Resonator Matrices
+  M44 = get_matrix(AffineFEOperator( m44, l4, U_Γq, V_Γq ))  
+  K44 = get_matrix(AffineFEOperator( k44, l4, U_Γq, V_Γq ))
+  K14 = get_matrix(AffineFEOperator( k14, l1, U_Γq, V_Γη ))
+  K41 = get_matrix(AffineFEOperator( k41, l4, U_Γη, V_Γq ))
+
+
   # Eliminate η equation
   M22 = - C23 * (Matrix(K33) \ C32)
 
-  println("[MSG] Done Global matrices")  
+  println("[MSG] Done Global matrices")   
   # ----------------------End---------------------
 
   #xp = range(xm₀, xm₁, size(V,2)+2)  
 
   ## DRY NATURAL FREQUENCIES
   # --------------------Start--------------------
-  λDry = LinearAlgebra.eigvals(M11\Matrix(K11Dry))
-  VDry = LinearAlgebra.eigvecs(M11\Matrix(K11Dry))
-  ωn_dry = sqrt.(λDry[1:nωₙ])
-  da_V_dry = [ VDry[:,i] for i in [1:nωₙ;] ]
-  meffDry = 
-    diag( transpose(VDry[:,1:nωₙ]) * M11 * VDry[:,1:nωₙ] )
+  function run_dry_analysis()
+    
+    # Including Resonator
+    sz_η = size(M11,1)
+    sz_q = size(M44,1)
+    MTotResn = [M11   zeros(sz_η, sz_q);
+                zeros(sz_q, sz_η)      M44]
+    
+    KTotResn = [K11Dry   K14;
+                K41   K44]
+
+    λDry, VDry = LinearAlgebra.eigen(MTotResn\Matrix(KTotResn))
+    ωn_dry = sqrt.(λDry[1:nωₙ])
+    da_V_dry = [ VDry[:,i] for i in [1:nωₙ;] ]
+    meffDry = 
+      diag( transpose(VDry[:,1:nωₙ]) * MTotResn * VDry[:,1:nωₙ] )
+
+    cache = (ωn_dry, da_V_dry, meffDry)
+  end
+
+  cache = run_dry_analysis()
   
   dfDry = DataFrame(
-    ωn = ωn_dry,
-    V = da_V_dry,
-    meff = meffDry
+    ωn = cache[1],
+    V = cache[2],
+    meff = cache[3]
   )
   # ---------------------End---------------------
 
 
   ## WET NATURAL FREQUENCIES  
-  # ===================================================
-
   ## Nonlinear System
   # --------------------Start--------------------
   function run_freq(ω)
@@ -288,111 +334,150 @@ function run_case( params )
     end
 
     k = dispersionRelAng(H0, ω; msg=false)
-  
+    
     # # Easy implementation : Very slow 3s per call
     # Mϕ = -ω^2 * M22 - im*k*C22_tmp + K22
-    # Sol = C12 * (Mϕ \ C21)  # This is the slow step
+    # Sol = C12 * (Mϕ \ C21) # This is the slow step
 
     # Faster implementation : 0.5s per call
     α = ComplexF64(-ω^2)
     β = ComplexF64(-im*k)
-    Mϕ = (α .* M22) .+ (β .* C22_tmp) .+ K22
+    Mϕ = (α .* M22) .+ (β.*C22_tmp) .+ K22
     Sol = C12 * (Mϕ \ Matrix(C21))
 
-    # Version 1: Works, Complex Valued
-    MTot = M11 - Sol
+    ## Added mass matrix
+    A = - real( Sol )
+    ## Radiation damping matrix
+    C = - imag( Sol )*ω
+
+    # # Version 1: Works, Complex Valued
+    # MTot = M11 - Sol
+    # KTot = K11
+    # AFull = MTot \ KTot
+
+    # λ = LinearAlgebra.eigvals(AFull)
+
+    # return λ
+
+    # Version 2: Damped system
+    MTot = M11 + A
+    CTot = C
     KTot = K11
 
-    AFull = MTot \ KTot
+    # Including Resonator
+    sz_η = size(M11,1)
+    sz_q = size(M44,1)
+    MTotResn = [MTot   zeros(sz_η, sz_q);
+                zeros(sz_q, sz_η)      M44]
     
-    λ, V = LinearAlgebra.eigen(AFull)    
+    KTotResn = [KTot   K14;
+                K41   K44]
+    KTotResn = Matrix(KTotResn) # To avoid no method matching ldiv! error
 
-    ω_tmp = real.(sqrt.(λ))
-    λ_idx = sortperm(abs.(ω_tmp))
+    CTotResn = [CTot    zeros(sz_η, sz_q);
+                zeros(sz_q, sz_η)     zeros(sz_q, sz_q)]
+
+    sz = size(MTotResn,1)
+    AFull = [ zeros(sz, sz)           I(sz);
+              -MTotResn\KTotResn        -MTotResn\CTotResn ]
+
+    AFull = Matrix(AFull)    
+
+    λ, V = LinearAlgebra.eigen(AFull)
+    
+    λ_idx = sortperm(abs.(imag.(λ)))    
     λ = λ[λ_idx]
-    V = V[:,λ_idx]
-    @show ω_tmp[1:nωₙ]
-
-    cache = (MTot = MTot, K11 = K11)
-
-    return λ, V, cache    
+    V = V[:, λ_idx]
+    
+    # @show λ
+    return λ, V
     
   end
   # ---------------------End---------------------
+  
 
-  ## Iterative Solution for each mode
+  #  Iterative Solution for each mode
   # --------------------Start--------------------
-  da_ωₙ = zeros(ComplexF64, nωₙ) 
+  da_ωnneg = []
+  da_ωnpos = []
   println("[MSG] Starting iterative solution for wet natural frequencies")    
-  da_V = []
+  da_Vneg = []
+  da_Vpos = []
   da_meff=[]
   da_iter = zeros(Int, nωₙ)
 
   startIndex = 1
 
   if(memBndType == Free())
-    startIndex = 2  # Skip first mode for free membrane
+    startIndex = 2 # First mode is zero frequency mode for free membrane
   
     # Push zeros in first mode for free membrane
-    push!(da_V, zeros(ComplexF64,size(M11,1)))
-    push!(da_meff, 0.0*im)
+    push!(da_ωnneg, 0.0im)
+    push!(da_ωnpos, 0.0im)
+    push!(da_Vneg, zeros(ComplexF64,2*size(M11,1)) )
+    push!(da_Vpos, zeros(ComplexF64,2*size(M11,1)) )
   end
 
-  for i in startIndex:nωₙ 
-    
-    local lIter, λ, VMode, ωc, meff, runTime
+  for i in startIndex:nωₙ
+
+    local V, lIter, meff, λ, cache, runTime
+    local ω_save, VMode_neg, VMode_pos
 
     lIter = 0    
     Δω = 1 
     ω = dfDry.ωn[i]
-    ωₒ = ω 
-    while ((Δω > 1e-3) && (lIter < maxIter))
+    ωₒ = ω     
+    while ((Δω > 1e-5) && (lIter < maxIter))
       
       runTime = time_ns()
-      ωᵣ = αRelax * ω + (1 - αRelax) * ωₒ # Here ωᵣ is Real already
+      ωᵣ = αRelax * ω + (1 - αRelax) * ωₒ      
       ωᵣ = real(ωᵣ)
-
-      λ, V, cache = run_freq(ωᵣ)
       
+      λ, V = run_freq(ωᵣ)
       ωₒ = ω      
 
-      # Version 1: Works, Complex Valued
-      ωc = sqrt(λ[i])
-      ω = real(ωc)      
+      jneg = imag(λ[2*i]) < 0 ? 2i : 2i-1 # Mode with neg imag part
+      jpos = jneg == 2i ? 2i-1 : 2i       # Mode with pos imag part
 
-      VMode = V[:,i]
-      meff = transpose(VMode) * cache.MTot * VMode      
+      # Version 2: Damped system
+      ω = -imag(λ[jneg])
+
+      ω_save = [λ[jneg], λ[jpos]]  # Complex conjugate pair      
+      VMode_neg = V[:, jneg]
+      VMode_pos = V[:, jpos]
 
       Δω = abs((ω - ωₒ)/ωₒ)
       lIter += 1
       runTime = (time_ns() - runTime)/1e9
       # @show ωₙ
       @show i, lIter, ω, Δω, runTime
-      println()
     end        
 
     # Store results
-    da_ωₙ[i] = ωc
+    push!(da_ωnneg, ω_save[1])
+    push!(da_ωnpos, ω_save[2])
     da_iter[i] = lIter
-    push!(da_V, VMode) 
-    push!(da_meff, meff)
+    push!(da_Vneg, VMode_neg) 
+    push!(da_Vpos, VMode_pos)
+    # push!(da_meff, meff)
 
     # Plot the eigenvalues for this mode iteration
     scatter(real.(λ), imag.(λ), label = "All Eigenvalues",
       title="Eigenvalues Mode $(i)", xlabel="Real(λ)", ylabel="Imag(λ)")
-    scatter!([real.(λ[i])], [imag.(λ[i])], label = "Mode $(i)", 
+    scatter!(real.(ω_save), imag.(ω_save), label = "Mode $(i)", 
       markersize=5, color=:red)    
     # plot!(xlim = (-5,5))
-    
+
     isdir(fileName*"_figs") || mkpath(fileName*"_figs")
     savefig(fileName*"_figs/eigenvalues_mode_$(lpad(i, 3, '0')).png")
-
   end
 
   dfWet = DataFrame(
-    ωn = da_ωₙ,
-    V = da_V,
-    meff = da_meff,
+    ωnneg = da_ωnneg,
+    ωnpos = da_ωnpos,
+    Vneg = da_Vneg,
+    Vpos = da_Vpos,
+    # meff = da_meff,
     iter = da_iter
   )
   # ---------------------End---------------------
@@ -420,7 +505,7 @@ Memb_params
 
 Parameters for the VIV.jl module.
 """
-@with_kw struct Memb_params
+@with_kw struct Memb_LRHS_params
 
   resDir::String = "data/sims_202508/mem_modes_free/"
   fileName::String = "mem"
@@ -443,6 +528,9 @@ Parameters for the VIV.jl module.
 
   mfac = 0.9
   tfac = 0.1
+
+  # Resonator parameters divided by ρw
+  resn_ρw = Resonator.Single( 1, 0.0, 0.0, Point(3*H0, 0.0) )
 
   # Number of natural frequencies
   nωₙ = 6
