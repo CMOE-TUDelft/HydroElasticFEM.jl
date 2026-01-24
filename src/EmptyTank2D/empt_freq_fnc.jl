@@ -2,6 +2,7 @@ module BeamMultJoints_freq
 
 using Gridap
 using Plots
+using Printf
 using JLD2
 using WaveSpec
 using .Constants
@@ -43,9 +44,11 @@ function run_freq(ω, η₀, α)
     ∫(  ∇(w)⋅∇(ϕ) )dΩ   +
     ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ )dΓfs   +
     ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ 
-      - μ₂ᵢₙ*κ*w + μ₁ᵢₙ*∇ₙ(ϕ)*(u + αₕ*w) )dΓd1    +
+      - μ₂ᵢₙ*κ*w + μ₁ᵢₙ*∇ₙ(ϕ)*(u + αₕ*w) )dΓd1  +
     ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ 
-      - μ₂ₒᵤₜ*κ*w + μ₁ₒᵤₜ*∇ₙ(ϕ)*(u + αₕ*w) )dΓd2    
+      - μ₂ₒᵤₜ*κ*w + μ₁ₒᵤₜ*∇ₙ(ϕ)*(u + αₕ*w) )dΓd2   
+    # ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ )dΓd2 +
+    # ∫( -w * im * k * ϕ )dΓot 
 
   l((w,u)) =  ∫( w*vxᵢₙ )dΓin - ∫( ηd*w - ∇ₙϕd*(u + αₕ*w) )dΓd1
   
@@ -53,11 +56,20 @@ function run_freq(ω, η₀, α)
   op = AffineFEOperator(a,l,X,Y)
   (ϕₕ,κₕ) = solve(op)
 
+  paraFolder = name*"/mem_omg_"*@sprintf("%.2f",ω)
+  paraFile = paraFolder*"/mem"
+
+  # VTK output for each frequency
   if vtk_output == true
-    writevtk(Ω,filename * "_O_sol.vtu",
+    if( isdir(paraFolder) )
+      rm(paraFolder; recursive=true)
+    end
+    mkdir(paraFolder)
+
+    writevtk(Ω,paraFile * "_O_sol.vtu",
       cellfields = ["phi_re" => real(ϕₕ),"phi_im" => imag(ϕₕ),
       "phi_abs" => abs(ϕₕ), "phi_ang" => angle∘(ϕₕ)])
-    writevtk(Γκ,filename * "_Gk_sol.vtu",
+    writevtk(Γκ,paraFile * "_Gk_sol.vtu",
       cellfields = ["eta_re" => real(κₕ),"eta_im" => imag(κₕ),
       "eta_abs" => abs(κₕ), "eta_ang" => angle∘(κₕ)])
   end
@@ -173,7 +185,7 @@ add_tag_from_tags!(labels_Ω, "water", [9])       # assign the label "water" to 
 Ω = Interior(model) #same as Triangulation()
 Γ = Boundary(model,tags="surface") #same as BoundaryTriangulation()
 Γin = Boundary(model,tags="inlet")
-
+Γot = Boundary(model,tags="outlet")
 
 # Auxiliar functions
 function is_damping1(xs) # Check if an element is inside the damping zone 1
@@ -213,6 +225,7 @@ dΓd1 = Measure(Γd1,degree)
 dΓd2 = Measure(Γd2,degree)
 dΓfs = Measure(Γfs,degree)
 dΓin = Measure(Γin,degree)
+dΓot = Measure(Γot,degree)
 
 
 # FE spaces
@@ -239,6 +252,13 @@ run_freq.(ω, η₀, α)
 
 @show prbDa = prbDa[2:end, :]
 prbDa_x = prbDa_x[2:end, :]
+
+## Plotting and saving data
+# ---------------------Start---------------------
+if isdir(filename*"_plots")
+  rm(filename*"_plots"; force=true, recursive=true)
+end
+mkpath(filename*"_plots")  
 
 for lprb in 1:length(prbxy)
   plt1 = plot(ω, abs.(prbDa[:,lprb]), linewidth=3, 
@@ -272,8 +292,9 @@ for lprb in 1:length(prbxy)
   pltAll = plot(plt1, plt2, plt3, plt4, layout=4, dpi=330,
     plot_title = "x = $xloc")
 
-  savefig(pltAll,filename*"_dxPrb_$lprb"*".png")
+  savefig(pltAll,filename*"_plots/mem_dxPrb_$lprb"*".png")
 end
+# ----------------------End----------------------
 
 data = Dict("ω" => ω,
             "η₀" => η₀,
