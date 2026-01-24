@@ -74,7 +74,7 @@ function run_freq(ω, η₀, α)
 end
 
 
-name::String = "data/sims_202506/empt_freq_spec"
+name::String = "data/sims_202601/empt_freq_spec"
 order::Int = 2
 vtk_output::Bool = true
 filename = name*"/mem"
@@ -256,10 +256,17 @@ for lprb in 1:length(prbxy)
     ylabel = "α (rad)",
     title = "Phase")  
 
-  plt4 = plot(ω, angle.(prbDa_x[:,lprb]), linewidth=3, 
+  # plt4 = plot(ω, angle.(prbDa_x[:,lprb]), linewidth=3, 
+  #   xlabel = "ω (rad/s)",
+  #   ylabel = "α (rad)",
+  #   title = "Slope Phase")
+
+  k = dispersionRelAng.(Ref(H0), ω; msg=false)
+  dByL = H0 ./ (2π ./ k)
+  plt4 = plot(ω, dByL, linewidth=3, 
     xlabel = "ω (rad/s)",
-    ylabel = "α (rad)",
-    title = "Slope Phase")
+    ylabel = "",
+    title = "d / L")
   
   xloc = prbx[lprb]
   pltAll = plot(plt1, plt2, plt3, plt4, layout=4, dpi=330,
