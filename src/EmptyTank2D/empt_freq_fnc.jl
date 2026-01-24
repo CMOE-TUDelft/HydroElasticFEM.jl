@@ -11,16 +11,33 @@ using DataFrames:DataFrame
 using DataFrames:Matrix
 
 function run_freq(ω, η₀, α)
+  
   # Wave parameters
   k = dispersionRelAng(H0, ω; msg=false)
   λ = 2π/k   
   T = 2π/ω
+
   ηᵢₙ(x) = η₀*exp(im*k*x[1] + im*α)
   ϕᵢₙ(x) = -im*(η₀*ω/k)*(cosh(k*(H0 + x[2])) / 
     sinh(k*H0))*exp(im*k*x[1] + im*α)
-  vxᵢₙ(x) = (η₀*ω)*(cosh(k*(H0 + x[2])) / 
+  
+  # vxᵢₙ = (∇ϕᵢₙ ⋅ nᵢₙ) = ∂ϕᵢₙ/∂x * -1
+  vxᵢₙ(x) = -(η₀*ω)*(cosh(k*(H0 + x[2])) / 
     sinh(k*H0))*exp(im*k*x[1] + im*α)
-  vzfsᵢₙ(x) = -im*ω*η₀*exp(im*k*x[1] + im*α) #???
+  
+  ∂ϕin∂x(x) = (η₀*ω)*(cosh(k*(H0 + x[2])) / 
+    sinh(k*H0))*exp(im*k*x[1] + im*α)
+  
+  ∂ϕin∂z(x) = -im*(η₀*ω)*(sinh(k*(H0 + x[2])) / 
+    sinh(k*H0))*exp(im*k*x[1] + im*α)
+  
+  ∇ϕin(x) = VectorValue( ∂ϕin∂x(x), ∂ϕin∂z(x) )
+
+  # # Old version. Likely sign mistake
+  # vxᵢₙ(x) = (η₀*ω)*(cosh(k*(H0 + x[2])) / 
+  #   sinh(k*H0))*exp(im*k*x[1] + im*α)
+  # vzfsᵢₙ(x) = -im*ω*η₀*exp(im*k*x[1] + im*α) #???
+
   @show ω, T
   @show λ
   @show η₀
@@ -35,22 +52,25 @@ function run_freq(ω, η₀, α)
   μ₂ᵢₙ(x) = μ₁ᵢₙ(x)*k
   μ₂ₒᵤₜ(x) = μ₁ₒᵤₜ(x)*k
   ηd(x) = μ₂ᵢₙ(x)*ηᵢₙ(x)
-  ∇ₙϕd(x) = μ₁ᵢₙ(x)*vzfsᵢₙ(x) #???
-
+  ∇ₙϕd(x) = μ₁ᵢₙ(x)*vzfsᵢₙ(x) #???  
 
   # Weak form
   ∇ₙ(ϕ) = ∇(ϕ)⋅VectorValue(0.0,1.0)
   a((ϕ,κ),(w,u)) =      
     ∫(  ∇(w)⋅∇(ϕ) )dΩ   +
     ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ )dΓfs   +
-    ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ 
-      - μ₂ᵢₙ*κ*w + μ₁ᵢₙ*∇ₙ(ϕ)*(u + αₕ*w) )dΓd1  +
-    ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ 
-      - μ₂ₒᵤₜ*κ*w + μ₁ₒᵤₜ*∇ₙ(ϕ)*(u + αₕ*w) )dΓd2   
-    # ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ )dΓd2 +
-    # ∫( -w * im * k * ϕ )dΓot 
+    # ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ 
+    #   - μ₂ᵢₙ*κ*w + μ₁ᵢₙ*∇ₙ(ϕ)*(u + αₕ*w) )dΓd1  +
+    # ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ 
+    #   - μ₂ₒᵤₜ*κ*w + μ₁ₒᵤₜ*∇ₙ(ϕ)*(u + αₕ*w) )dΓd2 
+    ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ )dΓd1  +  
+    ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ )dΓd2 +
+    ∫( -w * im * k * ϕ )dΓot +
+    ∫( -w * im * k * ϕ )dΓin 
 
-  l((w,u)) =  ∫( w*vxᵢₙ )dΓin - ∫( ηd*w - ∇ₙϕd*(u + αₕ*w) )dΓd1
+  # l((w,u)) =  ∫( w*vxᵢₙ )dΓin - ∫( ηd*w - ∇ₙϕd*(u + αₕ*w) )dΓd1
+  # l((w,u)) =  ∫( w*vxᵢₙ )dΓin - ∫( w * im * k * ϕᵢₙ )dΓin
+  l((w,u)) =  ∫( w*(∇ϕin⋅nΓin) )dΓin - ∫( w * im * k * ϕᵢₙ )dΓin
   
   # Solution
   op = AffineFEOperator(a,l,X,Y)
@@ -227,6 +247,8 @@ dΓfs = Measure(Γfs,degree)
 dΓin = Measure(Γin,degree)
 dΓot = Measure(Γot,degree)
 
+# Normals
+nΓin = get_normal_vector(Γin)
 
 # FE spaces
 reffe = ReferenceFE(lagrangian,Float64,order)
