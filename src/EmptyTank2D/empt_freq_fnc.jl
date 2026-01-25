@@ -1,4 +1,4 @@
-module BeamMultJoints_freq
+module EmptTank2D_Freq
 
 using Gridap
 using Plots
@@ -9,39 +9,17 @@ using .Constants
 using .Jonswap
 using DataFrames:DataFrame
 using DataFrames:Matrix
+import HydroElasticFEM.WaveInput_FrequencyDomain as WI
 
 function run_freq(ω, η₀, α)
   
-  # Wave parameters
-  k = dispersionRelAng(H0, ω; msg=false)
-  λ = 2π/k   
-  T = 2π/ω
+  airyWave = WI.AiryWaveXZ(H0, ω, η₀, α)
 
-  ηᵢₙ(x) = η₀*exp(im*k*x[1] + im*α)
-  ϕᵢₙ(x) = -im*(η₀*ω/k)*(cosh(k*(H0 + x[2])) / 
-    sinh(k*H0))*exp(im*k*x[1] + im*α)
-  
-  # vxᵢₙ = (∇ϕᵢₙ ⋅ nᵢₙ) = ∂ϕᵢₙ/∂x * -1
-  vxᵢₙ(x) = -(η₀*ω)*(cosh(k*(H0 + x[2])) / 
-    sinh(k*H0))*exp(im*k*x[1] + im*α)
-  
-  ∂ϕin∂x(x) = (η₀*ω)*(cosh(k*(H0 + x[2])) / 
-    sinh(k*H0))*exp(im*k*x[1] + im*α)
-  
-  ∂ϕin∂z(x) = -im*(η₀*ω)*(sinh(k*(H0 + x[2])) / 
-    sinh(k*H0))*exp(im*k*x[1] + im*α)
-  
-  ∇ϕin(x) = VectorValue( ∂ϕin∂x(x), ∂ϕin∂z(x) )
+  ηin(x) = WI.surface_elevation(airyWave, x)
+  ϕin(x) = WI.velocity_potential(airyWave, x)
+  ∇ϕin(x) = WI.potential_gradient(airyWave, x)
 
-  # # Old version. Likely sign mistake
-  # vxᵢₙ(x) = (η₀*ω)*(cosh(k*(H0 + x[2])) / 
-  #   sinh(k*H0))*exp(im*k*x[1] + im*α)
-  # vzfsᵢₙ(x) = -im*ω*η₀*exp(im*k*x[1] + im*α) #???
-
-  @show ω, T
-  @show λ
-  @show η₀
-  @show H0, H0/λ
+  @show WI.wave_properties(airyWave)
 
   # Numeric constants
   αₕ = -im*ω/g * (1-βₕ)/βₕ
@@ -49,9 +27,9 @@ function run_freq(ω, η₀, α)
   println()  
 
   # Damping
-  μ₂ᵢₙ(x) = μ₁ᵢₙ(x)*k
-  μ₂ₒᵤₜ(x) = μ₁ₒᵤₜ(x)*k
-  ηd(x) = μ₂ᵢₙ(x)*ηᵢₙ(x)
+  μ₂ᵢₙ(x) = μ₁ᵢₙ(x) * airyWave.k
+  μ₂ₒᵤₜ(x) = μ₁ₒᵤₜ(x) * airyWave.k
+  ηd(x) = μ₂ᵢₙ(x)*ηin(x)
   ∇ₙϕd(x) = μ₁ᵢₙ(x)*vzfsᵢₙ(x) #???  
 
   # Weak form
@@ -65,12 +43,12 @@ function run_freq(ω, η₀, α)
     #   - μ₂ₒᵤₜ*κ*w + μ₁ₒᵤₜ*∇ₙ(ϕ)*(u + αₕ*w) )dΓd2 
     ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ )dΓd1  +  
     ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ )dΓd2 +
-    ∫( -w * im * k * ϕ )dΓot +
-    ∫( -w * im * k * ϕ )dΓin 
+    ∫( -w * im * airyWave.k * ϕ )dΓot +
+    ∫( -w * im * airyWave.k * ϕ )dΓin 
 
   # l((w,u)) =  ∫( w*vxᵢₙ )dΓin - ∫( ηd*w - ∇ₙϕd*(u + αₕ*w) )dΓd1
-  # l((w,u)) =  ∫( w*vxᵢₙ )dΓin - ∫( w * im * k * ϕᵢₙ )dΓin
-  l((w,u)) =  ∫( w*(∇ϕin⋅nΓin) )dΓin - ∫( w * im * k * ϕᵢₙ )dΓin
+  # l((w,u)) =  ∫( w*vxᵢₙ )dΓin - ∫( w * im * k * ϕin )dΓin
+  l((w,u)) =  ∫( w*(∇ϕin⋅nΓin) )dΓin - ∫( w * im * airyWave.k * ϕin )dΓin
   
   # Solution
   op = AffineFEOperator(a,l,X,Y)
