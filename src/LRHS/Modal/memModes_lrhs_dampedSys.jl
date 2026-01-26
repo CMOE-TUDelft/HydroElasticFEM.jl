@@ -377,6 +377,8 @@ function run_case( params )
     CTotResn = [CTot    zeros(sz_η, sz_q);
                 zeros(sz_q, sz_η)     zeros(sz_q, sz_q)]
 
+    # Normal Eigenvalue Problem
+    # --------------------Start--------------------
     sz = size(MTotResn,1)
     AFull = [ zeros(sz, sz)           I(sz);
               -MTotResn\KTotResn        -MTotResn\CTotResn ]
@@ -384,6 +386,35 @@ function run_case( params )
     AFull = Matrix(AFull)    
 
     λ, V = LinearAlgebra.eigen(AFull)
+    # ---------------------End---------------------
+
+    # # Generalised Eigenvalue Problem
+    # # --------------------Start--------------------
+    # sz = size(MTotResn,1)
+    # AFull = [ zeros(sz, sz)           I(sz);
+    #           -KTotResn        -CTotResn ]
+    # BFull = [ I(sz)           zeros(sz, sz);
+    #           zeros(sz, sz)        MTotResn ]
+    
+    # AFull = Matrix(AFull)    
+    # BFull = Matrix(BFull)
+
+    # λ, V = LinearAlgebra.eigen(AFull, BFull)
+    # # ---------------------End---------------------
+
+    # # Generalised Eigenvalue Problem 2
+    # # --------------------Start--------------------
+    # sz = size(MTotResn,1)
+    # AFull = [ zeros(sz, sz)           MTotResn;
+    #           MTotResn        CTotResn ]
+    # BFull = [ -MTotResn           zeros(sz, sz);
+    #           zeros(sz, sz)        KTotResn ]
+    
+    # AFull = Matrix(AFull)    
+    # BFull = Matrix(BFull)
+
+    # λ, V = LinearAlgebra.eigen(BFull, AFull)
+    # # ---------------------End---------------------
     
     λ_idx = sortperm(abs.(imag.(λ)))    
     λ = λ[λ_idx]
