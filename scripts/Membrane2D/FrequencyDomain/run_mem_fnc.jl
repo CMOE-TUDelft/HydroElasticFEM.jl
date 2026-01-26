@@ -6,13 +6,13 @@ using HydroElasticFEM: PKG_ROOT
 
 # Define srcdir function to construct source file paths
 
-@show joinpath(PKG_ROOT, 
-  "src","Membrane2D","mem_freq_damp_free_fnc.jl")
-
 # Here you may include files from the source directory
-include( joinpath(HydroElasticFEM.PKG_ROOT,"src","Membrane2D","mem_freq_damp_free_fnc.jl") )
+# include( joinpath(PKG_ROOT,"src","Membrane2D",
+#   "FrequencyDomain","mem_freq_damp_free_fnc.jl") )
+include( joinpath(PKG_ROOT,"src","Membrane2D",
+  "FrequencyDomain","mem_freq_rad_fnc.jl") )
 
-resDir::String = "data/sims_202512/run/spec_free"
+resDir::String = "data/sims_202601/run/spec_free"
 
 # Warm-up run
 params = Memb2D.Memb_params_warmup(name = resDir)
@@ -35,13 +35,15 @@ Memb2D.main(params)
   # η₀ = η₀[2:end]
   # ω = [2*π/2.53079486745378, 2*π/2.0]
   # η₀ = [0.25, 0.25]
-  ω = 0.7:0.05:5
+  # ω = 0.7:0.05:5
+  ω = 1.0:1.0:5
   T = 2*π./ω
   η₀ = 0.10*ones(length(ω))
   α = randomPhase(ω; seed=100)
   # k = dispersionRelAng.(H0, ω; msg=false)
 
   # Membrane parameters
+  memBndType="free"  #"free" or "fixed"
   Lm = 2*H0 #m
   Wm = Lm  
   mᵨ = 0.9 #mass per unit area of membrane / ρw

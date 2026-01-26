@@ -2,6 +2,7 @@ module Memb2D
 
 using JLD2
 using Gridap
+using Printf
 using Plots
 using WaveSpec
 using WaveSpec.Constants
@@ -10,27 +11,32 @@ using DataFrames:DataFrame
 using DataFrames:Matrix
 using TickTock
 using Parameters
+import HydroElasticFEM.WaveInput_FrequencyDomain as WI
+using HydroElasticFEM: PKG_ROOT
+using HydroElasticFEM.MeshModifier: map_vertical_GP_for_const_dep
+
+
+abstract type MemBndType end
+struct Free <: MemBndType end
+struct Fixed <: MemBndType end
 
 
 function main(params)
 
+  ## Function to run each freq
+  # ---------------------Start---------------------
   function run_freq(ω, η₀, α)
 
     tick()
-    # Wave parameters
-    k = dispersionRelAng(H0, ω; msg=false)
-    λ = 2π/k   
-    T = 2π/ω
-    ηᵢₙ(x) = η₀*exp(im*k*x[1] + im*α)
-    ϕᵢₙ(x) = -im*(η₀*ω/k)*(cosh(k*(H0 + x[2])) / 
-      sinh(k*H0))*exp(im*k*x[1] + im*α)
-    vxᵢₙ(x) = (η₀*ω)*(cosh(k*(H0 + x[2])) / 
-      sinh(k*H0))*exp(im*k*x[1] + im*α)
-    vzfsᵢₙ(x) = -im*ω*η₀*exp(im*k*x[1] + im*α) #???
-    @show ω, T
-    @show λ
-    @show η₀
-    @show H0, H0/λ
+    
+    airyWave = WI.AiryWaveXZ(H0, ω, η₀, α)
+
+    ηin(x) = WI.surface_elevation(airyWave, x)
+    ϕin(x) = WI.velocity_potential(airyWave, x)
+    ∇ϕin(x) = WI.potential_gradient(airyWave, x)
+
+    @show WI.wave_properties(airyWave)
+    k = airyWave.k
 
     # Numeric constants
     αₕ = -im*ω/g * (1-βₕ)/βₕ
@@ -47,21 +53,48 @@ function main(params)
     ηd(x) = μ₂ᵢₙ(x)*ηᵢₙ(x)
     ∇ₙϕd(x) = μ₁ᵢₙ(x)*vzfsᵢₙ(x) #???
 
+    # # Weak form: Damping zone formulation
+    # ∇ₙ(ϕ) = ∇(ϕ)⋅VectorValue(0.0,1.0)
+    # a((ϕ,κ,η),(w,u,v)) =      
+    #   ∫(  ∇(w)⋅∇(ϕ) )dΩ   +
+    #   ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ )dΓfs   +
+    #   ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ 
+    #     - μ₂ᵢₙ*κ*w + μ₁ᵢₙ*∇ₙ(ϕ)*(u + αₕ*w) )dΓd1    +
+    #   ∫( -w * im * k * ϕ )dΓot +
+    #   # ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ 
+    #   #   - μ₂ₒᵤₜ*κ*w + μ₁ₒᵤₜ*∇ₙ(ϕ)*(u + αₕ*w) )dΓd2    +
+    #   ∫(  v*(g*η - im*ω*ϕ) +  im*ω*w*η
+    #     - mᵨ*v*ω^2*η + Tᵨ*(1-im*ω*τ)*∇(v)⋅∇(η) )dΓm  #+ 
+    #   #∫(- Tᵨ*(1-im*ω*τ)*v*∇(η)⋅nΛmb )dΛmb
+
+    # l((w,u,v)) =  ∫( w*vxᵢₙ )dΓin - ∫( ηd*w - ∇ₙϕd*(u + αₕ*w) )dΓd1
+
     # Weak form
     ∇ₙ(ϕ) = ∇(ϕ)⋅VectorValue(0.0,1.0)
-    a((ϕ,κ,η),(w,u,v)) =      
-      ∫(  ∇(w)⋅∇(ϕ) )dΩ   +
-      ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ )dΓfs   +
-      ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ 
-        - μ₂ᵢₙ*κ*w + μ₁ᵢₙ*∇ₙ(ϕ)*(u + αₕ*w) )dΓd1    +
-      ∫( -w * im * k * ϕ )dΓot +
-      # ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ 
-      #   - μ₂ₒᵤₜ*κ*w + μ₁ₒᵤₜ*∇ₙ(ϕ)*(u + αₕ*w) )dΓd2    +
-      ∫(  v*(g*η - im*ω*ϕ) +  im*ω*w*η
-        - mᵨ*v*ω^2*η + Tᵨ*(1-im*ω*τ)*∇(v)⋅∇(η) )dΓm  #+ 
-      #∫(- Tᵨ*(1-im*ω*τ)*v*∇(η)⋅nΛmb )dΛmb
 
-    l((w,u,v)) =  ∫( w*vxᵢₙ )dΓin - ∫( ηd*w - ∇ₙϕd*(u + αₕ*w) )dΓd1
+    res_membrane((ϕ,κ,η),(w,u,v)) = 
+      res_membrane((ϕ,κ,η),(w,u,v), memBndType)
+
+    res_membrane((ϕ,κ,η),(w,u,v), ::Free) = 
+      ∫(  v*(g*η - im*ω*ϕ) +  im*ω*w*η
+        - mᵨ*v*ω^2*η + Tᵨ*(1-im*ω*τ)*∇(v)⋅∇(η) )dΓm  
+      
+    res_membrane((ϕ,κ,η),(w,u,v), ::Fixed) = 
+      ∫(  v*(g*η - im*ω*ϕ) +  im*ω*w*η
+        - mᵨ*v*ω^2*η + Tᵨ*(1-im*ω*τ)*∇(v)⋅∇(η) )dΓm  + 
+      ∫(- Tᵨ*(1-im*ω*τ)*v*∇(η)⋅nΛmb )dΛmb
+
+
+    a((ϕ,κ,η),(w,u,v)) =      
+      res_membrane((ϕ,κ,η),(w,u,v)) +
+      ∫(  ∇(w)⋅∇(ϕ) )dΩ   +
+      ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ )dΓfs   +      
+      ∫( -w * im * airyWave.k * ϕ )dΓot +
+      ∫( -w * im * airyWave.k * ϕ )dΓin      
+
+    l((w,u,v)) =  ∫( w*(∇ϕin⋅nΓin) )dΓin + 
+      ∫( -w * im * airyWave.k * ϕin )dΓin
+
 
 
     # Solution
@@ -69,7 +102,7 @@ function main(params)
     (ϕₕ,κₕ,ηₕ) = solve(op)
 
     # Function for inlet phase
-    κin = interpolate_everywhere(ηᵢₙ, 
+    κin = interpolate_everywhere(ηin, 
       FESpace(Γκ, reffe, conformity=:H1, vector_type=Vector{ComplexF64}))
     κr = κₕ - κin
 
@@ -81,7 +114,7 @@ function main(params)
     # Wave energy flux
     ηrf = abs(κr(Point(prbPowx[1],0.0)))
     ηtr = abs(κₕ(Point(prbPowx[2],0.0)))
-    kh = k*H0
+    kh = airyWave.kh
     wave_n = 0.5*(1 + 2*kh/sinh(2*kh))
     Pin = (0.5*ρw*g*η₀*η₀)*(ω/k)*wave_n
     Prf = (0.5*ρw*g*ηrf*ηrf)*(ω/k)*wave_n
@@ -103,18 +136,59 @@ function main(params)
 
     prb_κ_x[prbfs] = (∇(κₕ)⋅VectorValue(1.0,0.0))(prbxy[prbfs])
     prb_κ_x[prbmem] = (∇(ηₕ)⋅VectorValue(1.0,0.0))(prbxy[prbmem])
-  
+
+    # Plot and Save
+    # ---------------------Start---------------------    
+    # VTK output for each frequency
+    if vtk_output == true
+      
+      local paraFolder, paraFile
+      local vVec, vVx, vVy, vVz
+
+      paraFolder = name*"/mem_omg_"*@sprintf("%.2f",ω)
+      paraFile = paraFolder*"/mem"
+      
+      if( isdir(paraFolder) )
+        rm(paraFolder; recursive=true)
+      end
+      mkdir(paraFolder)
+
+      # Velocity calculation
+      vVec = ∇(ϕₕ)
+      vVx = vVec⋅VectorValue(1.0,0.0)
+      vVy = vVec⋅VectorValue(0.0,1.0)
+
+      writevtk(Ω, paraFile * "_O_sol.vtu",
+        cellfields=["phi_re" => real(ϕₕ), "phi_im" => imag(ϕₕ),
+          "phi_abs" => abs(ϕₕ), "phi_ang" => angle ∘ (ϕₕ),
+          "vx_re" => real(vVx), "vx_im" => imag(vVx),
+          "vy_re" => real(vVy), "vy_im" => imag(vVy)
+        ] )
+      writevtk(Γκ, paraFile * "_Gk_sol.vtu",
+        cellfields=["eta_re" => real(κₕ), "eta_im" => imag(κₕ),
+          "eta_abs" => abs(κₕ), "eta_ang" => angle ∘ (κₕ),
+          "etaR_re" => real(κr), "etaR_im" => imag(κr),
+          "etaR_abs" => abs(κr), "etaR_ang" => angle ∘ (κr),
+          "ηin_abs" => abs(κin), "ηin_ang" => angle ∘ (κin)
+        ] )
+      writevtk(Γη, paraFile * "_Ge_sol.vtu",
+        cellfields=["eta_re" => real(ηₕ), "eta_im" => imag(ηₕ),
+          "eta_abs" => abs(ηₕ), "eta_ang" => angle ∘ (ηₕ),
+          "eta_x_re" => real(ηx), "eta_x_im" => imag(ηx)          
+        ] )
+    end    
+
     push!(prbDa, prb_κ)  
     push!(prbDa_x, prb_κ_x)  
-
     push!(prbDaΓη, ηₕ(prxΓη))
     push!(prbDaΓκ, κₕ(prxΓκ))
-
     push!(prbPow, [Pin, Prf, Ptr, Pd, PErr, 0.0])
+    # ----------------------End----------------------
     
     tock()
     return 0
   end
+  # ----------------------End----------------------
 
 
   @unpack name, order, vtk_output = params
@@ -139,11 +213,22 @@ function main(params)
 
   # Membrane parameters
   @unpack Lm, mᵨ, Tᵨ, τ = params
+  @unpack memBndType = params
   @show Lm  #m
   @show g #defined in .Constants
   @show mᵨ #mass per unit area of membrane / ρw
   @show Tᵨ #T/ρw
   @show τ #damping coeff
+
+  # Validate and convert memBndType to symbol
+  memBndType = if memBndType == "free"
+    Free()
+  elseif memBndType == "fixed"
+    Fixed()
+  else
+    error("memBndType should be either 'free' or 'fixed', got: ", memBndType)
+  end
+  @show memBndType  
 
 
   # Domain 
@@ -172,30 +257,12 @@ function main(params)
   println()
 
 
-
   # Mesh
-  function f_y(y, r, n, H0; dbgmsg = false)
-    # Mesh along depth as a GP
-    # Depth is 0 to -H0    
-    if(r ≈ 1.0)
-      return y  
-    else
-      a0 = H0 * (r-1) / (r^n - 1)    
-      if(dbgmsg)
-        ln = 0:n
-        ly = -a0 / (r-1) * (r.^ln .- 1)         
-        @show hcat( ly, [ 0; ly[1:end-1] - ly[2:end] ] )
-      end
-      
-      if y ≈ 0
-        return 0.0
-      end
-      j = abs(y) / H0 * n  
-      return -a0 / (r-1) * (r^j - 1)
-    end
-  end
-  map(x) = VectorValue( x[1], f_y(x[2], mesh_ry, ny, H0; dbgmsg=false) )
-  model = CartesianDiscreteModel(domain,partition,map=map)
+  map(x) = VectorValue(
+    x[1],
+    map_vertical_GP_for_const_dep(x[2], mesh_ry, ny, H0; dbgmsg=false)
+  )
+  model = CartesianDiscreteModel(domain, partition, map=map)
 
 
   # Labelling
@@ -220,11 +287,11 @@ function main(params)
     x = (1/n)*sum(xs)
     (xm₀ <= x[1] <= xm₁ ) * ( x[2] ≈ 0.0)
   end
-  function is_damping1(xs) # Check if an element is inside the damping zone 1
-    n = length(xs)
-    x = (1/n)*sum(xs)
-    (x₀ <= x[1] <= xdᵢₙ ) * ( x[2] ≈ 0.0)
-  end
+  # function is_damping1(xs) # Check if an element is inside the damping zone 1
+  #   n = length(xs)
+  #   x = (1/n)*sum(xs)
+  #   (x₀ <= x[1] <= xdᵢₙ ) * ( x[2] ≈ 0.0)
+  # end
   # function is_damping2(xs) # Check if an element is inside the damping zone 2
   #   n = length(xs)
   #   x = (1/n)*sum(xs)
@@ -234,13 +301,14 @@ function main(params)
   # Masking and Beam Triangulation
   xΓ = get_cell_coordinates(Γ)
   Γm_to_Γ_mask = lazy_map(is_mem, xΓ)
-  Γd1_to_Γ_mask = lazy_map(is_damping1, xΓ)
-  #Γd2_to_Γ_mask = lazy_map(is_damping2, xΓ)
+  # Γd1_to_Γ_mask = lazy_map(is_damping1, xΓ)
+  # Γd2_to_Γ_mask = lazy_map(is_damping2, xΓ)
   Γm = Triangulation(Γ, findall(Γm_to_Γ_mask))
-  Γd1 = Triangulation(Γ, findall(Γd1_to_Γ_mask))
-  #Γd2 = Triangulation(Γ, findall(Γd2_to_Γ_mask))
-  Γfs = Triangulation(Γ, findall(!, Γm_to_Γ_mask .| 
-    Γd1_to_Γ_mask ))# .| Γd2_to_Γ_mask))
+  # Γd1 = Triangulation(Γ, findall(Γd1_to_Γ_mask))
+  # Γd2 = Triangulation(Γ, findall(Γd2_to_Γ_mask))
+  # Γfs = Triangulation(Γ, findall(!, Γm_to_Γ_mask .| 
+  #   Γd1_to_Γ_mask ))# .| Γd2_to_Γ_mask))
+  Γfs = Triangulation(Γ, findall(!, Γm_to_Γ_mask ))    
   Γη = Triangulation(Γ, findall(Γm_to_Γ_mask))
   Γκ = Triangulation(Γ, findall(!,Γm_to_Γ_mask))
 
@@ -261,7 +329,7 @@ function main(params)
     writevtk(Ω,filename*"_O")
     writevtk(Γ,filename*"_G")
     writevtk(Γm,filename*"_Gm")  
-    writevtk(Γd1,filename*"_Gd1")
+    # writevtk(Γd1,filename*"_Gd1")
     # writevtk(Γd2,filename*"_Gd2")
     writevtk(Γfs,filename*"_Gfs")
     writevtk(Λmb,filename*"_Lmb")  
@@ -272,7 +340,7 @@ function main(params)
   degree = 2*order
   dΩ = Measure(Ω,degree)
   dΓm = Measure(Γm,degree)
-  dΓd1 = Measure(Γd1,degree)
+  # dΓd1 = Measure(Γd1,degree)
   # dΓd2 = Measure(Γd2,degree)
   dΓfs = Measure(Γfs,degree)
   dΓin = Measure(Γin,degree)
@@ -282,28 +350,38 @@ function main(params)
 
   # Normals
   @show nΛmb = get_normal_vector(Λmb)
+  nΓin = get_normal_vector(Γin)
 
 
   # Dirichlet Fnc
   gη(x) = ComplexF64(0.0)
 
   # FE spaces
+  # ---------------------Start---------------------
   reffe = ReferenceFE(lagrangian,Float64,order)
   V_Ω = TestFESpace(Ω, reffe, conformity=:H1, 
     vector_type=Vector{ComplexF64})
   V_Γκ = TestFESpace(Γκ, reffe, conformity=:H1, 
     vector_type=Vector{ComplexF64})
-  # V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
-  #   vector_type=Vector{ComplexF64},
-  #   dirichlet_tags=["mem_bnd"]) #diri
-  V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
-    vector_type=Vector{ComplexF64})
   U_Ω = TrialFESpace(V_Ω)
   U_Γκ = TrialFESpace(V_Γκ)
-  # U_Γη = TrialFESpace(V_Γη, gη)
-  U_Γη = TrialFESpace(V_Γη)
+
+  if(memBndType == Fixed())
+    V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
+      vector_type=Vector{ComplexF64},
+      dirichlet_tags=["mem_bnd"]) #diri
+    U_Γη = TrialFESpace(V_Γη, gη)
+  elseif(memBndType == Free())
+    V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
+      vector_type=Vector{ComplexF64})
+    U_Γη = TrialFESpace(V_Γη)
+  else
+    error("memBndType should be either 'free' or 'fixed', got: ", memBndType)
+  end  
+
   X = MultiFieldFESpace([U_Ω,U_Γκ,U_Γη])
   Y = MultiFieldFESpace([V_Ω,V_Γκ,V_Γη])
+  # ----------------------End----------------------
 
   # Probes
   @unpack prbx, prbPowx = params
@@ -425,6 +503,7 @@ Parameters for the VIV.jl module.
   # k = dispersionRelAng.(H0, ω; msg=false)
 
   # Membrane parameters
+  memBndType::String = "free" # "free" or "fixed"
   Lm = 2*H0 #m
   Wm = Lm  
   mᵨ = 0.9 #mass per unit area of membrane / ρw
@@ -477,6 +556,7 @@ end
   # k = dispersionRelAng.(H0, ω; msg=false)
 
   # Membrane parameters
+  memBndType::String = "free" # "free" or "fixed"
   Lm = 2*H0 #m
   Wm = Lm  
   mᵨ = 0.9 #mass per unit area of membrane / ρw
