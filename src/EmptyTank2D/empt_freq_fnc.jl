@@ -296,11 +296,13 @@ for lprb in 1:length(prbxy)
 end
 # ----------------------End----------------------
 
-data = Dict("ω" => ω,
-            "η₀" => η₀,
-            "prbxy" => prbxy,
-            "prbDa" => prbDa,
-            "prbDa_x" => prbDa_x)
+data = Dict(
+  "ω" => ω,
+  "η₀" => η₀,
+  "prbxy" => prbxy,
+  "prbDa" => prbDa,
+  "prbDa_x" => prbDa_x
+)
 
 save(filename*"_data.jld2", data)
 

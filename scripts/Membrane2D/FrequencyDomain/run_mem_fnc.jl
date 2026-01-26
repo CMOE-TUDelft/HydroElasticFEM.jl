@@ -14,9 +14,21 @@ include( joinpath(PKG_ROOT,"src","Membrane2D",
 
 resDir::String = "data/sims_202601/run/spec_free"
 
+# Remove all contents in the folder resDir
+if isdir(resDir)
+  rm(resDir; recursive=true, force=true)
+end
+mkpath(resDir)
+
 # Warm-up run
 params = Memb2D.Memb_params_warmup(name = resDir)
 Memb2D.main(params)
+
+# Remove all contents in the folder resDir
+if isdir(resDir)
+  rm(resDir; recursive=true, force=true)
+end
+mkpath(resDir)
 
 # Production run
 @with_kw struct run_params

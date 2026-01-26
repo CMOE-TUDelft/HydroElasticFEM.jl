@@ -428,47 +428,60 @@ function main(params)
   prbDaΓκ = prbDaΓκ[2:end,:]
   prbPow = prbPow[2:end,:]
 
-  k = dispersionRelAng.(H0, ω; msg=false)
-
-  for lprb in 1:length(prbxy)
-    plt1 = plot(k*H0, abs.(prbDa[:,lprb]), linewidth=3, 
-      xlabel = "kh",
-      ylabel = "A (m)",
-      title = "Amplitude")  
-
-    plt2 = plot(k*H0, abs.(prbDa_x[:,lprb]), linewidth=3, 
-      xlabel = "kh",
-      ylabel = "dA/dx",
-      title = "Slope Magnitude")
+  ## Plotting data
+  # ---------------------Start---------------------
+  let
     
-    plt3 = plot(k*H0, angle.(prbDa[:,lprb]), linewidth=3, 
-      xlabel = "kh",
-      ylabel = "α (rad)",
-      title = "Phase")  
+    if isdir(filename*"_plots")
+      rm(filename*"_plots"; force=true, recursive=true)
+    end  
+    mkpath(filename*"_plots")  
 
-    plt4 = plot(k*H0, angle.(prbDa_x[:,lprb]), linewidth=3, 
-      xlabel = "kh",
-      ylabel = "α (rad)",
-      title = "Slope Phase")
-    
-    xloc = prbx[lprb]
-    pltAll = plot(plt1, plt2, plt3, plt4, layout=4, dpi=330,
-      plot_title = "x = $xloc")
+    k = dispersionRelAng.(H0, ω; msg=false)
 
-    savefig(pltAll,filename*"_dxPrb_$lprb"*".png")
-  end  
+    for lprb in 1:length(prbxy)
+      plt1 = plot(k*H0, abs.(prbDa[:,lprb]), linewidth=3, 
+        xlabel = "kh",
+        ylabel = "A (m)",
+        title = "Amplitude")  
 
-  data = Dict("ω" => ω,
-              "η₀" => η₀,
-              "k" => k,
-              "prbxy" => prbxy,
-              "prbDa" => prbDa,            
-              "prbDa_x" => prbDa_x,
-              "prxΓκ" => prxΓκ,
-              "prxΓη" => prxΓη,
-              "prbDaΓκ" => prbDaΓκ,
-              "prbDaΓη" => prbDaΓη,
-              "prbPow" => prbPow)
+      plt2 = plot(k*H0, abs.(prbDa_x[:,lprb]), linewidth=3, 
+        xlabel = "kh",
+        ylabel = "dA/dx",
+        title = "Slope Magnitude")
+      
+      plt3 = plot(k*H0, angle.(prbDa[:,lprb]), linewidth=3, 
+        xlabel = "kh",
+        ylabel = "α (rad)",
+        title = "Phase")  
+
+      plt4 = plot(k*H0, angle.(prbDa_x[:,lprb]), linewidth=3, 
+        xlabel = "kh",
+        ylabel = "α (rad)",
+        title = "Slope Phase")
+      
+      xloc = prbx[lprb]
+      pltAll = plot(plt1, plt2, plt3, plt4, layout=4, dpi=330,
+        plot_title = "x = $xloc")
+
+      savefig(pltAll,filename*"_plots/mem_dxPrb_$lprb"*".png")
+    end  
+  end
+  # ----------------------End----------------------
+
+  data = Dict(
+    "ω" => ω,
+    "η₀" => η₀,
+    "k" => k,
+    "prbxy" => prbxy,
+    "prbDa" => prbDa,
+    "prbDa_x" => prbDa_x,
+    "prxΓκ" => prxΓκ,
+    "prxΓη" => prxΓη,
+    "prbDaΓκ" => prbDaΓκ,
+    "prbDaΓη" => prbDaΓη,
+    "prbPow" => prbPow
+  )
 
   save(filename*"_data.jld2", data)
 
