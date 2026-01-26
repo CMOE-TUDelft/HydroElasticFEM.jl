@@ -447,6 +447,7 @@ function run_case( params )
     savefig(fileName*"_figs/eigenvalues_mode_$(lpad(i, 3, '0')).png")
 
   end
+  closeall() #close plots
 
   dfWet = DataFrame(
     ωn = da_ωₙ,

@@ -467,6 +467,7 @@ function main(params)
       savefig(pltAll,filename*"_plots/mem_dxPrb_$lprb"*".png")
     end  
   end
+  closeall() #close plots
   # ----------------------End----------------------
 
   data = Dict(

@@ -294,6 +294,7 @@ for lprb in 1:length(prbxy)
 
   savefig(pltAll,filename*"_plots/mem_dxPrb_$lprb"*".png")
 end
+closeall() #close plots
 # ----------------------End----------------------
 
 data = Dict(

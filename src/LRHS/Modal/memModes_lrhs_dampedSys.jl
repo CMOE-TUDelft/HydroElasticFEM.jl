@@ -502,7 +502,8 @@ function run_case( params )
     isdir(fileName*"_figs") || mkpath(fileName*"_figs")
     savefig(fileName*"_figs/eigenvalues_mode_$(lpad(i, 3, '0')).png")
   end
-
+  closeall() #close plots
+  
   dfWet = DataFrame(
     ωnneg = da_ωnneg,
     ωnpos = da_ωnpos,

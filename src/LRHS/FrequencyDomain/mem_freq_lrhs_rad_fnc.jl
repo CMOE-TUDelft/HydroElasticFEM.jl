@@ -485,25 +485,25 @@ function main(params)
   end
   mkpath(filename*"_plots")  
 
-  plt1 = plot(ω, prbPow[:,2]./prbPow[:,1], linewidth=3, 
+  plt1 = plot(ω, prbPow[:,3]./prbPow[:,2], linewidth=3, 
     xlabel = "ω (rad/s)",
     ylabel = "K_R",
     title = "Reflection coefficient",
     ylims = (0,1.0))
 
-  plt2 = plot(ω, prbPow[:,3]./prbPow[:,1], linewidth=3, 
+  plt2 = plot(ω, prbPow[:,4]./prbPow[:,2], linewidth=3, 
     xlabel = "ω (rad/s)",
     ylabel = "K_T",
     title = "Transmission coefficient",
     ylims = (0,1.0))
 
-  plt3 = plot(ω, prbPow[:,4]./prbPow[:,1], linewidth=3, 
+  plt3 = plot(ω, prbPow[:,5]./prbPow[:,2], linewidth=3, 
     xlabel = "ω (rad/s)",
     ylabel = "K_A",
     title = "Absorption coefficient",
     ylims = (0,1.0))
 
-  plt4 = plot(ω, 100 * prbPow[:,5]./prbPow[:,1], linewidth=3, 
+  plt4 = plot(ω, 100 * prbPow[:,6]./prbPow[:,2], linewidth=3, 
     xlabel = "ω (rad/s)",
     ylabel = "Error %",
     title = "Power Relative Error")
@@ -540,6 +540,7 @@ function main(params)
 
     savefig(pltAll,filename*"_plots/mem_dxPrb_$lprb"*".png")
   end  
+  closeall() #close plots
   # ----------------------End----------------------
 
   data = Dict("ω" => ω,
