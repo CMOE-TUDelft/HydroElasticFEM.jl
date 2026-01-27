@@ -3,6 +3,7 @@ module Membrane
 using Parameters
 using Gridap
 using Gridap.CellData
+using Printf
 
 
 """
@@ -45,7 +46,23 @@ Functions
 
 """
 # ----------------------Start--------------------
+function print_membrane_props( memb2D::Membrane2D, ρw::Real = 1025 )
+  
+  mᵨ = memb2D.m / ρw
+  Tᵨ = memb2D.T / ρw
 
+  @printf("\n[MSG] Membrane Properties:\n")
+  @printf("Density of water, ρw = %.2f kg/m3\n", ρw)
+  @printf("[VAL] Lm = %.4f m\n", memb2D.L)
+  @printf("[VAL] m, mᵨ = %.4f kg/m2, %.4f m\n", memb2D.m, mᵨ)
+  @printf("[VAL] T, Tᵨ = %.4f N/m, %.4f m3/s2\n", memb2D.T, Tᵨ)
+  @printf("[VAL] τ = %.4f \n", memb2D.τ)
+  @printf("[VAL] memBndType = %s \n", string(memb2D.bndType))
+  @printf("[VAL] MTotal = %.4f kg/m \n", memb2D.MTotal)
+  @printf("[VAL] 1st Dry Analytical Natural Freq, ωn1 = %.4f rad/s \n", memb2D.ωn1)
+  println()
+  
+end
 # ----------------------End----------------------
 
 end

@@ -238,13 +238,7 @@ function main(params)
   mᵨ, Tᵨ = memb2D.m/ρw, memb2D.T/ρw
   memBndType = memb2D.bndType
 
-  @printf("[MSG] Membrane Properties:\n")
-  @printf("[VAL] Lm = %.4f m\n", Lm)
-  @printf("[VAL] m, mᵨ = %.4f kg/m2, %.4f m\n", memb2D.m, mᵨ)
-  @printf("[VAL] T, Tᵨ = %.4f N/m, %.4f m3/s2\n", memb2D.T, Tᵨ)
-  @printf("[VAL] τ = %.4f \n", τ)
-  @printf("[VAL] memBndType = %s \n", string(memBndType))
-  println()
+  Membrane.print_membrane_props(memb2D)
 
 
   # Domain 
@@ -401,8 +395,7 @@ function main(params)
   # Resonator FE Spaces
   # ---------------------Start---------------------
   @unpack resn = params
-
-  [@show iresn, iresn.XZ for iresn in resn]
+  ( iresn -> Resonator.print_resonator_props(iresn) ).(resn)
 
   V_Γq_Arr = [ ConstantFESpace( Ω, 
     vector_type=Vector{ComplexF64}, 

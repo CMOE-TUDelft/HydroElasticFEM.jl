@@ -14,7 +14,6 @@ include(joinpath(PKG_ROOT,
 include( joinpath(PKG_ROOT,"src","LRHS",
   "FrequencyDomain","mem_freq_lrhs_rad_fnc.jl") )
 
-ρw = 1025 #kg/m3 water
 
 resDir::String = "data/sims_202601/runlrhs"
 
@@ -26,24 +25,28 @@ resDir::String = "data/sims_202601/runlrhs"
 
 # Warm-up run
 # ---------------------Start--------------------- 
-params = Memb_LRHS_warmup(name = resDir)
-MembLRHS2D.main(params)
+isdir(resDir*"/warmup") || mkpath(resDir*"/warmup")
+params = Memb_LRHS_warmup(name = resDir*"/warmup")
+# MembLRHS2D.main(params)
+rm(resDir*"/warmup"; recursive=true, force=true)
 # ----------------------End----------------------
 
 ρw = params.ρw
+
+# Production run
+# ---------------------Start---------------------
+
 H0 = 10
 
 # Membrane parameters
 memb2D = Membrane.Membrane2D(
   2*H0,         # L
   0.9*ρw,      # m
-  0.1/4*g* (2*H0)^2 * ρw,  # T
+  98.1 * ρw,  # T
   0.0,         # τ
   Membrane.Free()  # bndType
 )  
 
-# Production run
-# ---------------------Start---------------------
 @with_kw struct run_params
   name = resDir
   order::Int = 2
@@ -63,7 +66,6 @@ memb2D = Membrane.Membrane2D(
   # η₀ = η₀[2:end]
   # ω = [2*π/2.53079486745378, 2*π/2.0]
   # η₀ = [0.25, 0.25]
-  # ω = [0.9:0.02:1.1;]
   ω = [0.6:0.1:3.5;]
   T = 2*π./ω
   η₀ = 0.10*ones(length(ω))
@@ -73,7 +75,6 @@ memb2D = Membrane.Membrane2D(
   # Membrane parameters
   memb2D = memb2D
   
-
   # Domain 
   nx = 1650
   ny = 20
@@ -87,43 +88,14 @@ memb2D = Membrane.Membrane2D(
   xm₀ = xdᵢₙ + 8*H0
   xm₁ = xm₀ + memb2D.L  
 
-  # # Resonator parameters
-  # resn = Resonator.Array1D(
-  #   1, 
-  #   [1*ρw], 
-  #   [2.4*2.4*ρw], 
-  #   [0.0],
-  #   [Point(xm₀ + memb2D.L/2.0,0.0)]    
-  # )
-
   # Resonator parameters
   resn = Resonator.Array1D(
     1, 
-    [0.1*0.1*20*ρw], 
-    [0.1*0.1*20*ρw*(1.0^2)], 
+    [0.1*memb2D.MTotal], 
+    [0.1*memb2D.MTotal*(1.0^2)], 
     [0.0],
-    [Point(xm₀ + memb2D.L/2.0,0.0)]    
+    [Point(xm₀ + memb2D.L/2.0,0.0)]   
   )
-  
-  # # Resonator parameters
-  # resn = Resonator.Array1D(
-  #   2, 
-  #   [1e3, 1e3], 
-  #   [2.4*2.4*1e3, 3.4*3.4*1e3], 
-  #   [0.0, 0.0],
-  #   # [Point(xm₀ + memb2D.L/2.0,0.0)]
-  #   [Point(90.0, 0.0), Point(85.0, 0.0)]
-  # )
-
-  # # Resonator parameters
-  # resn = Resonator.Array1D(
-  #   1, 
-  #   1.0, 
-  #   0.0, 
-  #   0.0,
-  #   [Point(xm₀ + memb2D.L/2.0,0.0)]
-  # )
-  
 
   # Probes
   prbx=[  -20.0, 0.0, 20.0, 40.0, 50.0, 
@@ -134,5 +106,45 @@ memb2D = Membrane.Membrane2D(
 
 end
 params = run_params()
+
+membName = "memb_mrho=" * @sprintf("%0.2f", memb2D.m/ρw) *
+  "_Trho=" * @sprintf("%0.2f", memb2D.T/ρw)
+
+resonatorName = "resnM=" * @sprintf("%0.2f", params.resn[1].M) *
+  "_resnK=" * @sprintf("%0.2f", params.resn[1].K)
+
 MembLRHS2D.main(params)
 # ----------------------End----------------------
+
+
+# ============================================================================
+# Resonator Options
+# ============================================================================
+
+# # Resonator parameters
+# resn = Resonator.Array1D(
+#   1, 
+#   [1*ρw], 
+#   [2.4*2.4*ρw], 
+#   [0.0],
+#   [Point(xm₀ + memb2D.L/2.0,0.0)]    
+# )
+
+# # Resonator parameters
+# resn = Resonator.Array1D(
+#   2, 
+#   [1e3, 1e3], 
+#   [2.4*2.4*1e3, 3.4*3.4*1e3], 
+#   [0.0, 0.0],
+#   # [Point(xm₀ + memb2D.L/2.0,0.0)]
+#   [Point(90.0, 0.0), Point(85.0, 0.0)]
+# )
+
+# # Resonator parameters
+# resn = Resonator.Array1D(
+#   1, 
+#   1.0, 
+#   0.0, 
+#   0.0,
+#   [Point(xm₀ + memb2D.L/2.0,0.0)]
+# )
