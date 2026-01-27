@@ -97,13 +97,13 @@ function main(params)
         ∫( -w * im * airyWave.k * ϕ )dΓot +
         ∫( -w * im * airyWave.k * ϕ )dΓin        
 
-      for (qi, ξi, δi, rSi) in zip(q, ξ, δ_p_Arr, rS)
+      for (qi, ξi, δi, iresn) in zip(q, ξ, δ_p_Arr, resn)
         val +=
-          (+im * ω * rSi.C - rSi.K) / ρw * δi(v * ((qi ⋅ î1) - η)) +
+          (+im * ω * iresn.C - iresn.K) / ρw * δi(v * ((qi ⋅ î1) - η)) +
           ∫((ξi ⋅ qi) * 0.0)dΩ +
           # ∫( -rM/cnstFEArea*ω^2*(q⋅ξ) + rK/cnstFEArea*(ξ⋅q) )dΩ +
-          -rSi.M * ω^2 * δi(qi ⋅ ξi) +
-          (-im * ω * rSi.C + rSi.K) * δi(qi ⋅ ξi - (ξi ⋅ î1) * η)
+          -iresn.M * ω^2 * δi(qi ⋅ ξi) +
+          (-im * ω * iresn.C + iresn.K) * δi(qi ⋅ ξi - (ξi ⋅ î1) * η)
       end
 
       return val
@@ -127,8 +127,8 @@ function main(params)
     Pd = 0.5*Tᵨ*ρw*τ*ω*ω*Pd    
 
     Pd_r = [ 
-      powerDissipatedResonator(ω, rSi, qi(rSi.XZ)⋅î1, ηₕ(rSi.XZ)) 
-      for (rSi, qi) in zip(rS, qₕ)
+      powerDissipatedResonator(ω, iresn, qi(iresn.XZ)⋅î1, ηₕ(iresn.XZ)) 
+      for (iresn, qi) in zip(resn, qₕ)
     ]
     # Pd_r = [0.0, 0.0]
     
@@ -189,10 +189,10 @@ function main(params)
         cellfields = vcat(
           [ "q$i" => real(qhi⋅î1)*VectorValue(1.0,0.0) + imag(qhi⋅î1)*VectorValue(0.0,1.0)
             for (i, qhi) in enumerate(qₕ) ],
-          [ "q$i"*"_XZ" => rSi.XZ 
-            for (i, rSi) in enumerate(rS) ],
-          [ "q$i"*"_MKC" => VectorValue(rSi.M,rSi.K,rSi.C)
-            for (i, rSi) in enumerate(rS) ]
+          [ "q$i"*"_XZ" => iresn.XZ 
+            for (i, iresn) in enumerate(resn) ],
+          [ "q$i"*"_MKC" => VectorValue(iresn.M,iresn.K,iresn.C)
+            for (i, iresn) in enumerate(resn) ]
         ) )
       
 
@@ -409,18 +409,18 @@ function main(params)
 
   # Resonator FE Spaces
   # ---------------------Start---------------------
-  @unpack rS = params
+  @unpack resn = params
 
-  [@show rSi, rSi.XZ for rSi in rS]
+  [@show iresn, iresn.XZ for iresn in resn]
 
   V_Γq_Arr = [ ConstantFESpace( Ω, 
     vector_type=Vector{ComplexF64}, 
     field_type=VectorValue{1,ComplexF64} ) 
-    for irS in rS ]
+    for iresn in resn ]
   U_Γq_Arr = [ TrialFESpace(iV_Γq) for iV_Γq in V_Γq_Arr ]
   î1 = VectorValue(1.0)
 
-  δ_p_Arr = [ DiracDelta(Γ, irS.XZ) for irS in rS ]
+  δ_p_Arr = [ DiracDelta(Γ, iresn.XZ) for iresn in resn ]
   # ----------------------End----------------------
 
   X = MultiFieldFESpace([U_Ω, U_Γκ, U_Γη, U_Γq_Arr...])
@@ -460,7 +460,7 @@ function main(params)
   lDa = zeros(ComplexF64, 1, length(prxΓκ))
   prbDaΓκ = DataFrame(lDa, :auto)
 
-  prbPow = DataFrame(zeros(Float64, 1, 7+length(rS)), :auto)
+  prbPow = DataFrame(zeros(Float64, 1, 7+length(resn)), :auto)
 
 
   # # Remove old vtk files  
@@ -561,7 +561,7 @@ function main(params)
               "prbDaΓκ" => prbDaΓκ,
               "prbDaΓη" => prbDaΓη,
               "prbPow" => prbPow,
-              "rS" => rS,
+              "resn" => resn,
               "params" => params )
 
   save(filename*"_data.jld2", data)

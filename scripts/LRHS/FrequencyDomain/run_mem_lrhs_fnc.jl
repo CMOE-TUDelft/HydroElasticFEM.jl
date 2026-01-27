@@ -78,7 +78,7 @@ MembLRHS2D.main(params)
   xm₁ = xm₀ + Lm  
 
   # # Resonator parameters
-  # rS = Resonator.Array1D(
+  # resn = Resonator.Array1D(
   #   1, 
   #   [1*ρw], 
   #   [2.4*2.4*ρw], 
@@ -87,7 +87,7 @@ MembLRHS2D.main(params)
   # )
 
   # Resonator parameters
-  rS = Resonator.Array1D(
+  resn = Resonator.Array1D(
     1, 
     [0.1*0.1*20*ρw], 
     [0.1*0.1*20*ρw*(1.0^2)], 
@@ -96,7 +96,7 @@ MembLRHS2D.main(params)
   )
   
   # # Resonator parameters
-  # rS = Resonator.Array1D(
+  # resn = Resonator.Array1D(
   #   2, 
   #   [1e3, 1e3], 
   #   [2.4*2.4*1e3, 3.4*3.4*1e3], 
@@ -106,7 +106,7 @@ MembLRHS2D.main(params)
   # )
 
   # # Resonator parameters
-  # rS = Resonator.Array1D(
+  # resn = Resonator.Array1D(
   #   1, 
   #   1.0, 
   #   0.0, 

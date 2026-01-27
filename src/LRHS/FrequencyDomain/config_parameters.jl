@@ -49,7 +49,7 @@ Parameters for the Memb2D module.
 
 
   # Resonator parameters
-  rS = Resonator.Array1D(
+  resn = Resonator.Array1D(
     1, 
     1e3, 
     5.9e3, 
@@ -119,7 +119,7 @@ Parameters for the Memb2D module.
   xm₁ = xm₀ + Lm
 
   # Resonator parameters
-  rS = Resonator.Array1D(
+  resn = Resonator.Array1D(
     1, 
     1e3, 
     5.9e3, 
