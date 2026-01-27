@@ -5,6 +5,9 @@ using .Constants
 using HydroElasticFEM.Resonator
 using HydroElasticFEM: PKG_ROOT
 
+include(joinpath(PKG_ROOT,
+  "src","LRHS","FrequencyDomain","config_parameters.jl"))
+
 # Here you may include files from the source directory
 # include( joinpath(PKG_ROOT,"src","LRHS",
 #   "FrequencyDomain","mem_freq_lrmm_free_fnc.jl") )
@@ -13,25 +16,23 @@ include( joinpath(PKG_ROOT,"src","LRHS",
 
 ρw = 1025 #kg/m3 water
 
-resDir::String = "data/sims_202601/runlrmm"
+resDir::String = "data/sims_202601/runlrhs"
 
-# Remove all contents in the folder resDir
-if isdir(resDir)
-  rm(resDir; recursive=true, force=true)
-end
-mkpath(resDir)
+# # Remove all contents in the folder resDir
+# if isdir(resDir)
+#   rm(resDir; recursive=true, force=true)
+# end
+# mkpath(resDir)
 
 # Warm-up run
-params = Memb2D.Memb_params_warmup(name = resDir)
-Memb2D.main(params)
+# ---------------------Start--------------------- 
+params = Memb_LRHS_warmup(name = resDir)
+MembLRHS2D.main(params)
+# ----------------------End----------------------
 
-# Remove all contents in the folder resDir
-if isdir(resDir)
-  rm(resDir; recursive=true, force=true)
-end
-mkpath(resDir)
 
 # Production run
+# ---------------------Start---------------------
 @with_kw struct run_params
   name = resDir
   order::Int = 2
@@ -48,11 +49,11 @@ mkpath(resDir)
   # η₀ = η₀[2:end]
   # ω = [2*π/2.53079486745378, 2*π/2.0]
   # η₀ = [0.25, 0.25]
-  ω = [1:0.1:5;]
+  # ω = [0.9:0.02:1.1;]
+  ω = [0.6:0.1:3.5;]
   T = 2*π./ω
   η₀ = 0.10*ones(length(ω))
   α = randomPhase(ω; seed=100)
-  # k = dispersionRelAng.(H0, ω; msg=false)
 
   # Membrane parameters
   memBndType="free"  #"free" or "fixed"
@@ -76,11 +77,20 @@ mkpath(resDir)
   xm₀ = xdᵢₙ + 8*H0
   xm₁ = xm₀ + Lm  
 
+  # # Resonator parameters
+  # rS = Resonator.Array1D(
+  #   1, 
+  #   [1*ρw], 
+  #   [2.4*2.4*ρw], 
+  #   [0.0],
+  #   [Point(xm₀ + Lm/2.0,0.0)]    
+  # )
+
   # Resonator parameters
   rS = Resonator.Array1D(
     1, 
-    [1*ρw], 
-    [2.4*2.4*ρw], 
+    [0.1*0.1*20*ρw], 
+    [0.1*0.1*20*ρw*(1.0^2)], 
     [0.0],
     [Point(xm₀ + Lm/2.0,0.0)]    
   )
@@ -114,4 +124,5 @@ mkpath(resDir)
 
 end
 params = run_params()
-Memb2D.main(params)
+MembLRHS2D.main(params)
+# ----------------------End----------------------

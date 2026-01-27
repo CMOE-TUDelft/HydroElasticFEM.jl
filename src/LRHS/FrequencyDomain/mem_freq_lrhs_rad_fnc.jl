@@ -1,4 +1,6 @@
-module Memb2D
+include("./config_parameters.jl")
+
+module MembLRHS2D
 
 using Gridap
 using JLD2
@@ -172,7 +174,11 @@ function main(params)
       
       freqName = filename*"_omg_" * @sprintf("%.3f", ω)
 
+      if(isdir(freqName))
+        rm(freqName; recursive=true, force=true)
+      end
       mkpath(freqName)
+
 
       writevtk(Ω, freqName * "/mem_O_sol.vtu",
         cellfields = ["phi_re" => real(ϕₕ),"phi_im" => imag(ϕₕ),
@@ -204,6 +210,7 @@ function main(params)
     # ----------------------End----------------------
     
     tock()
+    println()
     return 0
   end
   # ----------------------End----------------------  
@@ -456,12 +463,12 @@ function main(params)
   prbPow = DataFrame(zeros(Float64, 1, 7+length(rS)), :auto)
 
 
-  # Remove old vtk files  
-  for entry in readdir(name)
-    if startswith(entry, "mem_omg")
-      rm(joinpath(name, entry); force=true, recursive=true)
-    end
-  end    
+  # # Remove old vtk files  
+  # for entry in readdir(name)
+  #   if startswith(entry, "mem_omg")
+  #     rm(joinpath(name, entry); force=true, recursive=true)
+  #   end
+  # end    
 
   # Run weak-form for each freq
   # ---------------------Start---------------------
@@ -558,137 +565,6 @@ function main(params)
               "params" => params )
 
   save(filename*"_data.jld2", data)
-
-end
-
-
-"""
-Memb_params
-
-Parameters for the VIV.jl module.
-"""
-@with_kw struct Memb_params_warmup
-  name::String = "data/sims_202306/run/spec_free"
-  order::Int = 2
-  vtk_output::Bool = true
-
-  H0 = 10 #m #still-water depth
-
-  # Wave parameters
-  # ω, S, η₀ = jonswap(0.4, 2.5; 
-  #     plotflag=true, plotloc=filename, nω=145)
-  # println(ω[1], "\t", ω[2], "\t", ω[end])
-  # ω = ω[2:end]
-  # S = S[2:end]
-  # η₀ = η₀[2:end]
-  # ω = [2*π/2.53079486745378, 2*π/2.0]
-  # η₀ = [0.25, 0.25]
-  ω = 1:1:2
-  T = 2*π./ω
-  η₀ = 0.10*ones(length(ω))
-  α = randomPhase(ω; seed=100)
-  # k = dispersionRelAng.(H0, ω; msg=false)
-
-  # Membrane parameters
-  memBndType::String = "free" # "free" or "fixed"
-  Lm = 2*H0 #m
-  Wm = Lm  
-  mᵨ = 0.9 #mass per unit area of membrane / ρw
-  Tᵨ = 0.1/4*g*Lm*Lm #T/ρw
-  τ = 0.0#damping coeff
-
-
-  # Domain 
-  nx = 330
-  ny = 10
-  mesh_ry = 1.2 #Ratio for Geometric progression of eleSize
-  Ld = 15*H0 #damping zone length
-  LΩ = 18*H0 + Ld #2*Ld
-  x₀ = -Ld
-  domain =  (x₀, x₀+LΩ, -H0, 0.0)
-  partition = (nx, ny)
-  xdᵢₙ = 0.0
-  xm₀ = xdᵢₙ + 8*H0
-  xm₁ = xm₀ + Lm
-
-
-  # Resonator parameters
-  rS = Resonator.Array1D(
-    1, 
-    1e3, 
-    5.9e3, 
-    0.0,
-    [Point(xm₀ + Lm/2.0,0.0)]
-  )
-
-
-  # Probes
-  prbx=[  -20.0, 0.0, 20.0, 40.0, 50.0, 
-          52.7, 53.7, 55, 60.0, 80.0, 
-          85.0, 90.0, 95.0, 100.0, 120.0, 
-          125.0, 140.0, 160.0, 180.0 ]
-  prbPowx=[ 55.0, 125.0 ]
-
-end
-
-@with_kw struct Memb_params
-  name::String = "data/sims_202306/run/spec_free"
-  order::Int = 2
-  vtk_output::Bool = true
-
-  H0 = 10 #m #still-water depth
-
-  # Wave parameters
-  # ω, S, η₀ = jonswap(0.4, 2.5; 
-  #     plotflag=true, plotloc=filename, nω=145)
-  # println(ω[1], "\t", ω[2], "\t", ω[end])
-  # ω = ω[2:end]
-  # S = S[2:end]
-  # η₀ = η₀[2:end]
-  # ω = [2*π/2.53079486745378, 2*π/2.0]
-  # η₀ = [0.25, 0.25]
-  ω = 0.7:0.5:5
-  T = 2*π./ω
-  η₀ = 0.10*ones(length(ω))
-  α = randomPhase(ω; seed=100)
-  # k = dispersionRelAng.(H0, ω; msg=false)
-
-  # Membrane parameters
-  memBndType::String = "free" # "free" or "fixed"
-  Lm = 2*H0 #m
-  Wm = Lm  
-  mᵨ = 0.9 #mass per unit area of membrane / ρw
-  Tᵨ = 0.1/4*g*Lm*Lm #T/ρw
-  τ = 0.0#damping coeff  
-
-  # Domain 
-  nx = 1650
-  ny = 20
-  mesh_ry = 1.2 #Ratio for Geometric progression of eleSize
-  Ld = 15*H0 #damping zone length
-  LΩ = 18*H0 + Ld #2*Ld
-  x₀ = -Ld
-  domain =  (x₀, x₀+LΩ, -H0, 0.0)
-  partition = (nx, ny)
-  xdᵢₙ = 0.0
-  xm₀ = xdᵢₙ + 8*H0
-  xm₁ = xm₀ + Lm
-
-  # Resonator parameters
-  rS = Resonator.Array1D(
-    1, 
-    1e3, 
-    5.9e3, 
-    0.0,
-    [Point(xm₀ + Lm/2.0,0.0)]
-  )
-
-  # Probes
-  prbx=[  -20.0, 0.0, 20.0, 40.0, 50.0, 
-          52.7, 53.7, 55, 60.0, 80.0, 
-          85.0, 90.0, 95.0, 100.0, 120.0, 
-          125.0, 140.0, 160.0, 180.0 ]
-  prbPowx=[ 55.0, 125.0 ]
 
 end
 
