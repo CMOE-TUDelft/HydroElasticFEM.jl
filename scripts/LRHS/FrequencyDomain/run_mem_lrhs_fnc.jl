@@ -1,4 +1,5 @@
 using Parameters
+using Printf
 using Gridap
 using WaveSpec
 using .Constants
@@ -27,7 +28,7 @@ resDir::String = "data/sims_202601/runlrhs"
 # ---------------------Start--------------------- 
 isdir(resDir*"/warmup") || mkpath(resDir*"/warmup")
 params = Memb_LRHS_warmup(name = resDir*"/warmup")
-# MembLRHS2D.main(params)
+MembLRHS2D.main(params)
 rm(resDir*"/warmup"; recursive=true, force=true)
 # ----------------------End----------------------
 

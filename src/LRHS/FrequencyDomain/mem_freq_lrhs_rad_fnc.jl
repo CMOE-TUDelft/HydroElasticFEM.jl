@@ -121,11 +121,13 @@ function main(params)
     Pd = sum(∫( abs(ηx)*abs(ηx) )dΓm)
     Pd = 0.5*Tᵨ*ρw*τ*ω*ω*Pd    
 
-    Pd_r = [ 
-      powerDissipatedResonator(ω, iresn, qi(iresn.XZ)⋅î1, ηₕ(iresn.XZ)) 
-      for (iresn, qi) in zip(resn, qₕ)
-    ]
-    # Pd_r = [0.0, 0.0]
+    resnRAO = [ 
+      [ ω, qi(iresn.XZ)⋅î1, ηₕ(iresn.XZ),
+        powerDissipatedResonator( 
+          ω, iresn, qi(iresn.XZ)⋅î1, ηₕ(iresn.XZ) ) ]
+      for (iresn, qi) in zip(resn, qₕ) ]
+    resnRAO = vcat(resnRAO...)
+    Pd_r = real.(resnRAO[3:3:end])
     
 
     # Wave energy flux
@@ -162,6 +164,7 @@ function main(params)
     push!(prbDaΓκ, κₕ(prxΓκ))
 
     push!(prbPow, [ω, Pin, Prf, Ptr, Pd, PErr, 0.0, Pd_r...])
+    push!(prbResnRAO, resnRAO)
 
     # VTK Output
     # ---------------------Start---------------------
@@ -219,7 +222,6 @@ function main(params)
 
   @unpack ρw = params #Density of water
   @unpack H0, ω, T, η₀, α = params 
-  k = dispersionRelAng.(H0, ω; msg=false)
   
   
   @show H0  #m #still-water depth
@@ -444,6 +446,8 @@ function main(params)
   lDa = zeros(ComplexF64, 1, length(prxΓκ))
   prbDaΓκ = DataFrame(lDa, :auto)
 
+
+  prbResnRAO = DataFrame(zeros(ComplexF64, 1, 4*length(resn)), :auto)
   prbPow = DataFrame(zeros(Float64, 1, 7+length(resn)), :auto)
 
 
@@ -462,9 +466,13 @@ function main(params)
   prbDa = prbDa[2:end, :]
   prbDa_x = prbDa_x[2:end, :]
   prbDaΓη = prbDaΓη[2:end,:]
-  prbDaΓκ = prbDaΓκ[2:end,:]
+  prbDaΓκ = prbDaΓκ[2:end,:]    
+  prbPow = prbPow[2:end, :]
+  prbResnRAO = prbResnRAO[2:end, :]
   println("\nω, Pin, Prf, Ptr, Pd, PErr, 0.0, Pd_r...")
-  @show prbPow = prbPow[2:end,:]
+  @show prbPow
+  println("\nω, q_resn, η_resn, Pd_resn...")
+  @show abs.(prbResnRAO)
 
   k = dispersionRelAng.(H0, ω; msg=false)
 
@@ -476,6 +484,7 @@ function main(params)
   end
   mkpath(filename*"_plots")  
 
+  # Power Balance Plots
   plt1 = plot(ω, prbPow[:,3]./prbPow[:,2], linewidth=3, 
     xlabel = "ω (rad/s)",
     ylabel = "K_R",
@@ -502,6 +511,23 @@ function main(params)
   pltAll = plot(plt1, plt2, plt3, plt4, layout=4, dpi=330,
     plot_title = "Power Balance")
   savefig(pltAll,filename*"_plots/mem_powerBalance"*".png")
+
+
+  # Resonator RAO Plots
+  plt3 = plot(ω, abs.(prbResnRAO[:,2]), linewidth=3,
+    xlabel = "ω (rad/s)",
+    ylabel = "q_resn (m)",
+    title = "Resonator Displacement Amplitude")
+  
+  plt4 = plot(ω, abs.(prbResnRAO[:,3]), linewidth=3,
+    xlabel = "ω (rad/s)",
+    ylabel = "η_resn (m)",
+    title = "Membrane Elevation at Resonator Location")
+  
+  pltAll = plot(plt3, plt4, layout=(2,1), dpi=330,
+    plot_title = "Resonator RAO")
+  savefig(pltAll,filename*"_plots/mem_resonatorRAO"*".png")
+  
 
   for lprb in 1:length(prbxy)    
 
@@ -546,6 +572,9 @@ function main(params)
     "prbDaΓκ" => prbDaΓκ,
     "prbDaΓη" => prbDaΓη,
     "prbPow" => prbPow,
+    "prbPow_Header" => "ω, Pin, Prf, Ptr, Pd, PErr, 0.0, Pd_r...",
+    "prbResnRAO" => prbResnRAO,
+    "prbResnRAO_Header" => "ω, q_resn, η_resn, Pd_resn...",
     "resn" => resn,
     "params" => params)
 
