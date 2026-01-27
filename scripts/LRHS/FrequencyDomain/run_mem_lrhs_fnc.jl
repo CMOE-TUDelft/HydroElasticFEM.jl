@@ -2,7 +2,7 @@ using Parameters
 using Gridap
 using WaveSpec
 using .Constants
-using HydroElasticFEM.Resonator
+using HydroElasticFEM: Resonator, Membrane
 using HydroElasticFEM: PKG_ROOT
 
 include(joinpath(PKG_ROOT,
@@ -30,6 +30,17 @@ params = Memb_LRHS_warmup(name = resDir)
 MembLRHS2D.main(params)
 # ----------------------End----------------------
 
+ρw = params.ρw
+H0 = 10
+
+# Membrane parameters
+memb2D = Membrane.Membrane2D(
+  2*H0,         # L
+  0.9*ρw,      # m
+  0.1/4*g* (2*H0)^2 * ρw,  # T
+  0.0,         # τ
+  Membrane.Free()  # bndType
+)  
 
 # Production run
 # ---------------------Start---------------------
@@ -37,6 +48,9 @@ MembLRHS2D.main(params)
   name = resDir
   order::Int = 2
   vtk_output::Bool = true
+
+  # Constants
+  ρw = ρw
 
   H0 = 10 #m #still-water depth
 
@@ -55,14 +69,10 @@ MembLRHS2D.main(params)
   η₀ = 0.10*ones(length(ω))
   α = randomPhase(ω; seed=100)
 
-  # Membrane parameters
-  memBndType="free"  #"free" or "fixed"
-  Lm = 2*H0 #m
-  Wm = Lm  
-  mᵨ = 0.9 #mass per unit area of membrane / ρw
-  Tᵨ = 0.1/4*g*Lm*Lm #T/ρw
-  τ = 0.0#damping coeff
 
+  # Membrane parameters
+  memb2D = memb2D
+  
 
   # Domain 
   nx = 1650
@@ -75,7 +85,7 @@ MembLRHS2D.main(params)
   partition = (nx, ny)
   xdᵢₙ = 0.0
   xm₀ = xdᵢₙ + 8*H0
-  xm₁ = xm₀ + Lm  
+  xm₁ = xm₀ + memb2D.L  
 
   # # Resonator parameters
   # resn = Resonator.Array1D(
@@ -83,7 +93,7 @@ MembLRHS2D.main(params)
   #   [1*ρw], 
   #   [2.4*2.4*ρw], 
   #   [0.0],
-  #   [Point(xm₀ + Lm/2.0,0.0)]    
+  #   [Point(xm₀ + memb2D.L/2.0,0.0)]    
   # )
 
   # Resonator parameters
@@ -92,7 +102,7 @@ MembLRHS2D.main(params)
     [0.1*0.1*20*ρw], 
     [0.1*0.1*20*ρw*(1.0^2)], 
     [0.0],
-    [Point(xm₀ + Lm/2.0,0.0)]    
+    [Point(xm₀ + memb2D.L/2.0,0.0)]    
   )
   
   # # Resonator parameters
@@ -101,7 +111,7 @@ MembLRHS2D.main(params)
   #   [1e3, 1e3], 
   #   [2.4*2.4*1e3, 3.4*3.4*1e3], 
   #   [0.0, 0.0],
-  #   # [Point(xm₀ + Lm/2.0,0.0)]
+  #   # [Point(xm₀ + memb2D.L/2.0,0.0)]
   #   [Point(90.0, 0.0), Point(85.0, 0.0)]
   # )
 
@@ -111,7 +121,7 @@ MembLRHS2D.main(params)
   #   1.0, 
   #   0.0, 
   #   0.0,
-  #   [Point(xm₀ + Lm/2.0,0.0)]
+  #   [Point(xm₀ + memb2D.L/2.0,0.0)]
   # )
   
 

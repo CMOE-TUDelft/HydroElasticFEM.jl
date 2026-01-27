@@ -13,15 +13,10 @@ using DataFrames:Matrix
 using TickTock
 using Parameters
 using Printf
-using HydroElasticFEM.Resonator
+using HydroElasticFEM: Resonator, Membrane
 using HydroElasticFEM: PKG_ROOT
 using HydroElasticFEM.MeshModifier: map_vertical_GP_for_const_dep
 import HydroElasticFEM.WaveInput_FrequencyDomain as WI
-
-
-abstract type MemBndType end
-struct Free <: MemBndType end
-struct Fixed <: MemBndType end
 
 
 function powerDissipatedResonator(ω, resonator, q, η)
@@ -66,11 +61,11 @@ function main(params)
     res_membrane((ϕ,κ,η),(w,u,v)) = 
       res_membrane((ϕ,κ,η),(w,u,v), memBndType)
 
-    res_membrane((ϕ,κ,η),(w,u,v), ::Free) = 
+    res_membrane((ϕ,κ,η),(w,u,v), ::Membrane.Free) = 
       ∫(  v*(g*η - im*ω*ϕ) +  im*ω*w*η
         - mᵨ*v*ω^2*η + Tᵨ*(1-im*ω*τ)*∇(v)⋅∇(η) )dΓm  
       
-    res_membrane((ϕ,κ,η),(w,u,v), ::Fixed) = 
+    res_membrane((ϕ,κ,η),(w,u,v), ::Membrane.Fixed) = 
       ∫(  v*(g*η - im*ω*ϕ) +  im*ω*w*η
         - mᵨ*v*ω^2*η + Tᵨ*(1-im*ω*τ)*∇(v)⋅∇(η) )dΓm  + 
       ∫(- Tᵨ*(1-im*ω*τ)*v*∇(η)⋅nΛmb )dΛmb
@@ -222,10 +217,11 @@ function main(params)
   @show vtk_output
   filename = name*"/mem"
 
+  @unpack ρw = params #Density of water
   @unpack H0, ω, T, η₀, α = params 
   k = dispersionRelAng.(H0, ω; msg=false)
   
-  ρw = 1025 #kg/m3 water
+  
   @show H0  #m #still-water depth
   @show ω
 
@@ -237,23 +233,18 @@ function main(params)
 
 
   # Membrane parameters
-  @unpack Lm, mᵨ, Tᵨ, τ = params
-  @unpack memBndType = params
-  @show Lm  #m
-  @show g #defined in .Constants
-  @show mᵨ #mass per unit area of membrane / ρw
-  @show Tᵨ #T/ρw
-  @show τ #damping coeff
+  @unpack memb2D = params
+  Lm, τ = memb2D.L, memb2D.τ
+  mᵨ, Tᵨ = memb2D.m/ρw, memb2D.T/ρw
+  memBndType = memb2D.bndType
 
-  # Validate and convert memBndType to symbol
-  memBndType = if memBndType == "free"
-    Free()
-  elseif memBndType == "fixed"
-    Fixed()
-  else
-    error("memBndType should be either 'free' or 'fixed', got: ", memBndType)
-  end
-  @show memBndType  
+  @printf("[MSG] Membrane Properties:\n")
+  @printf("[VAL] Lm = %.4f m\n", Lm)
+  @printf("[VAL] m, mᵨ = %.4f kg/m2, %.4f m\n", memb2D.m, mᵨ)
+  @printf("[VAL] T, Tᵨ = %.4f N/m, %.4f m3/s2\n", memb2D.T, Tᵨ)
+  @printf("[VAL] τ = %.4f \n", τ)
+  @printf("[VAL] memBndType = %s \n", string(memBndType))
+  println()
 
 
   # Domain 
@@ -392,12 +383,12 @@ function main(params)
   U_Ω = TrialFESpace(V_Ω)
   U_Γκ = TrialFESpace(V_Γκ)
 
-  if(memBndType == Fixed())
+  if(memBndType == Membrane.Fixed())
     V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
       vector_type=Vector{ComplexF64},
       dirichlet_tags=["mem_bnd"]) #diri
     U_Γη = TrialFESpace(V_Γη, gη)
-  elseif(memBndType == Free())
+  elseif(memBndType == Membrane.Free())
     V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
       vector_type=Vector{ComplexF64})
     U_Γη = TrialFESpace(V_Γη)
@@ -550,19 +541,20 @@ function main(params)
   closeall() #close plots
   # ----------------------End----------------------
 
-  data = Dict("ω" => ω,
-              "η₀" => η₀,
-              "k" => k,
-              "prbxy" => prbxy,
-              "prbDa" => prbDa,            
-              "prbDa_x" => prbDa_x,
-              "prxΓκ" => prxΓκ,
-              "prxΓη" => prxΓη,
-              "prbDaΓκ" => prbDaΓκ,
-              "prbDaΓη" => prbDaΓη,
-              "prbPow" => prbPow,
-              "resn" => resn,
-              "params" => params )
+  data = Dict(
+    "ω" => ω,
+    "η₀" => η₀,
+    "k" => k,
+    "prbxy" => prbxy,
+    "prbDa" => prbDa,
+    "prbDa_x" => prbDa_x,
+    "prxΓκ" => prxΓκ,
+    "prxΓη" => prxΓη,
+    "prbDaΓκ" => prbDaΓκ,
+    "prbDaΓη" => prbDaΓη,
+    "prbPow" => prbPow,
+    "resn" => resn,
+    "params" => params)
 
   save(filename*"_data.jld2", data)
 
