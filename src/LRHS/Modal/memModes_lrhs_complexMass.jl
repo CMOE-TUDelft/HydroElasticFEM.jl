@@ -133,11 +133,11 @@ function run_case( params )
   if vtk_output == true
     isdir(fileName*"_vtk") || mkpath(fileName*"_vtk")
     writevtk(model, fileName*"_vtk/mem_model")
-    writevtk(Ω,fileName*"_vtk/O")
-    writevtk(Γ,fileName*"_vtk/G")
-    writevtk(Γm,fileName*"_vtk/Gm")  
-    writevtk(Γfs,fileName*"_vtk/Gfs")
-    writevtk(Λmb,fileName*"_vtk/Lmb")  
+    writevtk(Ω,fileName*"_vtk/mem_O")
+    writevtk(Γ,fileName*"_vtk/mem_G")
+    writevtk(Γm,fileName*"_vtk/mem_Gm")  
+    writevtk(Γfs,fileName*"_vtk/mem_Gfs")
+    writevtk(Λmb,fileName*"_vtk/mem_Lmb")  
   end
 
 

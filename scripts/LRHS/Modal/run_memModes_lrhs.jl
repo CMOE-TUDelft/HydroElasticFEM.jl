@@ -85,12 +85,12 @@ for imrho in m_rho
     # end
     # mkdir(caseDir)    
 
-    iresnMᵨ = 0.1*memb2D.MTotal
-    iresnKᵨ = iresnMᵨ*1.0
-    resn = Resonator.Single( iresnMᵨ, iresnKᵨ, 0.0, Point(30.0, 0.0) )
+    iresnM = 0.1*memb2D.MTotal
+    iresnK = iresnM*1.0
+    resn = Resonator.Single( iresnM, iresnK, 0.0, Point(30.0, 0.0) )
 
-    resonatorName = "resnM=" * @sprintf("%0.2f", iresnMᵨ) *
-      "_resnK=" * @sprintf("%0.2f", iresnKᵨ)
+    resonatorName = "resnM=" * @sprintf("%0.2f", iresnM) *
+      "_resnK=" * @sprintf("%0.2f", iresnK)
     
 
     # Update paramsBase for each run
