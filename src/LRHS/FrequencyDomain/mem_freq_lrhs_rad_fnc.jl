@@ -1,5 +1,3 @@
-include("./config_parameters.jl")
-
 module MembLRHS2D
 
 using Gridap
@@ -17,6 +15,10 @@ using HydroElasticFEM: Resonator, Membrane
 using HydroElasticFEM: PKG_ROOT
 using HydroElasticFEM.MeshModifier: map_vertical_GP_for_const_dep
 import HydroElasticFEM.WaveInput_FrequencyDomain as WI
+
+
+include("./_config_parameters.jl")
+include("./_plotting_utilities.jl")
 
 
 function powerDissipatedResonator(ω, resonator, q, η)
@@ -170,40 +172,37 @@ function main(params)
     # ---------------------Start---------------------
     if vtk_output == true
       
-      freqName = filename*"_omg_" * @sprintf("%.3f", ω)
+      freqName = filename * "_omg_" * @sprintf("%.3f", ω)
 
-      if(isdir(freqName))
+      if (isdir(freqName))
         rm(freqName; recursive=true, force=true)
       end
       mkpath(freqName)
 
-
       writevtk(Ω, freqName * "/mem_O_sol.vtu",
-        cellfields = ["phi_re" => real(ϕₕ),"phi_im" => imag(ϕₕ),
-        "phi_abs" => abs(ϕₕ), "phi_ang" => angle∘(ϕₕ)])
+        cellfields=["phi_re" => real(ϕₕ), "phi_im" => imag(ϕₕ),
+          "phi_abs" => abs(ϕₕ), "phi_ang" => angle ∘ (ϕₕ)])
 
-      
       writevtk(Γη, freqName * "/mem_R_sol.vtu",
-        cellfields = vcat(
-          [ "q$i" => real(qhi⋅î1)*VectorValue(1.0,0.0) + imag(qhi⋅î1)*VectorValue(0.0,1.0)
-            for (i, qhi) in enumerate(qₕ) ],
-          [ "q$i"*"_XZ" => iresn.XZ 
-            for (i, iresn) in enumerate(resn) ],
-          [ "q$i"*"_MKC" => VectorValue(iresn.M,iresn.K,iresn.C)
-            for (i, iresn) in enumerate(resn) ]
-        ) )
-      
+        cellfields=vcat(
+          ["q$i" => real(qhi ⋅ î1) * VectorValue(1.0, 0.0) + imag(qhi ⋅ î1) * VectorValue(0.0, 1.0)
+           for (i, qhi) in enumerate(qₕ)],
+          ["q$i" * "_XZ" => iresn.XZ
+           for (i, iresn) in enumerate(resn)],
+          ["q$i" * "_MKC" => VectorValue(iresn.M, iresn.K, iresn.C)
+           for (i, iresn) in enumerate(resn)]
+        ))
 
       writevtk(Γκ, freqName * "/mem_Gk_sol.vtu",
-        cellfields = ["eta_re" => real(κₕ),"eta_im" => imag(κₕ),
-        "eta_abs" => abs(κₕ), "eta_ang" => angle∘(κₕ),
-        "etaR_re" => real(κr),"etaR_im" => imag(κr),
-        "etaR_abs" => abs(κr), "etaR_ang" => angle∘(κr),
-        "ηin_abs" => abs(κin), "ηin_ang" => angle∘(κin)])
+        cellfields=["eta_re" => real(κₕ), "eta_im" => imag(κₕ),
+          "eta_abs" => abs(κₕ), "eta_ang" => angle ∘ (κₕ),
+          "etaR_re" => real(κr), "etaR_im" => imag(κr),
+          "etaR_abs" => abs(κr), "etaR_ang" => angle ∘ (κr),
+          "ηin_abs" => abs(κin), "ηin_ang" => angle ∘ (κin)])
 
       writevtk(Γη, freqName * "/mem_Ge_sol.vtu",
-        cellfields = ["eta_re" => real(ηₕ),"eta_im" => imag(ηₕ),
-        "eta_abs" => abs(ηₕ), "eta_ang" => angle∘(ηₕ)])
+        cellfields=["eta_re" => real(ηₕ), "eta_im" => imag(ηₕ),
+          "eta_abs" => abs(ηₕ), "eta_ang" => angle ∘ (ηₕ)])
     end
     # ----------------------End----------------------
     
@@ -479,84 +478,22 @@ function main(params)
 
   # Plotting 
   # ---------------------Start---------------------
+  cache_for_plots = (;            #; is req for crearing named tuple
+    filename, ω, η₀, k, 
+    prbxy, prbx, prbDa, prbDa_x,
+    prxΓκ, prxΓη, prbDaΓκ, prbDaΓη,
+    prbPow, prbResnRAO, resn, params
+  )
+
   if isdir(filename*"_plots")
     rm(filename*"_plots"; force=true, recursive=true)
   end
   mkpath(filename*"_plots")  
 
-  # Power Balance Plots
-  plt1 = plot(ω, prbPow[:,3]./prbPow[:,2], linewidth=3, 
-    xlabel = "ω (rad/s)",
-    ylabel = "K_R",
-    title = "Reflection coefficient",
-    ylims = (0,1.0))
-
-  plt2 = plot(ω, prbPow[:,4]./prbPow[:,2], linewidth=3, 
-    xlabel = "ω (rad/s)",
-    ylabel = "K_T",
-    title = "Transmission coefficient",
-    ylims = (0,1.0))
-
-  plt3 = plot(ω, prbPow[:,5]./prbPow[:,2], linewidth=3, 
-    xlabel = "ω (rad/s)",
-    ylabel = "K_A",
-    title = "Absorption coefficient",
-    ylims = (0,1.0))
-
-  plt4 = plot(ω, 100 * prbPow[:,6]./prbPow[:,2], linewidth=3, 
-    xlabel = "ω (rad/s)",
-    ylabel = "Error %",
-    title = "Power Relative Error")
-
-  pltAll = plot(plt1, plt2, plt3, plt4, layout=4, dpi=330,
-    plot_title = "Power Balance")
-  savefig(pltAll,filename*"_plots/mem_powerBalance"*".png")
-
-
-  # Resonator RAO Plots
-  plt3 = plot(ω, abs.(prbResnRAO[:,2]), linewidth=3,
-    xlabel = "ω (rad/s)",
-    ylabel = "q_resn (m)",
-    title = "Resonator Displacement Amplitude")
-  
-  plt4 = plot(ω, abs.(prbResnRAO[:,3]), linewidth=3,
-    xlabel = "ω (rad/s)",
-    ylabel = "η_resn (m)",
-    title = "Membrane Elevation at Resonator Location")
-  
-  pltAll = plot(plt3, plt4, layout=(2,1), dpi=330,
-    plot_title = "Resonator RAO")
-  savefig(pltAll,filename*"_plots/mem_resonatorRAO"*".png")
-  
-
-  for lprb in 1:length(prbxy)    
-
-    plt1 = plot(ω, abs.(prbDa[:,lprb]), linewidth=3, 
-      xlabel = "ω (rad/s)",
-      ylabel = "A (m)",
-      title = "Amplitude")  
-
-    plt2 = plot(ω, abs.(prbDa_x[:,lprb]), linewidth=3, 
-      xlabel = "ω (rad/s)",
-      ylabel = "dA/dx",
-      title = "Slope Magnitude")
+  plot_power_coefficient(cache_for_plots)
+  plot_resonator_RAO(cache_for_plots)
+  plot_probes_along_free_surface(cache_for_plots)
     
-    plt3 = plot(ω, angle.(prbDa[:,lprb]), linewidth=3, 
-      xlabel = "ω (rad/s)",
-      ylabel = "α (rad)",
-      title = "Phase")  
-
-    plt4 = plot(ω, angle.(prbDa_x[:,lprb]), linewidth=3, 
-      xlabel = "ω (rad/s)",
-      ylabel = "α (rad)",
-      title = "Slope Phase")
-    
-    xloc = prbx[lprb]
-    pltAll = plot(plt1, plt2, plt3, plt4, layout=4, dpi=330,
-      plot_title = "x = $xloc")
-
-    savefig(pltAll,filename*"_plots/mem_dxPrb_$lprb"*".png")
-  end  
   closeall() #close plots
   # ----------------------End----------------------
 
@@ -580,6 +517,7 @@ function main(params)
 
   save(filename*"_data.jld2", data)
 
+  return cache_for_plots
 end
 
 end

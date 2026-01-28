@@ -6,9 +6,6 @@ using .Constants
 using HydroElasticFEM: Resonator, Membrane
 using HydroElasticFEM: PKG_ROOT
 
-include(joinpath(PKG_ROOT,
-  "src","LRHS","FrequencyDomain","config_parameters.jl"))
-
 # Here you may include files from the source directory
 # include( joinpath(PKG_ROOT,"src","LRHS",
 #   "FrequencyDomain","mem_freq_lrmm_free_fnc.jl") )
@@ -27,7 +24,7 @@ resDir::String = "data/sims_202601/runlrhs"
 # Warm-up run
 # ---------------------Start--------------------- 
 isdir(resDir*"/warmup") || mkpath(resDir*"/warmup")
-params = Memb_LRHS_warmup(name = resDir*"/warmup")
+params = MembLRHS2D.Memb_LRHS_warmup(name = resDir*"/warmup")
 MembLRHS2D.main(params)
 rm(resDir*"/warmup"; recursive=true, force=true)
 # ----------------------End----------------------
@@ -116,7 +113,7 @@ resonatorName = "resnM=" * @sprintf("%0.2f", params.resn[1].M) *
 
 MembLRHS2D.main(params)
 # ----------------------End----------------------
-
+nothing
 
 # ============================================================================
 # Resonator Options
