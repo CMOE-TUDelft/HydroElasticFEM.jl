@@ -3,6 +3,7 @@ module Resonator
 using Parameters
 using Gridap
 using Gridap.CellData
+using Printf
 
 
 """
@@ -37,6 +38,19 @@ Functions
 
 """
 # ----------------------Start--------------------
+
+function print_resonator_props( resn::Single )
+  
+  @printf("\n[MSG] Resonator Properties:\n")
+  @printf("[VAL] M = %.4f kg\n", resn.M)
+  @printf("[VAL] K = %.4f N/m\n", resn.K)
+  @printf("[VAL] C = %.4f Ns/m\n", resn.C)
+  @printf("[VAL] XZ = (%.4f, %.4f) m\n", resn.XZ[1], resn.XZ[2])
+  @printf("[VAL] ωn1 = %.4f rad/s\n", resn.ωn1)
+  println()
+
+end
+
 # @with_kw struct Array1D
 	
 #   N::Int

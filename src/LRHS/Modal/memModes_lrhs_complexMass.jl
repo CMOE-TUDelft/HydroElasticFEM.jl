@@ -9,49 +9,38 @@ using LinearAlgebra
 using TickTock
 using DataFrames
 using Printf
-using HydroElasticFEM.Resonator
+using HydroElasticFEM: Resonator, Membrane
 
-abstract type MemBndType end
-struct Free <: MemBndType end
-struct Fixed <: MemBndType end
 
 function run_case( params )  
   
   @printf("\n[MSG] Method 1: Complex Mass\n\n")
 
-  @unpack mfac, tfac = params
-  @unpack memBndType = params
-  @unpack resn_ρw = params
+  # Constants
+  @unpack ρw = params #kg/m3 water    
+  @show g #defined in .Constants
+    
   @unpack order, vtk_output = params
-  @unpack H0, Lm = params
+  @unpack H0 = params
   @unpack nωₙ = params
 
   @unpack αRelax, maxIter, ωn_guess = params
 
   @unpack resDir, fileName = params
-
+  
   fileName = resDir*"/"*fileName
 
-  # Validate and convert memBndType to symbol
-  memBndType = if memBndType == "free"
-    Free()
-  elseif memBndType == "fixed"
-    Fixed()
-  else
-    error("memBndType should be either 'free' or 'fixed', got: ", memBndType)
-  end
-  @show memBndType
-  
-  @show resn_ρw
-  @show resn_ρw.XZ
-
-  # Constants
-  ρw = 1025 #kg/m3 water    
-  @show g #defined in .Constants
-  
   # Membrane parameters
-  mᵨ = mfac  #mass per unit area of membrane / ρw
-  Tᵨ = tfac *g*H0*H0 #T/ρw
+  @unpack memb2D = params
+  Lm = memb2D.L
+  mᵨ, Tᵨ = memb2D.m/ρw, memb2D.T/ρw
+  memBndType = memb2D.bndType
+
+  Membrane.print_membrane_props(memb2D)
+
+  @unpack resn = params
+  Resonator.print_resonator_props(resn)
+
 
   # Domain 
   @unpack nx, ny, mesh_ry, LΩ = params
@@ -142,12 +131,13 @@ function run_case( params )
 
   
   if vtk_output == true
-    writevtk(model, fileName*"_model")
-    writevtk(Ω,fileName*"_O")
-    writevtk(Γ,fileName*"_G")
-    writevtk(Γm,fileName*"_Gm")  
-    writevtk(Γfs,fileName*"_Gfs")
-    writevtk(Λmb,fileName*"_Lmb")  
+    isdir(fileName*"_vtk") || mkpath(fileName*"_vtk")
+    writevtk(model, fileName*"_vtk/mem_model")
+    writevtk(Ω,fileName*"_vtk/O")
+    writevtk(Γ,fileName*"_vtk/G")
+    writevtk(Γm,fileName*"_vtk/Gm")  
+    writevtk(Γfs,fileName*"_vtk/Gfs")
+    writevtk(Λmb,fileName*"_vtk/Lmb")  
   end
 
 
@@ -177,11 +167,11 @@ function run_case( params )
   U_Ω = TrialFESpace(V_Ω)
   U_Γκ = TrialFESpace(V_Γκ)
   
-  if(memBndType == Free())
+  if(memBndType == Membrane.Free())
     V_Γη = TestFESpace(Γη, reffe, conformity=:H1,
       vector_type=Vector{ComplexF64})
     U_Γη = TrialFESpace(V_Γη)      
-  elseif(memBndType == Fixed())
+  elseif(memBndType == Membrane.Fixed())
     V_Γη = TestFESpace(Γη, reffe, conformity=:H1,
       vector_type=Vector{ComplexF64},
       dirichlet_tags=["mem_bnd"]) #diri
@@ -199,7 +189,7 @@ function run_case( params )
   U_Γq = TrialFESpace(V_Γq)
   î1 = VectorValue(1.0)
 
-  δ_p = DiracDelta(Γ, resn_ρw.XZ)
+  δ_p = DiracDelta(Γ, resn.XZ)
   # ----------------------End----------------------
 
 
@@ -225,33 +215,33 @@ function run_case( params )
   k11(η,v) = k11(η,v,memBndType)
   k11Dry(η,v) = k11Dry(η,v,memBndType)
     
-  k11(η,v,::Free) = 
+  k11(η,v,::Membrane.Free) = 
     ∫( v*g*η + Tᵨ*∇(v)⋅∇(η) )dΓm +  
-    resn_ρw.K * δ_p( v*η ) #Resonator
+    resn.K/ρw * δ_p( v*η ) #Resonator
   
-  k11Dry(η,v,::Free) = 
+  k11Dry(η,v,::Membrane.Free) = 
     ∫( Tᵨ*∇(v)⋅∇(η) )dΓm +  
-    resn_ρw.K * δ_p( v*η ) #Resonator
+    resn.K/ρw * δ_p( v*η ) #Resonator
 
-  k11(η,v,::Fixed) = 
+  k11(η,v,::Membrane.Fixed) = 
     ∫( v*g*η + Tᵨ*∇(v)⋅∇(η) )dΓm +  
     ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb + #diri
-    resn_ρw.K * δ_p( v*η ) #Resonator    
+    resn.K/ρw * δ_p( v*η ) #Resonator    
   
-  k11Dry(η,v,::Fixed) = 
+  k11Dry(η,v,::Membrane.Fixed) = 
     ∫( Tᵨ*∇(v)⋅∇(η) )dΓm +
     ∫(- Tᵨ*v*∇(η)⋅nΛmb )dΛmb + #diri
-    resn_ρw.K * δ_p( v*η ) #Resonator    
+    resn.K/ρw * δ_p( v*η ) #Resonator    
   
 
   k22(ϕ,w) = ∫( ∇(w)⋅∇(ϕ) )dΩ
 
   k33(κ,u) = ∫( u*g*κ )dΓfs  
   
-  m44(q,ξ) = resn_ρw.M * δ_p(q⋅ξ)
-  k44(q,ξ) = resn_ρw.K * δ_p(q⋅ξ)
-  k14(q,v) = -resn_ρw.K * δ_p( v*(q⋅î1) ) 
-  k41(η,ξ) = -resn_ρw.K * δ_p((ξ⋅î1)*η)
+  m44(q,ξ) = resn.M * δ_p(q⋅ξ)
+  k44(q,ξ) = resn.K * δ_p(q⋅ξ)
+  k14(q,v) = -resn.K/ρw * δ_p( v*(q⋅î1) ) 
+  k41(η,ξ) = -resn.K * δ_p((ξ⋅î1)*η)
 
   l1(v) = ∫( 0*v )dΓm
   l2(w) = ∫( 0*w )dΩ
@@ -389,7 +379,7 @@ function run_case( params )
 
   startIndex = 1
 
-  if(memBndType == Free())
+  if(memBndType == Membrane.Free())
     startIndex = 2  # Skip first mode for free membrane
   
     # Push zeros in first mode for free membrane
@@ -447,6 +437,7 @@ function run_case( params )
     savefig(fileName*"_figs/eigenvalues_mode_$(lpad(i, 3, '0')).png")
 
   end
+  closeall() #close plots
 
   dfWet = DataFrame(
     ωn = da_ωₙ,
@@ -472,53 +463,6 @@ function run_case( params )
   save(fileName*"_modesdata.jld2", data)
   # ---------------------End---------------------
 end
-
-
-"""
-Memb_params
-
-Parameters for the VIV.jl module.
-"""
-@with_kw struct Memb_LRHS_params
-
-  resDir::String = "data/sims_202508/mem_modes_free/"
-  fileName::String = "lrhs"
-
-  order::Int = 2
-  vtk_output::Bool = true  
-
-  memBndType::String = "free"  #"fixed" or "free"
-  H0 = 10 #m #still-water depth
-  Lm = 2*H0 #m
-
-  # Domain 
-  nx = 120
-  ny = 10
-  mesh_ry = 1.2 #Ratio for Geometric progression of eleSize
-  LΩ = 6*H0 
-  x₀ = 0.0
-  xm₀ = x₀ + 2*H0
-  xm₁ = xm₀ + Lm
-
-  mfac = 0.9
-  tfac = 0.1
-
-  # Resonator parameters divided by ρw
-  resn_ρw = Resonator.Single( 1, 0.0, 0.0, Point(3*H0, 0.0) )
-
-  # Number of natural frequencies
-  nωₙ = 6
-
-  # Iterative solution for wet natural frequencies
-  αRelax = 0.8
-  maxIter = 20
-  
-  # initial guess for natural frequencies
-  ωn_guess = zeros(ComplexF64, nωₙ) .+ 1.0
-  
-  
-end
-
 
 
 
