@@ -1,11 +1,11 @@
 """
-Memb_LRHS_params
+Beam2D Modal Analysis Configuration Parameters.
 
-Parameters for the Memb2D LRHS modal analysis.
+Parameters for the Beam2D LRHS modal analysis.
 """
-@with_kw struct Memb_LRHS_params
+@with_kw struct Beam_params
 
-  resDir::String = "data/sims_202508/mem_modes_free/"
+  resDir::String = "data/sims_202508/beam_modes_free/"
   fileName::String = "lrhs"
 
   # Constants
@@ -16,13 +16,14 @@ Parameters for the Memb2D LRHS modal analysis.
 
   H0 = 10 #m #still-water depth
 
-  # Membrane parameters
-  memb2D = Membrane.Membrane2D(
+  # Beam2D parameters
+  beam2D = BeamNoJoints.Beam2D(
     2*H0,   # L
-    0.9*ρw,   # m
-    0.1/4*g* (2*H0)^2 *ρw,    # T 
+    192.956,   # m
+    500e6,    # E
+    6.667e-4,    # I 
     0.0,    # τ
-    Membrane.Free()
+    BeamNoJoints.Free()
   )
 
   # Domain 
@@ -32,10 +33,8 @@ Parameters for the Memb2D LRHS modal analysis.
   LΩ = 6*H0 
   x₀ = 0.0
   xm₀ = x₀ + 2*H0
-  xm₁ = xm₀ + memb2D.L  
+  xm₁ = xm₀ + beam2D.L  
 
-  # Resonator parameters divided by ρw
-  resn = Resonator.Single( 1000, 0.0, 0.0, Point(3*H0, 0.0) )
 
   # Number of natural frequencies
   nωₙ = 6
