@@ -2,7 +2,7 @@ using Parameters
 using Gridap
 using Printf
 using WaveSpec.Constants
-using HydroElasticFEM: Resonator, Membrane
+using HydroElasticFEM: print_properties,  Resonator, Membrane
 using HydroElasticFEM: PKG_ROOT
 
 include(joinpath(PKG_ROOT,

@@ -12,7 +12,7 @@ Custom Structs
 
 """
 # ---------------------Start---------------------
-@with_kw struct Single
+struct Single
 	
 	M::Real # Mass
   K::Real # Stiffness
@@ -28,6 +28,10 @@ Custom Structs
   end
 
 end
+
+function Single()
+  Single( 0.0, 0.0, 0.0, VectorValue(0.0, 0.0) )
+end
 # ----------------------End----------------------
 
 
@@ -39,7 +43,7 @@ Functions
 """
 # ----------------------Start--------------------
 
-function print_resonator_props( resn::Single )
+function print_properties( resn::Single )
   
   @printf("\n[MSG] Resonator Properties:\n")
   @printf("[VAL] M = %.4f kg\n", resn.M)
@@ -51,8 +55,8 @@ function print_resonator_props( resn::Single )
 
 end
 
-function print_resonator_props( resn::Vector{Single} )
-  print_resonator_props.(resn)
+function print_properties( resn::Vector{Single} )
+  print_properties.(resn)
 end
 
 # @with_kw struct Array1D

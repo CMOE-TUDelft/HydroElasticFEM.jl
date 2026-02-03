@@ -17,7 +17,7 @@ struct Free <: MembraneBndType end
 struct Fixed <: MembraneBndType end
 
 
-@with_kw struct Membrane2D
+struct Membrane2D
 	
   L::Real # Length of membrane
   m::Real # Mass per unit length per unit width
@@ -37,7 +37,7 @@ struct Fixed <: MembraneBndType end
 
 end
 
-function Membrane2D(bndType::MembraneBndType)
+function Membrane2D(bndType::MembraneBndType = Free())
   Membrane2D( 0.0, 0.0, 0.0, 0.0, bndType )
 end
 
@@ -51,7 +51,7 @@ Functions
 
 """
 # ----------------------Start--------------------
-function print_membrane_props( memb2D::Membrane2D, ρw::Real = 1025 )
+function print_properties( memb2D::Membrane2D, ρw::Real = 1025 )
   
   mᵨ = memb2D.m / ρw
   Tᵨ = memb2D.T / ρw

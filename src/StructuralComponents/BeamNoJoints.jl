@@ -1,0 +1,80 @@
+module BeamNoJoints
+
+using Gridap
+using Gridap.CellData
+using Printf
+
+
+"""
+Custom Structs
+=============
+
+"""
+# ---------------------Start---------------------
+abstract type BeamBndType end
+struct Free <: BeamBndType end
+struct Fixed <: BeamBndType end
+
+
+struct Beam2D
+	
+  L::Real # Length of membrane
+  m::Real # Mass per unit length per unit width
+  E::Real # Young's Modulus
+  I::Real # Second Moment of Area 
+  τ::Real # Stiffness Proportional Structural Damping coefficient 
+  bndType::BeamBndType # Boundary Type (:free or :fixed)
+  
+  # Derived quantities
+  EI::Real # Flexural Rigidity
+  τEI::Real # Damping Rigidity
+  MTotal::Real # Total Mass per unit width
+  ωn1::Real # Dry Analytical Natural frequency
+
+  function Beam2D( L, m, E, I, τ, bndType::BeamBndType )
+    MTotal = m * L
+    EI = E * I
+    τEI = τ * EI
+    ωn1 = (π / 2) * sqrt( EI / (m * L^4) )
+    new( L, m, E, I, τ, bndType, EI, τEI, MTotal, ωn1 )
+  end   
+
+end
+
+function Beam2D(bndType::BeamBndType = Free())
+  Beam2D( 0.0, 0.0, 0.0, 0.0, 0.0, bndType )
+end
+
+
+
+# ----------------------End----------------------
+
+
+
+"""
+Functions
+=============
+
+"""
+# ----------------------Start--------------------
+function print_properties( beam2D::Beam2D, ρw::Real = 1025 )
+  
+  mᵨ = beam2D.m / ρw
+  EIᵨ = beam2D.EI / ρw
+
+  @printf("\n[MSG] Beam Properties:\n")
+  @printf("[VAL] Density of water, ρw = %.2f kg/m3\n", ρw)
+  @printf("[VAL] L = %.4f m\n", beam2D.L)
+  @printf("[VAL] m, mᵨ = %.4f kg/m, %.4f m\n", beam2D.m, mᵨ)
+  @printf("[VAL] EI, EIᵨ = %.4f Nm2, %.4f m5/s2\n", beam2D.EI, EIᵨ)
+  @printf("[VAL] τEI = %.4f Nm2 \n", beam2D.τEI)
+  @printf("[VAL] τ = %.4f \n", beam2D.τ)
+  @printf("[VAL] beamBndType = %s \n", string(beam2D.bndType))
+  @printf("[VAL] MTotal = %.4f kg \n", beam2D.MTotal)
+  @printf("[VAL] 1st Dry Analytical Natural Freq, ωn1 = %.4f rad/s \n", beam2D.ωn1)
+  println()
+  
+end
+# ----------------------End----------------------
+
+end 

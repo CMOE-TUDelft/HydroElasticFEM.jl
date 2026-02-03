@@ -11,7 +11,7 @@ using DataFrames:Matrix
 using TickTock
 using Parameters
 using Printf
-using HydroElasticFEM: Resonator, Membrane
+using HydroElasticFEM: print_properties, Resonator, Membrane
 using HydroElasticFEM: PKG_ROOT
 using HydroElasticFEM.MeshModifier: map_vertical_GP_for_const_dep
 import HydroElasticFEM.WaveInput_FrequencyDomain as WI
@@ -239,7 +239,7 @@ function main(params)
   mᵨ, Tᵨ = memb2D.m/ρw, memb2D.T/ρw
   memBndType = memb2D.bndType
 
-  Membrane.print_membrane_props(memb2D)
+  print_properties(memb2D)
 
 
   # Domain 
@@ -396,7 +396,7 @@ function main(params)
   # Resonator FE Spaces
   # ---------------------Start---------------------
   @unpack resn = params
-  ( iresn -> Resonator.print_resonator_props(iresn) ).(resn)
+  ( iresn -> print_properties(iresn) ).(resn)
 
   V_Γq_Arr = [ ConstantFESpace( Ω, 
     vector_type=Vector{ComplexF64}, 

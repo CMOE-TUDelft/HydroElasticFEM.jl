@@ -3,7 +3,7 @@ using Printf
 using Gridap
 using WaveSpec
 using .Constants
-using HydroElasticFEM: Resonator, Membrane
+using HydroElasticFEM: print_properties,  Resonator, Membrane
 using HydroElasticFEM: PKG_ROOT
 
 # Here you may include files from the source directory

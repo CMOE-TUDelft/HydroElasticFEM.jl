@@ -9,7 +9,7 @@ using LinearAlgebra
 using TickTock
 using DataFrames
 using Printf
-using HydroElasticFEM: Resonator, Membrane
+using HydroElasticFEM: print_properties, Resonator, Membrane
 
 
 function run_case( params )  
@@ -36,10 +36,10 @@ function run_case( params )
   mᵨ, Tᵨ = memb2D.m/ρw, memb2D.T/ρw
   memBndType = memb2D.bndType
 
-  Membrane.print_membrane_props(memb2D)
+  print_properties(memb2D)
 
   @unpack resn = params
-  Resonator.print_resonator_props(resn)
+  print_properties(resn)
 
 
   # Domain 
