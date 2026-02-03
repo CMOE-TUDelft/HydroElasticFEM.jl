@@ -13,7 +13,7 @@ using TickTock
 using Parameters
 import HydroElasticFEM.WaveInput_FrequencyDomain as WI
 using HydroElasticFEM: PKG_ROOT
-using HydroElasticFEM.MeshModifier: map_vertical_GP_for_const_dep
+using HydroElasticFEM: map_vertical_GP_for_const_dep
 
 
 abstract type MemBndType end

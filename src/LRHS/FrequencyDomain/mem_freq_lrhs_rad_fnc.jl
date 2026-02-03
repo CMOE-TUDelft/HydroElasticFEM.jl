@@ -13,7 +13,7 @@ using Parameters
 using Printf
 using HydroElasticFEM: print_properties, Resonator, Membrane
 using HydroElasticFEM: PKG_ROOT
-using HydroElasticFEM.MeshModifier: map_vertical_GP_for_const_dep
+using HydroElasticFEM: map_vertical_GP_for_const_dep
 import HydroElasticFEM.WaveInput_FrequencyDomain as WI
 
 
