@@ -51,6 +51,10 @@ function print_resonator_props( resn::Single )
 
 end
 
+function print_resonator_props( resn::Vector{Single} )
+  print_resonator_props.(resn)
+end
+
 # @with_kw struct Array1D
 	
 #   N::Int
@@ -113,7 +117,7 @@ function Array1D(
     throw(ArgumentError("M, K, C, and XZ must be of length N"))
   end
 
-  rA = []
+  rA = Vector{Single}()
 
   for (m,k,c,xz) in zip(M,K,C,XZ)
     push!(rA, Single(m,k,c,xz))
