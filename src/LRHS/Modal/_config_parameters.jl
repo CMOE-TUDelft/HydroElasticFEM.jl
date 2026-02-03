@@ -67,7 +67,7 @@ Beam_LRHS_params
 Parameters for the Beam2D LRHS modal analysis.
 """
 
-@with_kw struct Beam_params
+@with_kw struct Beam_LRHS_params
 
   resDir::String = "data/sims_202508/beam_modes_free/"
   fileName::String = "lrhs"

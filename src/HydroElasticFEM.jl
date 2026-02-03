@@ -24,11 +24,11 @@ function print_properties(ele::BeamNoJoints.Beam2D)
 end
 
 function print_properties(ele::Membrane.Membrane2D)
-    print_properties(ele)
+    Membrane.print_properties(ele)
 end
 
 function print_properties(ele::Resonator.Single)
-    print_properties(ele)
+    Resonator.print_properties(ele)
 end
 # ----------------------End---------------------
 

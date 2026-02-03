@@ -40,6 +40,10 @@ function run_case( params )
 
   print_properties(beam2D)
 
+  # Resonator parameters
+  @unpack resn = params
+  print_properties(resn)
+
 
   # Domain 
   @unpack nx, ny, mesh_ry, LΩ = params
@@ -173,6 +177,18 @@ function run_case( params )
   println("[MSG] Stabalisation Element size h = ", h, "\n")
 
 
+  # Resonator FE Spaces
+  # ---------------------Start---------------------
+  V_Γq = ConstantFESpace( Ω, 
+    vector_type=Vector{ComplexF64}, 
+    field_type=VectorValue{1,ComplexF64} )     
+  U_Γq = TrialFESpace(V_Γq)
+  î1 = VectorValue(1.0)
+
+  δ_p = DiracDelta(Γ, resn.XZ)
+  # ----------------------End----------------------
+
+
   ## Weak form: Constant matrices
   # --------------------Start--------------------
   ∇ₙ(ϕ) = ∇(ϕ)⋅VectorValue(0.0,1.0)
@@ -199,14 +215,16 @@ function run_case( params )
     ∫(  EI_ρ * ( - jump(∇(v)⋅nΛb) * mean(Δ(η)) +
         -mean(Δ(v)) * jump(∇(η)⋅nΛb) + 
         γ_m/h*( jump(∇(v)⋅nΛb) * jump(∇(η)⋅nΛb) ) ) 
-    )dΛb             
+    )dΛb +
+    resn.K/ρw * δ_p( v*η ) #Resonator
   
   k11Dry(η,v,::BeamNoJoints.Free) = 
     ∫(  EI_ρ*Δ(v)*Δ(η) )dΓb +
     ∫(  EI_ρ * ( - jump(∇(v)⋅nΛb) * mean(Δ(η)) +
         -mean(Δ(v)) * jump(∇(η)⋅nΛb) + 
         γ_m/h*( jump(∇(v)⋅nΛb) * jump(∇(η)⋅nΛb) ) ) 
-    )dΛb             
+    )dΛb +
+    resn.K/ρw * δ_p( v*η ) #Resonator  
 
   # k11(η,v,::BeamNoJoints.Fixed) = 
   #   ∫( v*g*η + Tᵨ*∇(v)⋅∇(η) )dΓb +  
@@ -220,10 +238,16 @@ function run_case( params )
   k22(ϕ,w) = ∫( ∇(w)⋅∇(ϕ) )dΩ
 
   k33(κ,u) = ∫( u*g*κ )dΓfs  
+
+  m44(q,ξ) = resn.M * δ_p(q⋅ξ)
+  k44(q,ξ) = resn.K * δ_p(q⋅ξ)
+  k14(q,v) = -resn.K/ρw * δ_p( v*(q⋅î1) ) 
+  k41(η,ξ) = -resn.K * δ_p((ξ⋅î1)*η)
   
   l1(v) = ∫( 0*v )dΓb
   l2(w) = ∫( 0*w )dΩ
   l3(u) = ∫( 0*u )dΓfs 
+  l4(ξ) = ∫( 0*(ξ⋅î1) )dΩ 
   println("[MSG] Done Weak form")
 
   # Global matrices: constant matrices
@@ -240,7 +264,13 @@ function run_case( params )
   K22 = get_matrix(AffineFEOperator( k22, l2, U_Ω, V_Ω ))
   K33 = get_matrix(AffineFEOperator( k33, l3, U_Γκ, V_Γκ ))  
 
+  # Resonator Matrices
+  M44 = get_matrix(AffineFEOperator( m44, l4, U_Γq, V_Γq ))  
+  K44 = get_matrix(AffineFEOperator( k44, l4, U_Γq, V_Γq ))
+  K14 = get_matrix(AffineFEOperator( k14, l1, U_Γq, V_Γη ))
+  K41 = get_matrix(AffineFEOperator( k41, l4, U_Γη, V_Γq ))
   
+
   # Eliminate η equation
   M22 = - C23 * (Matrix(K33) \ C32)
 
@@ -253,7 +283,16 @@ function run_case( params )
   # --------------------Start--------------------
   function run_dry_analysis()
 
-    λDry, VDry = LinearAlgebra.eigen(M11\Matrix(K11Dry))
+    # Including Resonator
+    sz_η = size(M11,1)
+    sz_q = size(M44,1)
+    MTotResn = [M11   zeros(sz_η, sz_q);
+                zeros(sz_q, sz_η)      M44]
+    
+    KTotResn = [K11Dry   K14;
+                K41   K44]
+
+    λDry, VDry = LinearAlgebra.eigen(MTotResn\Matrix(KTotResn))    
     ωn_dry = sqrt.(λDry[1:nωₙ])
     da_V_dry = [ VDry[:,i] for i in [1:nωₙ;] ]
 
@@ -262,7 +301,7 @@ function run_case( params )
     da_V_dry = da_V_dry[idx]
 
     meffDry = 
-      diag( transpose(VDry[:,1:nωₙ]) * M11 * VDry[:,1:nωₙ] )
+      diag( transpose(VDry[:,1:nωₙ]) * MTotResn * VDry[:,1:nωₙ] )
 
     cache = (ωn_dry, da_V_dry, meffDry)
   end
@@ -309,17 +348,28 @@ function run_case( params )
     MTot = M11 - Sol
     KTot = K11
 
-    AFull = MTot \ KTot
-    
-    λ, V = LinearAlgebra.eigen(AFull)
+    # AFull = MTot \ KTot
 
+    # Including Resonator
+    sz_η = size(M11,1)
+    sz_q = size(M44,1)
+    MTotResn = [MTot   zeros(sz_η, sz_q);
+               zeros(sz_q, sz_η)      M44]
+    
+    KTotResn = [KTot   K14;
+               K41   K44]
+    
+    AFullResn = MTotResn \ Matrix(KTotResn)
+    
+    λ, V = LinearAlgebra.eigen(AFullResn)
+    
     ω_tmp = real.(sqrt.(λ))
     λ_idx = sortperm(abs.(ω_tmp))
     λ = λ[λ_idx]
     V = V[:,λ_idx]
     @show ω_tmp[1:nωₙ]
 
-    cache = (MTot = MTot, K11 = K11)
+    cache = (MTotResn = MTotResn, KTotResn = KTotResn)
 
     return λ, V, cache    
     
@@ -367,7 +417,7 @@ function run_case( params )
       ω = real(ωc)      
 
       VMode = V[:,i]
-      meff = transpose(VMode) * cache.MTot * VMode      
+      meff = transpose(VMode) * cache.MTotResn * VMode      
 
       Δω = abs((ω - ωₒ)/ωₒ)
       lIter += 1
