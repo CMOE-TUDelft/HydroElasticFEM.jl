@@ -25,13 +25,13 @@ resDir::String = "data/sims_202601/beam_modes_free/"
 
 H0 = 10
 ρw = Beam_params().ρw
-Lm = 2*H0
+Lb = 2*H0
 
 
 # Common parameters for all runs
 paramsBase = Beam_params(
 
-  vtk_output = false,
+  vtk_output = true,
 
   H0 = H0, #m #still-water depth
 
@@ -40,7 +40,7 @@ paramsBase = Beam_params(
   
   # beam2D = beam2D
 
-  nωₙ = 5, #number of natural frequencies to compute
+  nωₙ = 6, #number of natural frequencies to compute
 
   # Iterative solution for wet natural frequencies
   αRelax = 0.5,
@@ -54,7 +54,7 @@ paramsBase = Beam_params(
 # Loop over all combinations of m_rho, T_rho and resonator parameters
 
 beam2D = BeamNoJoints.Beam2D(
-  2*H0,   # L
+  Lb,   # L
   192.956,   # m
   500e6,    # E
   6.667e-4,    # I 
@@ -63,7 +63,7 @@ beam2D = BeamNoJoints.Beam2D(
 )
 
 beamName = "beam_m=" * @sprintf("%0.2f", beam2D.m) *
-  "_E=" * @sprintf("%0.2f", beam2D.E)
+  "_EI=" * @sprintf("%0.2f", beam2D.EI)
 
 caseDir = resDir*beamName
 isdir(caseDir) || mkpath(caseDir)

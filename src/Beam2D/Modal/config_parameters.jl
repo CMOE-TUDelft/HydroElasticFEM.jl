@@ -11,7 +11,7 @@ Parameters for the Beam2D LRHS modal analysis.
   # Constants
   ρw = 1025 #kg/m3 water
 
-  order::Int = 2
+  order::Int = 4
   vtk_output::Bool = true  
 
   H0 = 10 #m #still-water depth
@@ -31,9 +31,9 @@ Parameters for the Beam2D LRHS modal analysis.
   ny = 10
   mesh_ry = 1.2 #Ratio for Geometric progression of eleSize
   LΩ = 6*H0 
-  x₀ = 0.0
-  xm₀ = x₀ + 2*H0
-  xm₁ = xm₀ + beam2D.L  
+  x0 = 0.0
+  xb0 = x0 + 2*H0
+  xb1 = xb0 + beam2D.L  
 
 
   # Number of natural frequencies
