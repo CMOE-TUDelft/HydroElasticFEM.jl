@@ -1,4 +1,4 @@
-module BeamNoJointsModes
+module BeamModes
 
 using Parameters
 using JLD2
@@ -11,6 +11,9 @@ using DataFrames
 using Printf
 using HydroElasticFEM: print_properties, Resonator, BeamNoJoints
 using HydroElasticFEM: map_vertical_GP_for_const_dep
+
+
+include("./_config_parameters.jl")
 
 
 function run_case( params )  

@@ -5,8 +5,6 @@ using WaveSpec.Constants
 using HydroElasticFEM: print_properties,  Resonator, BeamNoJoints
 using HydroElasticFEM: PKG_ROOT
 
-include(joinpath(PKG_ROOT,
-  "src","LRHS","Modal","_config_parameters.jl"))
 
 bndType = "free" # "free" or "fixed"
 analysisType = "complexMass" 
@@ -19,12 +17,12 @@ resDir::String = "data/sims_202601/beam_modes_free/"
 
 
 H0 = 10
-ρw = Beam_LRHS_params().ρw
+ρw = BeamModes.Beam_LRHS_params().ρw
 Lb = 2*H0
 
 
 # Common parameters for all runs
-paramsBase = Beam_LRHS_params(
+paramsBase = BeamModes.Beam_LRHS_params(
 
   vtk_output = true,
 
@@ -79,7 +77,7 @@ isdir(caseDir) || mkpath(caseDir)
 
 
 # Update paramsBase for each run
-params = Beam_LRHS_params(
+params = BeamModes.Beam_LRHS_params(
   paramsBase;
 
   resDir = caseDir,
@@ -90,4 +88,4 @@ params = Beam_LRHS_params(
 )
 
 # Run case
-BeamNoJointsModes.run_case(params)
+BeamModes.run_case(params)
