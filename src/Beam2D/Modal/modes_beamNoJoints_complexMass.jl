@@ -309,20 +309,9 @@ function run_case( params )
     MTot = M11 - Sol
     KTot = K11
 
-    # AFull = MTot \ KTot
-
-    # Including Resonator
-    sz_η = size(M11,1)
-    sz_q = size(M44,1)
-    MTotResn = [MTot   zeros(sz_η, sz_q);
-               zeros(sz_q, sz_η)      M44]
+    AFull = MTot \ KTot
     
-    KTotResn = [KTot   K14;
-               K41   K44]
-    
-    AFullResn = MTotResn \ Matrix(KTotResn)
-    
-    λ, V = LinearAlgebra.eigen(AFullResn)
+    λ, V = LinearAlgebra.eigen(AFull)
 
     ω_tmp = real.(sqrt.(λ))
     λ_idx = sortperm(abs.(ω_tmp))
@@ -330,7 +319,7 @@ function run_case( params )
     V = V[:,λ_idx]
     @show ω_tmp[1:nωₙ]
 
-    cache = (MTotResn = MTotResn, KTotResn = KTotResn)
+    cache = (MTot = MTot, K11 = K11)
 
     return λ, V, cache    
     
@@ -347,13 +336,13 @@ function run_case( params )
 
   startIndex = 1
 
-  if(bndType == BeamNoJoints.Free())
-    startIndex = 2  # Skip first mode for free membrane
+  # if(bndType == BeamNoJoints.Free())
+  #   startIndex = 2  # Skip first mode for free membrane
   
-    # Push zeros in first mode for free membrane
-    push!(da_V, zeros(ComplexF64,size(M11,1)))
-    push!(da_meff, 0.0*im)
-  end
+  #   # Push zeros in first mode for free membrane
+  #   push!(da_V, zeros(ComplexF64,size(M11,1)))
+  #   push!(da_meff, 0.0*im)
+  # end
 
   for i in startIndex:nωₙ 
     
@@ -361,7 +350,7 @@ function run_case( params )
 
     lIter = 0    
     Δω = 1 
-    ω = dfDry.ωn[i]
+    ω = real.(dfDry.ωn[i])
     ωₒ = ω 
     while ((Δω > 1e-5) && (lIter < maxIter))
       
@@ -378,7 +367,7 @@ function run_case( params )
       ω = real(ωc)      
 
       VMode = V[:,i]
-      meff = transpose(VMode) * cache.MTotResn * VMode      
+      meff = transpose(VMode) * cache.MTot * VMode      
 
       Δω = abs((ω - ωₒ)/ωₒ)
       lIter += 1

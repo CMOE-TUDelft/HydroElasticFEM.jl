@@ -10,6 +10,7 @@ using TickTock
 using DataFrames
 using Printf
 using HydroElasticFEM: print_properties, Resonator, Membrane
+using HydroElasticFEM.MeshModifier: map_vertical_GP_for_const_dep
 
 
 function run_case( params )
@@ -62,27 +63,10 @@ function run_case( params )
 
 
   # Mesh
-  function f_y(y, r, n, H0; dbgmsg = false)
-    # Mesh along depth as a GP
-    # Depth is 0 to -H0    
-    if(r ≈ 1.0)
-      return y  
-    else
-      a0 = H0 * (r-1) / (r^n - 1)    
-      if(dbgmsg)
-        ln = 0:n
-        ly = -a0 / (r-1) * (r.^ln .- 1)         
-        @show hcat( ly, [ 0; ly[1:end-1] - ly[2:end] ] )
-      end
-      
-      if y ≈ 0
-        return 0.0
-      end
-      j = abs(y) / H0 * n  
-      return -a0 / (r-1) * (r^j - 1)
-    end
-  end
-  map(x) = VectorValue( x[1], f_y(x[2], mesh_ry, ny, H0) )
+  map(x) = VectorValue(
+    x[1],
+    map_vertical_GP_for_const_dep(x[2], mesh_ry, ny, H0; dbgmsg=false)
+  )
   model = CartesianDiscreteModel(domain,partition,map=map)
 
 
