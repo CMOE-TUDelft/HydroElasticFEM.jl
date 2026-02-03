@@ -6,7 +6,7 @@ using HydroElasticFEM: print_properties,  Resonator, Membrane
 using HydroElasticFEM: PKG_ROOT
 
 include(joinpath(PKG_ROOT,
-  "src","LRHS","Modal","config_parameters.jl"))
+  "src","LRHS","Modal","_config_parameters.jl"))
 
 memBndType = "free" # "free" or "fixed"
 analysisType = "complexMass" 

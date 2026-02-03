@@ -6,7 +6,7 @@ using HydroElasticFEM: print_properties,  Resonator, BeamNoJoints
 using HydroElasticFEM: PKG_ROOT
 
 include(joinpath(PKG_ROOT,
-  "src","Beam2D","Modal","config_parameters.jl"))
+  "src","Beam2D","Modal","_config_parameters.jl"))
 
 bndType = "free" # "free" or "fixed"
 analysisType = "complexMass" 
