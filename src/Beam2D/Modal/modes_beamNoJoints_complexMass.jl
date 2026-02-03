@@ -108,12 +108,21 @@ function run_case( params )
   Γη = Triangulation(Γ, findall(Γb_to_Γ_mask))
   Γκ = Triangulation(Γ, findall(!,Γb_to_Γ_mask))
 
-
   # Identify internal beam nodes for jump terms
   grid_dim_0_Γ = Skeleton(Γ) #Edges not included in the Skeleton
   xΓ_dim_0 = get_cell_coordinates(grid_dim_0_Γ)
   Λb_to_Γb_mask = lazy_map(is_beam_node,xΓ_dim_0)
   Λb = Triangulation(grid_dim_0_Γ,Λb_to_Γb_mask)
+
+  # Construct the tag for beambrane boundary
+  ΛbEnd = Boundary(Γb)
+  xΛbEnd = get_cell_coordinates(ΛbEnd)
+  xΛbEnd_n1 = findall(model.grid_topology.vertex_coordinates .== xΛbEnd[1])
+  xΛbEnd_n2 = findall(model.grid_topology.vertex_coordinates .== xΛbEnd[2])
+  new_entity = num_entities(labels_Ω) + 1
+  labels_Ω.d_to_dface_to_entity[1][xΛbEnd_n1[1]] = new_entity
+  labels_Ω.d_to_dface_to_entity[1][xΛbEnd_n2[1]] = new_entity
+  add_tag!(labels_Ω, "beam_bnd", [new_entity])
   
   if vtk_output == true
     isdir(fileName*"_vtk") || mkpath(fileName*"_vtk")
@@ -123,6 +132,7 @@ function run_case( params )
     writevtk(Γb,fileName*"_vtk/beam_Gb")  
     writevtk(Γfs,fileName*"_vtk/beam_Gfs")
     writevtk(Λb,fileName*"_vtk/beam_Lb")  
+    writevtk(ΛbEnd,fileName*"_vtk/beam_LbEnd")  
   end
 
 

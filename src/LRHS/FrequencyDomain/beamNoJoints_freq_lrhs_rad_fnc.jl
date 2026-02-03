@@ -1,4 +1,4 @@
-module MembLRHS2D
+module BeamLRHS2D
 
 using Gridap
 using JLD2
@@ -11,7 +11,7 @@ using DataFrames:Matrix
 using TickTock
 using Parameters
 using Printf
-using HydroElasticFEM: print_properties, Resonator, Membrane
+using HydroElasticFEM: print_properties, Resonator, BeamNoJoints
 using HydroElasticFEM: PKG_ROOT
 using HydroElasticFEM: map_vertical_GP_for_const_dep
 import HydroElasticFEM.WaveInput_FrequencyDomain as WI
@@ -60,17 +60,25 @@ function main(params)
     # Weak form
     ∇ₙ(ϕ) = ∇(ϕ)⋅VectorValue(0.0,1.0)
 
-    res_membrane((ϕ,κ,η),(w,u,v)) = 
-      res_membrane((ϕ,κ,η),(w,u,v), memBndType)
+    res_beam((ϕ,κ,η),(w,u,v)) = 
+      res_beam((ϕ,κ,η),(w,u,v), bndType)
 
-    res_membrane((ϕ,κ,η),(w,u,v), ::Membrane.Free) = 
-      ∫(  v*(g*η - im*ω*ϕ) +  im*ω*w*η
-        - mᵨ*v*ω^2*η + Tᵨ*(1-im*ω*τ)*∇(v)⋅∇(η) )dΓm  
+    res_beam((ϕ,κ,η),(w,u,v), ::BeamNoJoints.Free) =       
+      ∫(  v*(g*η - im*ω*ϕ) + im*ω*w*η  + 
+          -ω^2*m_ρ*v*η + 
+          EI_ρ*(1-im*ω*beam2D.τ)*Δ(v)*Δ(η) 
+      )dΓb +
+      ∫(  EI_ρ * (1-im*ω*beam2D.τ) * 
+        ( -jump(∇(v)⋅nΛb) * mean(Δ(η)) +
+          -mean(Δ(v)) * jump(∇(η)⋅nΛb) + 
+          γ_m/h*( jump(∇(v)⋅nΛb) * jump(∇(η)⋅nΛb) ) 
+        ) 
+      )dΛb             
       
-    res_membrane((ϕ,κ,η),(w,u,v), ::Membrane.Fixed) = 
-      ∫(  v*(g*η - im*ω*ϕ) +  im*ω*w*η
-        - mᵨ*v*ω^2*η + Tᵨ*(1-im*ω*τ)*∇(v)⋅∇(η) )dΓm  + 
-      ∫(- Tᵨ*(1-im*ω*τ)*v*∇(η)⋅nΛmb )dΛmb
+    # res_beam((ϕ,κ,η),(w,u,v), ::BeamNoJoints.Fixed) = 
+    #   ∫(  v*(g*η - im*ω*ϕ) +  im*ω*w*η
+    #     - mᵨ*v*ω^2*η + Tᵨ*(1-im*ω*τ)*∇(v)⋅∇(η) )dΓm  + 
+    #   ∫(- Tᵨ*(1-im*ω*τ)*v*∇(η)⋅nΛmb )dΛmb
 
     function a(trialVars, testVars)
       (ϕ,κ,η,q...) = trialVars
@@ -88,7 +96,8 @@ function main(params)
       #     - mᵨ*v*ω^2*η + Tᵨ*(1-im*ω*τ)*∇(v)⋅∇(η) )dΓm  #+ 
       #   #∫(- Tᵨ*(1-im*ω*τ)*v*∇(η)⋅nΛmb )dΛmb
       
-      val = res_membrane((ϕ,κ,η),(w,u,v)) +
+      val = 
+        res_beam((ϕ,κ,η),(w,u,v)) +
         ∫(  ∇(w)⋅∇(ϕ) )dΩ   +
         ∫(  βₕ*(u + αₕ*w)*(g*κ - im*ω*ϕ) + im*ω*w*κ )dΓfs   +
         ∫( -w * im * airyWave.k * ϕ )dΓot +
@@ -120,8 +129,8 @@ function main(params)
 
     # Energy flux (Power) calculation
     ηx = ∇(ηₕ)⋅VectorValue(1.0,0.0)
-    Pd = sum(∫( abs(ηx)*abs(ηx) )dΓm)
-    Pd = 0.5*Tᵨ*ρw*τ*ω*ω*Pd    
+    Pd = sum(∫( abs(ηx)*abs(ηx) )dΓb)
+    Pd = 0.5 * beam2D.τEI * ω * ω * Pd
 
     resnRAO = [ 
       [ ω, qi(iresn.XZ)⋅î1, ηₕ(iresn.XZ),
@@ -154,10 +163,10 @@ function main(params)
     
 
     prb_κ[prbfs] = κₕ(prbxy[prbfs])
-    prb_κ[prbmem] = ηₕ(prbxy[prbmem])
+    prb_κ[prbBeam] = ηₕ(prbxy[prbBeam])
 
     prb_κ_x[prbfs] = (∇(κₕ)⋅VectorValue(1.0,0.0))(prbxy[prbfs])
-    prb_κ_x[prbmem] = (∇(ηₕ)⋅VectorValue(1.0,0.0))(prbxy[prbmem])
+    prb_κ_x[prbBeam] = (∇(ηₕ)⋅VectorValue(1.0,0.0))(prbxy[prbBeam])
   
     push!(prbDa, prb_κ)  
     push!(prbDa_x, prb_κ_x)  
@@ -179,11 +188,11 @@ function main(params)
       end
       mkpath(freqName)
 
-      writevtk(Ω, freqName * "/mem_O_sol.vtu",
+      writevtk(Ω, freqName * "/beam_O_sol.vtu",
         cellfields=["phi_re" => real(ϕₕ), "phi_im" => imag(ϕₕ),
           "phi_abs" => abs(ϕₕ), "phi_ang" => angle ∘ (ϕₕ)])
 
-      writevtk(Γη, freqName * "/mem_R_sol.vtu",
+      writevtk(Γη, freqName * "/beam_R_sol.vtu",
         cellfields=vcat(
           ["q$i" => real(qhi ⋅ î1) * VectorValue(1.0, 0.0) + imag(qhi ⋅ î1) * VectorValue(0.0, 1.0)
            for (i, qhi) in enumerate(qₕ)],
@@ -193,14 +202,14 @@ function main(params)
            for (i, iresn) in enumerate(resn)]
         ))
 
-      writevtk(Γκ, freqName * "/mem_Gk_sol.vtu",
+      writevtk(Γκ, freqName * "/beam_Gk_sol.vtu",
         cellfields=["eta_re" => real(κₕ), "eta_im" => imag(κₕ),
           "eta_abs" => abs(κₕ), "eta_ang" => angle ∘ (κₕ),
           "etaR_re" => real(κr), "etaR_im" => imag(κr),
           "etaR_abs" => abs(κr), "etaR_ang" => angle ∘ (κr),
           "ηin_abs" => abs(κin), "ηin_ang" => angle ∘ (κin)])
 
-      writevtk(Γη, freqName * "/mem_Ge_sol.vtu",
+      writevtk(Γη, freqName * "/beam_Ge_sol.vtu",
         cellfields=["eta_re" => real(ηₕ), "eta_im" => imag(ηₕ),
           "eta_abs" => abs(ηₕ), "eta_ang" => angle ∘ (ηₕ)])
     end
@@ -217,7 +226,7 @@ function main(params)
   @show name
   @show order
   @show vtk_output
-  filename = name*"/mem"
+  filename = name*"/beam"
 
   @unpack ρw = params #Density of water
   @unpack H0, ω, T, η₀, α = params 
@@ -233,25 +242,24 @@ function main(params)
   println("Peak Wave T, L ", 2*pi/ωₚ, " ", 2*pi/kₚ)
 
 
-  # Membrane parameters
-  @unpack memb2D = params
-  Lm, τ = memb2D.L, memb2D.τ
-  mᵨ, Tᵨ = memb2D.m/ρw, memb2D.T/ρw
-  memBndType = memb2D.bndType
+  # Beam parameters
+  @unpack beam2D = params  
+  bndType = beam2D.bndType
+  m_ρ = beam2D.m / ρw
+  EI_ρ = beam2D.EI / ρw
 
-  print_properties(memb2D)
+  print_properties(beam2D)
 
 
   # Domain 
-  @unpack nx, ny, mesh_ry, Ld, LΩ, x₀ = params
-  @unpack domain, partition, xdᵢₙ, xm₀, xm₁ = params
-  @show Lm
+  @unpack nx, ny, mesh_ry, Ld, LΩ, x0 = params
+  @unpack domain, partition, xdin, xb0, xb1 = params
   @show LΩ, Ld
   @show domain
   @show partition
   @show mesh_ry
-  @show (xm₀, xm₁)
-  @show isinteger(Lm/LΩ*nx)
+  @show (xb0, xb1)
+  @show isinteger(beam2D.L/LΩ*nx)
   @show LΩ/nx
   @show H0/ny
   println()
@@ -259,11 +267,14 @@ function main(params)
 
   # Numeric constants
   h = LΩ / nx
-  γ = 1.0*order*(order-1)/h
+  γ_m = 1.0*order*(order-1)/h
   βₕ = 0.5
   # αₕ = -im*ω/g * (1-βₕ)/βₕ
   @show h
   @show βₕ
+  @show order
+  println("\n[MSG] Stabalisation parameter γ_m = ", γ_m)
+  println("[MSG] Stabalisation Element size h = ", h)
   # @show αₕ
   println()
 
@@ -294,15 +305,23 @@ function main(params)
 
 
   # Auxiliar functions
-  function is_mem(xs) # Check if an element is inside the beam1
+  function is_beam(xs) # Check if an element is inside the beam1
     n = length(xs)
     x = (1/n)*sum(xs)
-    (xm₀ <= x[1] <= xm₁ ) * ( x[2] ≈ 0.0)
+    (xb0 <= x[1] <= xb1 ) * ( x[2] ≈ 0.0)
+  end
+  function is_beam_node(coords) 
+    n = length(coords)
+    #println(n)
+    x = (1/n)*sum(coords)
+    #println(x)
+    
+    (xb0 < x[1] < xb1 ) * ( x[2] ≈ 0.0 )
   end
   # function is_damping1(xs) # Check if an element is inside the damping zone 1
   #   n = length(xs)
   #   x = (1/n)*sum(xs)
-  #   (x₀ <= x[1] <= xdᵢₙ ) * ( x[2] ≈ 0.0)
+  #   (x₀ <= x[1] <= xdin ) * ( x[2] ≈ 0.0)
   # end
   # function is_damping2(xs) # Check if an element is inside the damping zone 2
   #   n = length(xs)
@@ -312,56 +331,64 @@ function main(params)
 
   # Masking and Beam Triangulation
   xΓ = get_cell_coordinates(Γ)
-  Γm_to_Γ_mask = lazy_map(is_mem, xΓ)
+  Γb_to_Γ_mask = lazy_map(is_beam, xΓ)
   # Γd1_to_Γ_mask = lazy_map(is_damping1, xΓ)
   # Γd2_to_Γ_mask = lazy_map(is_damping2, xΓ)
-  Γm = Triangulation(Γ, findall(Γm_to_Γ_mask))
+  Γb = Triangulation(Γ, findall(Γb_to_Γ_mask))
   # Γd1 = Triangulation(Γ, findall(Γd1_to_Γ_mask))
   # Γd2 = Triangulation(Γ, findall(Γd2_to_Γ_mask))
   # Γfs = Triangulation(Γ, findall(!, Γm_to_Γ_mask .| 
   #   Γd1_to_Γ_mask ))# .| Γd2_to_Γ_mask))
-  Γfs = Triangulation(Γ, findall(!, Γm_to_Γ_mask ))    
-  Γη = Triangulation(Γ, findall(Γm_to_Γ_mask))
-  Γκ = Triangulation(Γ, findall(!,Γm_to_Γ_mask))
+  Γfs = Triangulation(Γ, findall(!, Γb_to_Γ_mask ))    
+  Γη = Triangulation(Γ, findall(Γb_to_Γ_mask))
+  Γκ = Triangulation(Γ, findall(!,Γb_to_Γ_mask))
 
 
-  # Construct the tag for membrane boundary
-  Λmb = Boundary(Γm)
-  xΛmb = get_cell_coordinates(Λmb)
-  xΛmb_n1 = findall(model.grid_topology.vertex_coordinates .== xΛmb[1])
-  xΛmb_n2 = findall(model.grid_topology.vertex_coordinates .== xΛmb[2])
+  # Identify internal beam nodes for jump terms
+  grid_dim_0_Γ = Skeleton(Γ) #Edges not included in the Skeleton
+  xΓ_dim_0 = get_cell_coordinates(grid_dim_0_Γ)
+  Λb_to_Γb_mask = lazy_map(is_beam_node,xΓ_dim_0)
+  Λb = Triangulation(grid_dim_0_Γ,Λb_to_Γb_mask)
+
+
+  # Construct the tag for beambrane boundary
+  ΛbEnd = Boundary(Γb)
+  xΛbEnd = get_cell_coordinates(ΛbEnd)
+  xΛbEnd_n1 = findall(model.grid_topology.vertex_coordinates .== xΛbEnd[1])
+  xΛbEnd_n2 = findall(model.grid_topology.vertex_coordinates .== xΛbEnd[2])
   new_entity = num_entities(labels_Ω) + 1
-  labels_Ω.d_to_dface_to_entity[1][xΛmb_n1[1]] = new_entity
-  labels_Ω.d_to_dface_to_entity[1][xΛmb_n2[1]] = new_entity
-  add_tag!(labels_Ω, "mem_bnd", [new_entity])
+  labels_Ω.d_to_dface_to_entity[1][xΛbEnd_n1[1]] = new_entity
+  labels_Ω.d_to_dface_to_entity[1][xΛbEnd_n2[1]] = new_entity
+  add_tag!(labels_Ω, "beam_bnd", [new_entity])
 
 
   writevtk(model, filename*"_model")
   if vtk_output == true
     writevtk(Ω,filename*"_O")
     writevtk(Γ,filename*"_G")
-    writevtk(Γm,filename*"_Gm")  
+    writevtk(Γb,filename*"_Gb")  
     # writevtk(Γd1,filename*"_Gd1")
     # writevtk(Γd2,filename*"_Gd2")
     writevtk(Γfs,filename*"_Gfs")
-    writevtk(Λmb,filename*"_Lmb")  
+    writevtk(Λb,filename*"_Lb")  
+    writevtk(ΛbEnd,filename*"_LbEnd")  
   end
 
 
   # Measures
   degree = 2*order
   dΩ = Measure(Ω,degree)
-  dΓm = Measure(Γm,degree)
+  dΓb = Measure(Γb,degree)
   # dΓd1 = Measure(Γd1,degree)
   # dΓd2 = Measure(Γd2,degree)
   dΓfs = Measure(Γfs,degree)
   dΓin = Measure(Γin,degree)
   dΓot = Measure(Γot,degree)
-  dΛmb = Measure(Λmb,degree)
+  dΛb = Measure(Λb,degree)
 
 
   # Normals
-  @show nΛmb = get_normal_vector(Λmb)
+  @show nΛb = get_normal_vector(Λb)
   nΓin = get_normal_vector(Γin)
 
 
@@ -378,17 +405,17 @@ function main(params)
   U_Ω = TrialFESpace(V_Ω)
   U_Γκ = TrialFESpace(V_Γκ)
 
-  if(memBndType == Membrane.Fixed())
+  if(bndType == BeamNoJoints.Fixed())
     V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
       vector_type=Vector{ComplexF64},
-      dirichlet_tags=["mem_bnd"]) #diri
+      dirichlet_tags=["beam_bnd"]) #diri
     U_Γη = TrialFESpace(V_Γη, gη)
-  elseif(memBndType == Membrane.Free())
+  elseif(bndType == BeamNoJoints.Free())
     V_Γη = TestFESpace(Γη, reffe, conformity=:H1, 
       vector_type=Vector{ComplexF64})
     U_Γη = TrialFESpace(V_Γη)
   else
-    error("memBndType should be either 'free' or 'fixed', got: ", memBndType)
+    error("bndType should be either 'free' or 'fixed', got: ", bndType)
   end  
   # ----------------------End----------------------
 
@@ -419,9 +446,9 @@ function main(params)
   #         125.0, 140.0, 160.0, 180.0 ]
   # prbPowx=[ 55.0, 125.0 ]
   @show prbxy = Point.(prbx, 0.0)
-  prbmem = (xm₀ .<= prbx .<= xm₁ )
-  @show prbfs = findall(!,prbmem)
-  @show prbmem = findall(prbmem)
+  prbBeam = (xb0 .<= prbx .<= xb1 )
+  @show prbfs = findall(!,prbBeam)
+  @show prbBeam = findall(prbBeam)
 
   lDa = zeros(ComplexF64, 1, length(prbxy))
   prbDa = DataFrame(lDa, :auto) # for η
@@ -452,7 +479,7 @@ function main(params)
 
   # # Remove old vtk files  
   # for entry in readdir(name)
-  #   if startswith(entry, "mem_omg")
+  #   if startswith(entry, "beam_omg")
   #     rm(joinpath(name, entry); force=true, recursive=true)
   #   end
   # end    
