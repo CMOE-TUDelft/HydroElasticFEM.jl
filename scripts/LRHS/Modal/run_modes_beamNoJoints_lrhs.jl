@@ -13,58 +13,97 @@ include(joinpath(PKG_ROOT,
 
 
 # Directory for results
-resDir::String = "data/sims_202601/beam_modes_free/"
+resDir::String = "data/beam_modes_free/"
 
 
-H0 = 10
+H0 = 25
 ρw = BeamModes.Beam_LRHS_params().ρw
-Lb = 2*H0
 
+# Define beam parameters
+# ---------------------Start---------------------
+beam2D = BeamNoJoints.Beam2D()
+let
+  global beam2D
+  E = 250e6 #Pa
+  ρ = 910 #kg/m3
+
+  Lb = 40 #m
+  h_outer = 0.25 #m
+  h_inner = 0.05 #m 
+  I = 1/12*(h_outer^3 - h_inner^3) #m4/m
+
+  m = ρ*(h_outer - h_inner) #Mass per unit length unit width
+
+  beam2D = BeamNoJoints.Beam2D(
+    Lb,   # L
+    m,   # m
+    E,    # E
+    I,    # I 
+    0.0,    # τ
+    BeamNoJoints.Free()
+  )
+  print_properties(beam2D)
+
+  # Sanity check
+  @printf(
+    "[IMP] Total possible displaced water mass: %0.2f kg per unit width \n", 
+    ρw * beam2D.L * h_outer)
+end
+
+beamName = "beam_mrho=" * @sprintf("%0.2f", beam2D.m/ρw) *
+  "_EIrho=" * @sprintf("%0.0f", beam2D.EI/ρw)
+
+# Domain positions
+x0 = 0.0
+xb0 = 0.0 + beam2D.L
+xb1 = xb0 + beam2D.L
+LΩ = beam2D.L + beam2D.L + beam2D.L
+nx = 120
+ny = 10
+mesh_ry = 1.2 #Ratio for Geometric progression of eleSize
+# ----------------------End----------------------
+
+
+# Define resonator parameters
+# ---------------------Start---------------------
+resn = Resonator.Single()
+let
+  global resn
+  resnM = 0.05 * beam2D.MTotal
+  ωn = 0.50 #rad/s
+  resnK = resnM * ωn^2
+  resnC = 0.05 * resnK
+  resn = Resonator.Single(
+    resnM, resnK, resnC,
+    Point(xb0 + beam2D.L/2.0, 0.0)
+  )
+end
+
+resonatorName = "resnM=" * @sprintf("%0.2f", resn.M) *
+  "_resnK=" * @sprintf("%0.2f", resn.K)
+
+# ----------------------End----------------------
+
+# Sanity check
+@printf(
+  "[IMP] Total mass of the structure: %0.2f kg per unit width \n", 
+  beam2D.MTotal + resn.M )
 
 # Common parameters for all runs
 paramsBase = BeamModes.Beam_LRHS_params(
 
+  order = 4,
   vtk_output = true,
 
   H0 = H0, #m #still-water depth
-
-  # nx = 60,
-  # ny = 5,
   
-  # beam2D = beam2D
-
   nωₙ = 6, #number of natural frequencies to compute
 
   # Iterative solution for wet natural frequencies
   αRelax = 0.5,
-  maxIter = 20,
-
-  # initial guess for natural frequencies
-  ωn_guess = zeros(ComplexF64, 1) .+ 1.0
+  maxIter = 20  
 )
 
-
-# Loop over all combinations of m_rho, T_rho and resonator parameters
-
-beam2D = BeamNoJoints.Beam2D(
-  Lb,   # L
-  192.956,   # m
-  500e6,    # E
-  6.667e-4,    # I 
-  0.0,    # τ
-  BeamNoJoints.Free()
-)
-
-beamName = "beam_m=" * @sprintf("%0.2f", beam2D.m) *
-  "_EI=" * @sprintf("%0.2f", beam2D.EI)
-
-
-iresnM = 0.1*beam2D.MTotal
-iresnK = iresnM*(1.0^2)
-resn = Resonator.Single( iresnM, iresnK, 0.0, Point(3*H0, 0.0) )
-
-resonatorName = "resnM=" * @sprintf("%0.2f", iresnM) *
-  "_resnK=" * @sprintf("%0.2f", iresnK)
 
 caseDir = resDir*beamName
 isdir(caseDir) || mkpath(caseDir)
@@ -84,7 +123,16 @@ params = BeamModes.Beam_LRHS_params(
   fileName = "lrhs_"*analysisType*"_"*bndType*"_"*resonatorName,
 
   beam2D = beam2D,  
-  resn = resn
+  resn = resn,
+
+  # Domain 
+  nx = nx,
+  ny = ny,
+  mesh_ry = mesh_ry, #Ratio for Geometric progression of eleSize
+  LΩ = LΩ, 
+  x0 = x0,
+  xb0 = xb0,
+  xb1 = xb1  
 )
 
 # Run case

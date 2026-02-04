@@ -423,6 +423,8 @@ function main(params)
   # Resonator FE Spaces
   # ---------------------Start---------------------
   @unpack resn = params
+  # Make resonators as array by default
+  if(resn isa Resonator.Single) resn = [resn] end
   ( iresn -> print_properties(iresn) ).(resn)
 
   V_Γq_Arr = [ ConstantFESpace( Ω, 
