@@ -1,5 +1,7 @@
 module HydroElasticFEM
 
-greet() = print("Hello World!")
+include("PhysicsCore/Physics.jl")
+using .Physics
+
 
 end # module HydroElasticFEM
