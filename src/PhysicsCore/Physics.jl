@@ -6,6 +6,10 @@ This module defines the core interface for defining models parameters in the Hyd
 module Physics
 
 using Parameters
+using Printf
+
+export PhysicsParameters, print_parameters
+export EBBeamParameters
 
 """
     abstract type PhysicsParameters
@@ -31,6 +35,6 @@ function print_parameters(params::PhysicsParameters)
     error("print_parameters not implemented for $(typeof(params))")
 end
 
-
+include("EulerBernoulliBeam.jl")
 
 end
