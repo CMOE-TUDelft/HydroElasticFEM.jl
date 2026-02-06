@@ -1,8 +1,7 @@
 """
     module Physics
 
-This module defines the core interface for defining physics parameters in the HydroElasticFEM package.
-It provides the abstract base type `PhysicsParameters` and the interface function `print_parameters`.
+This module defines the core interface for defining models parameters in the HydroElasticFEM package.
 """
 module Physics
 
