@@ -378,6 +378,9 @@ function run_case( params )
     lIter = 0    
     Δω = 1 
     ω = dfDry.ωn[i]
+    # If the dry freq is too close to zero, use the guess instead
+    if( ω < 0.1 ) ω = ωn_guess[i] end 
+    @printf("\nWet Modes %3d, Starting ω_guess =%04f \n",i, ω)
     ωₒ = ω 
     while ((Δω > 1e-5) && (lIter < maxIter))
       
