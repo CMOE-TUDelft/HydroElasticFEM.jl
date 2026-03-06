@@ -4,28 +4,18 @@
 Parameters for a single locally resonant mass-spring-damper.
 
 # Fields
-- `M::Real` — Mass
-- `K::Real` — Stiffness
-- `C::Real` — Damping
+- `M::Float64` — Mass
+- `K::Float64` — Stiffness
+- `C::Float64` — Damping
 - `XZ::VectorValue{2,Float64}` — Position
-- `ωn1::Real` — Natural frequency (derived)
+- `ωn1::Float64` — Natural frequency (derived: `√(K/M)`)
 """
-struct ResonatorSingle <: PhysicsParameters
-    M::Real
-    K::Real
-    C::Real
-    XZ::VectorValue{2,Float64}
-    ωn1::Real
-
-    function ResonatorSingle(M::Real, K::Real, C::Real,
-                             XZ::VectorValue{2,Float64})
-        ωn1 = sqrt(K / M)
-        new(M, K, C, XZ, ωn1)
-    end
-end
-
-function ResonatorSingle()
-    ResonatorSingle(0.0, 0.0, 0.0, VectorValue(0.0, 0.0))
+@with_kw struct ResonatorSingle <: PhysicsParameters
+    M::Float64
+    K::Float64
+    C::Float64     = 0.0
+    XZ::VectorValue{2,Float64} = VectorValue(0.0, 0.0)
+    ωn1::Float64   = sqrt(K / M)
 end
 
 function print_parameters(resn::ResonatorSingle)
@@ -50,7 +40,7 @@ Create `N` identical resonators at positions `XZ`.
 function resonator_array(N::Int, M::Real, K::Real, C::Real,
                          XZ::Vector{VectorValue{2,Float64}})
     length(XZ) == N || throw(ArgumentError("XZ must be of length N"))
-    [ResonatorSingle(M, K, C, xz) for xz in XZ]
+    [ResonatorSingle(M=M, K=K, C=C, XZ=xz) for xz in XZ]
 end
 
 """
@@ -64,5 +54,5 @@ function resonator_array(N::Int, M::Vector{<:Real}, K::Vector{<:Real},
     (length(M) == N && length(K) == N &&
      length(C) == N && length(XZ) == N) ||
         throw(ArgumentError("M, K, C, and XZ must be of length N"))
-    [ResonatorSingle(m, k, c, xz) for (m, k, c, xz) in zip(M, K, C, XZ)]
+    [ResonatorSingle(M=m, K=k, C=c, XZ=xz) for (m, k, c, xz) in zip(M, K, C, XZ)]
 end

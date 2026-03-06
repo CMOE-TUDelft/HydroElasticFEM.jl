@@ -4,34 +4,24 @@
 Parameters for a 2D membrane model.
 
 # Fields
-- `L::Real` — Length of membrane
-- `m::Real` — Mass per unit length per unit width
-- `T::Real` — Pre-Tension
-- `τ::Real` — Proportional Structural Damping coefficient
+- `L::Float64` — Length of membrane
+- `m::Float64` — Mass per unit length per unit width
+- `T::Float64` — Pre-Tension
+- `τ::Float64` — Proportional Structural Damping coefficient
 - `bndType::BoundaryCondition` — Boundary Type
-- `MTotal::Real` — Total Mass per unit width (derived)
-- `ωn1::Real` — Dry Analytical Natural frequency (derived)
+- `MTotal::Float64` — Total Mass per unit width (derived: `m * L`)
+- `ωn1::Float64` — Dry Analytical Natural frequency (derived: `(π/L) * √(T/m)`)
 """
-struct Membrane2D <: AbstractStructure
-    L::Real
-    m::Real
-    T::Real
-    τ::Real
-    bndType::BoundaryCondition
+@with_kw struct Membrane2D <: AbstractStructure
+    L::Float64
+    m::Float64
+    T::Float64
+    τ::Float64     = 0.0
+    bndType::BoundaryCondition = FreeBoundary()
 
     # Derived quantities
-    MTotal::Real
-    ωn1::Real
-
-    function Membrane2D(L, m, T, τ, bndType::BoundaryCondition)
-        MTotal = m * L
-        ωn1 = (π / L) * sqrt(T / m)
-        new(L, m, T, τ, bndType, MTotal, ωn1)
-    end
-end
-
-function Membrane2D(bndType::BoundaryCondition=FreeBoundary())
-    Membrane2D(0.0, 0.0, 0.0, 0.0, bndType)
+    MTotal::Float64 = m * L
+    ωn1::Float64    = (π / L) * sqrt(T / m)
 end
 
 function print_parameters(memb::Membrane2D, ρw::Real=1025)

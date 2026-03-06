@@ -4,42 +4,30 @@
 Parameters for a 2D Euler-Bernoulli beam model (no joints).
 
 # Fields
-- `L::Real` — Length of beam
-- `m::Real` — Mass per unit length per unit width
-- `E::Real` — Young's Modulus
-- `I::Real` — Second Moment of Area
-- `τ::Real` — Stiffness Proportional Structural Damping coefficient
+- `L::Float64` — Length of beam
+- `m::Float64` — Mass per unit length per unit width
+- `E::Float64` — Young's Modulus
+- `I::Float64` — Second Moment of Area
+- `τ::Float64` — Stiffness Proportional Structural Damping coefficient
 - `bndType::BoundaryCondition` — Boundary Type
-- `EI::Real` — Flexural Rigidity (derived)
-- `τEI::Real` — Damping Rigidity (derived)
-- `MTotal::Real` — Total Mass per unit width (derived)
-- `ωn1::Real` — Dry Analytical Natural frequency (derived)
+- `EI::Float64` — Flexural Rigidity (derived: `E * I`)
+- `τEI::Float64` — Damping Rigidity (derived: `τ * EI`)
+- `MTotal::Float64` — Total Mass per unit width (derived: `m * L`)
+- `ωn1::Float64` — Dry Analytical Natural frequency (derived)
 """
-struct Beam2D <: AbstractStructure
-    L::Real
-    m::Real
-    E::Real
-    I::Real
-    τ::Real
-    bndType::BoundaryCondition
+@with_kw struct Beam2D <: AbstractStructure
+    L::Float64
+    m::Float64
+    E::Float64
+    I::Float64
+    τ::Float64     = 0.0
+    bndType::BoundaryCondition = FreeBoundary()
 
     # Derived quantities
-    EI::Real
-    τEI::Real
-    MTotal::Real
-    ωn1::Real
-
-    function Beam2D(L, m, E, I, τ, bndType::BoundaryCondition)
-        EI = E * I
-        τEI = τ * EI
-        MTotal = m * L
-        ωn1 = 22.3733 * sqrt(EI / (m * L^4))
-        new(L, m, E, I, τ, bndType, EI, τEI, MTotal, ωn1)
-    end
-end
-
-function Beam2D(bndType::BoundaryCondition=FreeBoundary())
-    Beam2D(0.0, 0.0, 0.0, 0.0, 0.0, bndType)
+    EI::Float64    = E * I
+    τEI::Float64   = τ * EI
+    MTotal::Float64 = m * L
+    ωn1::Float64   = 22.3733 * sqrt(EI / (m * L^4))
 end
 
 function print_parameters(beam::Beam2D, ρw::Real=1025)

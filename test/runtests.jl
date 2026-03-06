@@ -75,11 +75,11 @@ using Gridap
     @test_throws ErrorException PE.print_parameters(_TestParams())
 
     # print_parameters works for concrete types
-    mem = PE.Membrane2D(20.0, 922.5, 98.1 * 1025.0, 0.0, PE.FreeBoundary())
+    mem = PE.Membrane2D(L=20.0, m=922.5, T=98.1 * 1025.0, τ=0.0, bndType=PE.FreeBoundary())
     @test_nowarn PE.print_parameters(mem)
-    beam = PE.Beam2D(20.0, 192.956, 500e6, 6.667e-4, 0.0, PE.FreeBoundary())
+    beam = PE.Beam2D(L=20.0, m=192.956, E=500e6, I=6.667e-4, τ=0.0, bndType=PE.FreeBoundary())
     @test_nowarn PE.print_parameters(beam)
-    resn = PE.ResonatorSingle(1e3, 5.9e3, 0.0, VectorValue(10.0, 0.0))
+    resn = PE.ResonatorSingle(M=1e3, K=5.9e3, C=0.0, XZ=VectorValue(10.0, 0.0))
     @test_nowarn PE.print_parameters(resn)
   end
 
@@ -89,7 +89,7 @@ using Gridap
 
   @testset "PhysicalEntities - Membrane2D" begin
     mem = HydroElasticFEM.Membrane2D(
-      20.0, 922.5, 98.1 * 1025.0, 0.0, FreeBoundary())
+      L=20.0, m=922.5, T=98.1 * 1025.0, τ=0.0, bndType=FreeBoundary())
     @test mem.L == 20.0
     @test mem.m == 922.5
     @test mem.T == 98.1 * 1025.0
@@ -100,13 +100,13 @@ using Gridap
 
     # Fixed boundary
     mem_fix = HydroElasticFEM.Membrane2D(
-      10.0, 500.0, 1000.0, 0.1, FixedBoundary())
+      L=10.0, m=500.0, T=1000.0, τ=0.1, bndType=FixedBoundary())
     @test mem_fix.bndType isa FixedBoundary
   end
 
   @testset "PhysicalEntities - Beam2D" begin
     beam = HydroElasticFEM.Beam2D(
-      20.0, 192.956, 500e6, 6.667e-4, 0.0, FreeBoundary())
+      L=20.0, m=192.956, E=500e6, I=6.667e-4, τ=0.0, bndType=FreeBoundary())
     @test beam.EI ≈ 500e6 * 6.667e-4
     @test beam.τEI ≈ 0.0
     @test beam.ωn1 ≈ 22.3733 * sqrt(beam.EI / (192.956 * 20.0^4))
@@ -114,7 +114,7 @@ using Gridap
   end
 
   @testset "PhysicalEntities - ResonatorSingle" begin
-    resn = ResonatorSingle(1e3, 5.9e3, 0.0, VectorValue(10.0, 0.0))
+    resn = ResonatorSingle(M=1e3, K=5.9e3, C=0.0, XZ=VectorValue(10.0, 0.0))
     @test resn.M == 1e3
     @test resn.ωn1 ≈ sqrt(5.9e3 / 1e3)
   end
@@ -140,7 +140,7 @@ using Gridap
       20.0, 922.5, 98.1 * 1025.0, 0.0,
       HydroElasticFEM.Membrane.Free())
     mem_new = HydroElasticFEM.Membrane2D(
-      20.0, 922.5, 98.1 * 1025.0, 0.0, FreeBoundary())
+      L=20.0, m=922.5, T=98.1 * 1025.0, τ=0.0, bndType=FreeBoundary())
     @test mem_old.ωn1 ≈ mem_new.ωn1
     @test mem_old.MTotal ≈ mem_new.MTotal
 
@@ -148,9 +148,41 @@ using Gridap
       20.0, 192.956, 500e6, 6.667e-4, 0.0,
       HydroElasticFEM.BeamNoJoints.Free())
     beam_new = HydroElasticFEM.Beam2D(
-      20.0, 192.956, 500e6, 6.667e-4, 0.0, FreeBoundary())
+      L=20.0, m=192.956, E=500e6, I=6.667e-4, τ=0.0, bndType=FreeBoundary())
     @test beam_old.ωn1 ≈ beam_new.ωn1
     @test beam_old.EI ≈ beam_new.EI
+  end
+
+  # ==========================================================================
+  # @with_kw keyword-constructor and defaults tests
+  # ==========================================================================
+
+  @testset "Keyword constructors - defaults and derived fields" begin
+    # Membrane2D: τ and bndType default, derived fields auto-computed
+    mem = Membrane2D(L=20.0, m=922.5, T=98.1 * 1025.0)
+    @test mem.τ == 0.0
+    @test mem.bndType isa FreeBoundary
+    @test mem.MTotal ≈ 922.5 * 20.0
+    @test mem.ωn1 ≈ (π / 20.0) * sqrt(98.1 * 1025.0 / 922.5)
+
+    # Beam2D: τ and bndType default, derived fields auto-computed
+    beam = Beam2D(L=20.0, m=192.956, E=500e6, I=6.667e-4)
+    @test beam.τ == 0.0
+    @test beam.bndType isa FreeBoundary
+    @test beam.EI ≈ 500e6 * 6.667e-4
+    @test beam.τEI ≈ 0.0
+    @test beam.MTotal ≈ 192.956 * 20.0
+    @test beam.ωn1 ≈ 22.3733 * sqrt(beam.EI / (192.956 * 20.0^4))
+
+    # Beam2D with nonzero τ
+    beam_d = Beam2D(L=10.0, m=100.0, E=1e9, I=1e-3, τ=0.05)
+    @test beam_d.τEI ≈ 0.05 * 1e9 * 1e-3
+
+    # ResonatorSingle: C and XZ default, derived ωn1
+    resn = ResonatorSingle(M=1e3, K=5.9e3)
+    @test resn.C == 0.0
+    @test resn.XZ == VectorValue(0.0, 0.0)
+    @test resn.ωn1 ≈ sqrt(5.9e3 / 1e3)
   end
 
   # ==========================================================================
