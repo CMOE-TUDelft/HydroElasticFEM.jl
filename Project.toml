@@ -16,10 +16,12 @@ TickTock = "9ff05d80-102d-5586-aa04-3a8bd1a90d20"
 WaveSpec = "908d4cf6-a6c0-449c-92e4-852c8f288332"
 
 [extras]
+Gridap = "56d4f2e9-7ea1-5844-9cf6-b9c51ca7ce8e"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+WaveSpec = "908d4cf6-a6c0-449c-92e4-852c8f288332"
 
 [targets]
-test = ["Test"]
+test = ["Gridap", "Test", "WaveSpec"]
 
 [compat]
 DataFrames = "1.8.1"
