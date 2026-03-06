@@ -15,6 +15,12 @@ Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 TickTock = "9ff05d80-102d-5586-aa04-3a8bd1a90d20"
 WaveSpec = "908d4cf6-a6c0-449c-92e4-852c8f288332"
 
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
+
 [compat]
 DataFrames = "1.8.1"
 Printf = "1.11.0"
