@@ -2,6 +2,7 @@ module EBBeamExample
 using HydroElasticFEM
 using Gridap
 
+## Without HydroElasticFEM, this example would be:
 model = CartesianDiscreteModel((0,1),(10,))
 Ω = Triangulation(model)
 Λ = Skeleton(Ω)
@@ -10,7 +11,7 @@ dΛ = Measure(Λ,4)
 nΛ = get_normal_vector(Λ)
 reffe = ReferenceFE(lagrangian,Float64,2)
 V = TestFESpace(model,reffe,dirichlet_tags="boundary")
-U = TrialFESpace(V)
+U = TrialFESpace(V,0.0)
 f(x) = 1.0
 EI = 100.0
 γ_m = 10.0
@@ -25,5 +26,7 @@ solver = LUSolver()
 uh = solve(solver,op)
 writevtk(Ω,"scripts/EBBeam_example",nsubcells=10,cellfields=["uh"=>uh])
 
-
+## With HydroElasticFEM, we can simply do:
+# Define the beam parameters
+beam_params = EBBeamParameters(E=100.0, I=1.0)
 end
