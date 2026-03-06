@@ -61,7 +61,30 @@ using Gridap
   end
 
   # ==========================================================================
-  # Phase 1: PhysicsCore/PhysicalEntities.jl new types
+  # Phase 1: PhysicsCore/PhysicalEntities.jl -- module-level tests
+  # ==========================================================================
+
+  @testset "PhysicalEntities - module interface" begin
+    PE = HydroElasticFEM.PhysicalEntities
+
+    # Abstract base type exists
+    @test PE.PhysicsParameters isa Type
+
+    # Default print_parameters throws for unknown subtypes
+    struct _TestParams <: PE.PhysicsParameters end
+    @test_throws ErrorException PE.print_parameters(_TestParams())
+
+    # print_parameters works for concrete types
+    mem = PE.Membrane2D(20.0, 922.5, 98.1 * 1025.0, 0.0, PE.FreeBoundary())
+    @test_nowarn PE.print_parameters(mem)
+    beam = PE.Beam2D(20.0, 192.956, 500e6, 6.667e-4, 0.0, PE.FreeBoundary())
+    @test_nowarn PE.print_parameters(beam)
+    resn = PE.ResonatorSingle(1e3, 5.9e3, 0.0, VectorValue(10.0, 0.0))
+    @test_nowarn PE.print_parameters(resn)
+  end
+
+  # ==========================================================================
+  # Phase 1: PhysicsCore/PhysicalEntities.jl -- via top-level exports
   # ==========================================================================
 
   @testset "PhysicalEntities - Membrane2D" begin
