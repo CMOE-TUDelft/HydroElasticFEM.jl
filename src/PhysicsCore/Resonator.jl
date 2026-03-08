@@ -63,13 +63,11 @@ function resonator_array(N::Int, M::Vector{<:Real}, K::Vector{<:Real},
     [ResonatorSingle(M=m, K=k, C=c, ρw=ρw, η_sym=η_sym, XZ=xz) for (m, k, c, xz) in zip(M, K, C, XZ)]
 end
 
-# ── Linear weak forms: mass, damping, stiffness, rhs ──────
-#    Field access via symbols — :q_1, :q_2, ... (resonator DOFs)
-#    Structure coupling via ri.η_sym (e.g. :η_m or :η_b)
+# ── Single-variable weak forms: mass, damping, stiffness, rhs ──
+#    Only q_i terms — no coupling to structure η
 
 function mass(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x_tt, y)
     δ_p = dom[:δ_p]
-    N   = length(resn)
     ξ1  = y[Symbol("q_1")]
     q1  = x_tt[Symbol("q_1")]
     val = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
@@ -82,40 +80,27 @@ function mass(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x_tt, y)
 end
 
 function damping(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x_t, y)
-    δ_p   = dom[:δ_p]
-    η_sym = first(resn).η_sym
-    ηₜ    = x_t[η_sym]
-    v     = y[η_sym]
-    î1    = VectorValue(1.0)
-    ξ1    = y[Symbol("q_1")]
-    q1    = x_t[Symbol("q_1")]
-    val   = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
+    δ_p = dom[:δ_p]
+    ξ1  = y[Symbol("q_1")]
+    q1  = x_t[Symbol("q_1")]
+    val = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
     for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
         qₜi = x_t[Symbol("q_$i")]
         ξi  = y[Symbol("q_$i")]
-        val +=
-            (ri.C / ri.ρw) * δi(v * ((qₜi ⋅ î1) - ηₜ)) +
-            ri.C * δi(-(ξi ⋅ î1) * ηₜ + qₜi ⋅ ξi)
+        val += ri.C * δi(qₜi ⋅ ξi)
     end
     return val
 end
 
 function stiffness(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x, y)
-    δ_p   = dom[:δ_p]
-    η_sym = first(resn).η_sym
-    η     = x[η_sym]
-    v     = y[η_sym]
-    î1    = VectorValue(1.0)
-    ξ1    = y[Symbol("q_1")]
-    q1    = x[Symbol("q_1")]
-    val   = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
+    δ_p = dom[:δ_p]
+    ξ1  = y[Symbol("q_1")]
+    q1  = x[Symbol("q_1")]
+    val = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
     for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
         qi = x[Symbol("q_$i")]
         ξi = y[Symbol("q_$i")]
-        val +=
-            (-ri.K / ri.ρw) * δi(v * ((qi ⋅ î1) - η)) +
-            ∫((ξi ⋅ qi) * 0.0)dom[:dΩ] +
-            ri.K * δi(qi ⋅ ξi - (ξi ⋅ î1) * η)
+        val += ri.K * δi(qi ⋅ ξi)
     end
     return val
 end

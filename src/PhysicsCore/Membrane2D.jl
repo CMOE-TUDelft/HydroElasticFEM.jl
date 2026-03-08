@@ -43,8 +43,10 @@ function print_parameters(memb::Membrane2D)
     println()
 end
 
-# ── Linear weak forms: mass, damping, stiffness, rhs ──────
-#    Field access via symbols — :ϕ (potential), :η_m (membrane displacement)
+η_symbol(::Membrane2D) = :η_m
+
+# ── Single-variable weak forms: mass, damping, stiffness, rhs ──
+#    Only η_m terms — no coupling to ϕ or other fields
 
 function mass(s::Membrane2D, dom::WeakFormDomains, x_tt, y)
     ηₜₜ = x_tt[:η_m]
@@ -53,13 +55,13 @@ function mass(s::Membrane2D, dom::WeakFormDomains, x_tt, y)
 end
 
 function damping(s::Membrane2D, dom::WeakFormDomains, x_t, y)
-    ϕₜ = x_t[:ϕ];  ηₜ = x_t[:η_m]
-    w  = y[:ϕ];     v  = y[:η_m]
+    ηₜ = x_t[:η_m]
+    v  = y[:η_m]
     Tᵨ = s.T / s.ρw
     τ  = s.τ
-    val = ∫(v * ϕₜ - w * ηₜ + Tᵨ * τ * ∇(v) ⋅ ∇(ηₜ))dom[:dΓ_s]
+    val = ∫(Tᵨ * τ * ∇(v) ⋅ ∇(ηₜ))dom[:dΓ_s]
     if s.bndType isa FixedBoundary
-        val += ∫(-Tᵨ * τ * y[:η_m] * ∇(x_t[:η_m]) ⋅ dom[:n_Λ_sb])dom[:dΛ_sb]
+        val += ∫(-Tᵨ * τ * v * ∇(ηₜ) ⋅ dom[:n_Λ_sb])dom[:dΛ_sb]
     end
     return val
 end
@@ -70,7 +72,7 @@ function stiffness(s::Membrane2D, dom::WeakFormDomains, x, y)
     Tᵨ = s.T / s.ρw
     val = ∫(v * (s.g * η) + Tᵨ * ∇(v) ⋅ ∇(η))dom[:dΓ_s]
     if s.bndType isa FixedBoundary
-        val += ∫(-Tᵨ * y[:η_m] * ∇(x[:η_m]) ⋅ dom[:n_Λ_sb])dom[:dΛ_sb]
+        val += ∫(-Tᵨ * v * ∇(η) ⋅ dom[:n_Λ_sb])dom[:dΛ_sb]
     end
     return val
 end

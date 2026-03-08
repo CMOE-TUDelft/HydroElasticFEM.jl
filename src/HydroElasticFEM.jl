@@ -29,9 +29,10 @@ module HydroElasticFEM
   # Re-export PhysicalEntities public API
   export PhysicsParameters, print_parameters
   export BoundaryCondition, FreeBoundary, FixedBoundary
-  export AbstractStructure, Membrane2D, Beam2D
+  export AbstractStructure, PotentialFlow, Membrane2D, Beam2D
   export ResonatorSingle, resonator_array
   export WeakFormDomains
+  export η_symbol
   export weakform, mass, damping, stiffness, rhs
   export residual, jacobian, jacobian_t, jacobian_tt
 

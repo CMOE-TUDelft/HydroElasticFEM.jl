@@ -54,10 +54,14 @@ abstract type AbstractStructure <: PhysicsParameters end
 # Domain container (must be included before entity files that reference it)
 include("WeakFormDomains.jl")
 
-# Entity files (struct definition + weakform methods)
+# Entity files (struct definition + single-variable weak forms)
+include("PotentialFlow.jl")
 include("Membrane2D.jl")
 include("Beam2D.jl")
 include("Resonator.jl")
+
+# Coupling weak forms (cross-terms between pairs of entities)
+include("CouplingTerms.jl")
 
 # ─────────────────────────────────────────────────────────────
 # Frequency-domain weakform: derived from linear forms
@@ -77,6 +81,12 @@ weakform(s, dom::WeakFormDomains, ω, x, y) =
     (-im * ω)  * damping(s, dom, x, y) +
     stiffness(s, dom, x, y)
 
+# Two-entity coupling variant
+weakform(a, b, dom::WeakFormDomains, ω, x, y) =
+    -ω^2       * mass(a, b, dom, x, y) +
+    (-im * ω)  * damping(a, b, dom, x, y) +
+    stiffness(a, b, dom, x, y)
+
 # ─────────────────────────────────────────────────────────────
 # Nonlinear weak forms: residual, jacobian, jacobian_t, jacobian_tt
 # ─────────────────────────────────────────────────────────────
@@ -92,6 +102,13 @@ residual(s, dom::WeakFormDomains, x, x_t, x_tt, y) =
     stiffness(s, dom, x, y) -
     rhs(s, dom, x, y)
 
+# Two-entity coupling variant
+residual(a, b, dom::WeakFormDomains, x, x_t, x_tt, y) =
+    mass(a, b, dom, x_tt, y) +
+    damping(a, b, dom, x_t, y) +
+    stiffness(a, b, dom, x, y) -
+    rhs(a, b, dom, x, y)
+
 """
     jacobian(s, dom, dx, x_t, x_tt, y)
 
@@ -99,6 +116,10 @@ Jacobian w.r.t. displacement: `∂R/∂x · dx = stiffness(dx, y)`.
 """
 jacobian(s, dom::WeakFormDomains, dx, x_t, x_tt, y) =
     stiffness(s, dom, dx, y)
+
+# Two-entity coupling variant
+jacobian(a, b, dom::WeakFormDomains, dx, x_t, x_tt, y) =
+    stiffness(a, b, dom, dx, y)
 
 """
     jacobian_t(s, dom, x, dx_t, x_tt, y)
@@ -108,6 +129,10 @@ Jacobian w.r.t. velocity: `∂R/∂x_t · dx_t = damping(dx_t, y)`.
 jacobian_t(s, dom::WeakFormDomains, x, dx_t, x_tt, y) =
     damping(s, dom, dx_t, y)
 
+# Two-entity coupling variant
+jacobian_t(a, b, dom::WeakFormDomains, x, dx_t, x_tt, y) =
+    damping(a, b, dom, dx_t, y)
+
 """
     jacobian_tt(s, dom, x, x_t, dx_tt, y)
 
@@ -116,15 +141,20 @@ Jacobian w.r.t. acceleration: `∂R/∂x_tt · dx_tt = mass(dx_tt, y)`.
 jacobian_tt(s, dom::WeakFormDomains, x, x_t, dx_tt, y) =
     mass(s, dom, dx_tt, y)
 
+# Two-entity coupling variant
+jacobian_tt(a, b, dom::WeakFormDomains, x, x_t, dx_tt, y) =
+    mass(a, b, dom, dx_tt, y)
+
 # ─────────────────────────────────────────────────────────────
 # Exports
 # ─────────────────────────────────────────────────────────────
 
 export PhysicsParameters, print_parameters
 export BoundaryCondition, FreeBoundary, FixedBoundary
-export AbstractStructure, Membrane2D, Beam2D
+export AbstractStructure, PotentialFlow, Membrane2D, Beam2D
 export ResonatorSingle, resonator_array
 export WeakFormDomains
+export η_symbol
 export weakform, mass, damping, stiffness, rhs
 export residual, jacobian, jacobian_t, jacobian_tt
 

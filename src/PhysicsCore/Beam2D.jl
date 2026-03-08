@@ -53,8 +53,10 @@ function print_parameters(beam::Beam2D)
     println()
 end
 
-# ── Linear weak forms: mass, damping, stiffness, rhs ──────
-#    Field access via symbols — :ϕ (potential), :η_b (beam displacement)
+η_symbol(::Beam2D) = :η_b
+
+# ── Single-variable weak forms: mass, damping, stiffness, rhs ──
+#    Only η_b terms — no coupling to ϕ or other fields
 
 function mass(s::Beam2D, dom::WeakFormDomains, x_tt, y)
     ηₜₜ = x_tt[:η_b]
@@ -63,21 +65,21 @@ function mass(s::Beam2D, dom::WeakFormDomains, x_tt, y)
 end
 
 function damping(s::Beam2D, dom::WeakFormDomains, x_t, y)
-    ϕₜ = x_t[:ϕ];  ηₜ = x_t[:η_b]
-    w  = y[:ϕ];     v  = y[:η_b]
+    ηₜ = x_t[:η_b]
+    v  = y[:η_b]
     EIᵨ = s.EI / s.ρw
     τ   = s.τ
     γ   = dom[:γ_s]
     h   = dom[:h_s]
     n_Λ = dom[:n_Λ_s]
 
-    val = ∫(v * ϕₜ - w * ηₜ + EIᵨ * τ * Δ(v) * Δ(ηₜ))dom[:dΓ_s] +
+    val = ∫(EIᵨ * τ * Δ(v) * Δ(ηₜ))dom[:dΓ_s] +
           ∫(EIᵨ * τ * (
               -jump(∇(v) ⋅ n_Λ) * mean(Δ(ηₜ))
               - mean(Δ(v)) * jump(∇(ηₜ) ⋅ n_Λ)
               + (γ / h) * jump(∇(v) ⋅ n_Λ) * jump(∇(ηₜ) ⋅ n_Λ)))dom[:dΛ_s]
     if s.bndType isa FixedBoundary
-        val += ∫(-EIᵨ * τ * y[:η_b] * Δ(x_t[:η_b]) * dom[:n_Λ_sb])dom[:dΛ_sb]
+        val += ∫(-EIᵨ * τ * v * Δ(ηₜ) * dom[:n_Λ_sb])dom[:dΛ_sb]
     end
     return val
 end
@@ -96,7 +98,7 @@ function stiffness(s::Beam2D, dom::WeakFormDomains, x, y)
               - mean(Δ(v)) * jump(∇(η) ⋅ n_Λ)
               + (γ / h) * jump(∇(v) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ)))dom[:dΛ_s]
     if s.bndType isa FixedBoundary
-        val += ∫(-EIᵨ * y[:η_b] * Δ(x[:η_b]) * dom[:n_Λ_sb])dom[:dΛ_sb]
+        val += ∫(-EIᵨ * v * Δ(η) * dom[:n_Λ_sb])dom[:dΛ_sb]
     end
     return val
 end

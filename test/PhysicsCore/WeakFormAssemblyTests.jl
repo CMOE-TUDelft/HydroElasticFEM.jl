@@ -58,34 +58,29 @@ using Gridap.CellData
   ω   = 2.0
   ρw  = 1025.0
   g_  = 9.81
-  k   = ω^2 / g_
   βₕ  = 0.5
   αₕ  = -im * ω / g_ * (1 - βₕ) / βₕ
 
-  # Field mapping: symbol -> positional index in the multi-field tuple
+  # Physics entities
+  fluid = PotentialFlow(ρw=ρw, g=g_)
+  mem   = Membrane2D(L=20.0, m=922.5, T=98.1*ρw, ρw=ρw, g=g_)
+
+  # Field mapping
   fmap = Dict(:ϕ => 1, :κ => 2, :η_m => 3)
 
+  dom = WeakFormDomains(dΩ=dΩ, dΓ_fs=dΓfs, dΓ_s=dΓm,
+                        dΓ_in=dΓin, dΓ_ot=dΓot)
+
   # =========================================================================
-  # Test WeakFormDomains construction (Dict-based)
+  # Test WeakFormDomains + FieldDict construction
   # =========================================================================
 
   @testset "WeakFormDomains construction" begin
-    dom = WeakFormDomains(dΩ=dΩ, dΓ_s=dΓm)
-    @test dom[:dΩ] === dΩ
-    @test dom[:dΓ_s] === dΓm
-    @test haskey(dom, :dΩ)
-    @test !haskey(dom, :dΓ_fs)
-
-    dom2 = WeakFormDomains(dΩ=dΩ, dΓ_fs=dΓfs, dΓ_s=dΓm,
-                           dΓ_in=dΓin, dΓ_ot=dΓot)
-    @test dom2[:dΓ_in] === dΓin
-    @test dom2[:dΓ_ot] === dΓot
-    @test haskey(dom2, :dΓ_fs)
+    d = WeakFormDomains(dΩ=dΩ, dΓ_s=dΓm)
+    @test d[:dΩ] === dΩ
+    @test haskey(d, :dΓ_s)
+    @test !haskey(d, :dΓ_fs)
   end
-
-  # =========================================================================
-  # Test FieldDict construction
-  # =========================================================================
 
   @testset "FieldDict construction" begin
     fd = FieldDict((1, 2, 3), fmap)
@@ -96,20 +91,19 @@ using Gridap.CellData
     @test !haskey(fd, :η_b)
   end
 
-  dom = WeakFormDomains(dΩ=dΩ, dΓ_fs=dΓfs, dΓ_s=dΓm,
-                        dΓ_in=dΓin, dΓ_ot=dΓot)
+  @testset "η_symbol dispatch" begin
+    @test η_symbol(mem) == :η_m
+    beam = Beam2D(L=20.0, m=922.5, E=1e9, I=1e-4)
+    @test η_symbol(beam) == :η_b
+  end
 
   # =========================================================================
-  # Test Membrane2D linear weak forms via FieldDict
+  # Test single-variable Membrane2D weak forms (η_m only)
   # =========================================================================
 
-  @testset "Membrane2D linear forms (FieldDict)" begin
-    mem = Membrane2D(L=20.0, m=922.5, T=98.1*1025.0, ρw=ρw, g=g_,
-                     bndType=FreeBoundary())
-
+  @testset "Membrane2D single-variable forms" begin
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
-    # mass form via FieldDict
     a_mass((ϕ,κ,η),(w,u,v)) = begin
       xd = FieldDict((ϕ,κ,η), fmap)
       yd = FieldDict((w,u,v), fmap)
@@ -118,16 +112,6 @@ using Gridap.CellData
     op_m = AffineFEOperator(a_mass, l, X, Y)
     @test nnz(get_matrix(op_m)) > 0
 
-    # damping form via FieldDict
-    a_damp((ϕ,κ,η),(w,u,v)) = begin
-      xd = FieldDict((ϕ,κ,η), fmap)
-      yd = FieldDict((w,u,v), fmap)
-      ∫(∇(w) ⋅ ∇(ϕ))dΩ + damping(mem, dom, xd, yd)
-    end
-    op_c = AffineFEOperator(a_damp, l, X, Y)
-    @test nnz(get_matrix(op_c)) > 0
-
-    # stiffness form via FieldDict
     a_stiff((ϕ,κ,η),(w,u,v)) = begin
       xd = FieldDict((ϕ,κ,η), fmap)
       yd = FieldDict((w,u,v), fmap)
@@ -138,38 +122,70 @@ using Gridap.CellData
   end
 
   # =========================================================================
-  # Test Membrane2D weakform (derived from linear forms via ω)
+  # Test PotentialFlow single-variable (Laplacian)
   # =========================================================================
 
-  @testset "Membrane2D weakform (derived)" begin
-    mem_free = Membrane2D(L=20.0, m=922.5, T=98.1*1025.0, ρw=ρw, g=g_,
-                          bndType=FreeBoundary())
-
+  @testset "PotentialFlow single-variable stiffness" begin
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
-    a_wf((ϕ,κ,η),(w,u,v)) = begin
+    a_fluid((ϕ,κ,η),(w,u,v)) = begin
       xd = FieldDict((ϕ,κ,η), fmap)
       yd = FieldDict((w,u,v), fmap)
-      ∫(∇(w) ⋅ ∇(ϕ))dΩ +
+      stiffness(fluid, dom, xd, yd)
+    end
+    op = AffineFEOperator(a_fluid, l, X, Y)
+    @test nnz(get_matrix(op)) > 0
+  end
+
+  # =========================================================================
+  # Test Fluid ↔ Structure coupling (damping only)
+  # =========================================================================
+
+  @testset "Fluid-Structure coupling damping" begin
+    l((w,u,v)) = ∫(0.0 * w)dΓin
+
+    a_coupling((ϕ,κ,η),(w,u,v)) = begin
+      xd = FieldDict((ϕ,κ,η), fmap)
+      yd = FieldDict((w,u,v), fmap)
+      ∫(∇(w) ⋅ ∇(ϕ))dΩ + damping(fluid, mem, dom, xd, yd)
+    end
+    op = AffineFEOperator(a_coupling, l, X, Y)
+    @test nnz(get_matrix(op)) > 0
+  end
+
+  # =========================================================================
+  # Test composed weakform: fluid + structure + coupling
+  # =========================================================================
+
+  @testset "Composed weakform (fluid + membrane + coupling)" begin
+    l((w,u,v)) = ∫(0.0 * w)dΓin
+
+    a((ϕ,κ,η),(w,u,v)) = begin
+      xd = FieldDict((ϕ,κ,η), fmap)
+      yd = FieldDict((w,u,v), fmap)
+      # free surface BC (external, not entity-managed)
       ∫(βₕ * (u + αₕ * w) * (g_ * κ - im * ω * ϕ) + im * ω * w * κ)dΓfs +
-      weakform(mem_free, dom, ω, xd, yd)
+      # single-variable
+      weakform(fluid, dom, ω, xd, yd) +
+      weakform(mem, dom, ω, xd, yd) +
+      # coupling
+      weakform(fluid, mem, dom, ω, xd, yd)
     end
 
-    op = AffineFEOperator(a_wf, l, X, Y)
+    op = AffineFEOperator(a, l, X, Y)
     A  = get_matrix(op)
+    @test size(A, 1) > 0
     @test nnz(A) > 0
   end
 
   # =========================================================================
-  # Test assemble_weakform (generic loop with fmap wrapping)
+  # Test assemble_weakform with fmap (single-variable terms)
   # =========================================================================
 
   @testset "assemble_weakform composition" begin
-    mem = Membrane2D(L=20.0, m=922.5, T=98.1*1025.0, ρw=ρw, g=g_)
-    terms = (mem,)
+    terms = (fluid, mem)
 
     a((ϕ,κ,η),(w,u,v)) =
-      ∫(∇(w) ⋅ ∇(ϕ))dΩ +
       ∫(βₕ * (u + αₕ * w) * (g_ * κ - im * ω * ϕ) + im * ω * w * κ)dΓfs +
       assemble_weakform(terms, dom, ω, fmap, (ϕ,κ,η), (w,u,v))
 
@@ -179,32 +195,6 @@ using Gridap.CellData
     A  = get_matrix(op)
     @test size(A, 1) > 0
     @test nnz(A) > 0
-  end
-
-  # =========================================================================
-  # Test assemble_mass / assemble_damping / assemble_stiffness
-  # =========================================================================
-
-  @testset "assemble linear forms" begin
-    mem = Membrane2D(L=20.0, m=922.5, T=98.1*1025.0, ρw=ρw, g=g_)
-    terms = (mem,)
-
-    l((w,u,v)) = ∫(0.0 * w)dΓin
-
-    a_m((ϕ,κ,η),(w,u,v)) =
-      ∫(∇(w) ⋅ ∇(ϕ))dΩ + assemble_mass(terms, dom, fmap, (ϕ,κ,η), (w,u,v))
-    op_m = AffineFEOperator(a_m, l, X, Y)
-    @test nnz(get_matrix(op_m)) > 0
-
-    a_c((ϕ,κ,η),(w,u,v)) =
-      ∫(∇(w) ⋅ ∇(ϕ))dΩ + assemble_damping(terms, dom, fmap, (ϕ,κ,η), (w,u,v))
-    op_c = AffineFEOperator(a_c, l, X, Y)
-    @test nnz(get_matrix(op_c)) > 0
-
-    a_k((ϕ,κ,η),(w,u,v)) =
-      ∫(∇(w) ⋅ ∇(ϕ))dΩ + assemble_stiffness(terms, dom, fmap, (ϕ,κ,η), (w,u,v))
-    op_k = AffineFEOperator(a_k, l, X, Y)
-    @test nnz(get_matrix(op_k)) > 0
   end
 
 end
