@@ -3,11 +3,8 @@ module HydroElasticFEM
   const PKG_ROOT = normpath(joinpath(@__DIR__, ".."))  # because @__DIR__ here is src/
 
   # PhysicsCore (new canonical types)
-  include(joinpath(@__DIR__, "PhysicsCore", "PhysicalEntities.jl"))
-  using .PhysicalEntities
-
-  include(joinpath(@__DIR__, "PhysicsCore", "WeakFormAssembly.jl"))
-  using .WeakFormAssembly
+  include(joinpath(@__DIR__, "PhysicsCore", "PhysicsCore.jl"))
+  using .PhysicsCore
 
   # Backward-compatible shims (kept during transition)
   include(joinpath(PKG_ROOT, "src", "StructuralComponents", "BeamNoJoints.jl"))
@@ -26,7 +23,7 @@ module HydroElasticFEM
   # print_properties()
   # map_vertical_GP_for_const_dep()
 
-  # Re-export PhysicalEntities public API
+  # Re-export PhysicsCore public API
   export PhysicsParameters, print_parameters
   export BoundaryCondition, FreeBoundary, FixedBoundary
   export AbstractStructure, PotentialFlow, Membrane2D, Beam2D
@@ -35,8 +32,6 @@ module HydroElasticFEM
   export variable_symbol
   export weakform, mass, damping, stiffness, rhs
   export residual, jacobian, jacobian_t, jacobian_tt
-
-  # Re-export WeakFormAssembly public API
   export FieldDict
   export assemble_weakform
   export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
