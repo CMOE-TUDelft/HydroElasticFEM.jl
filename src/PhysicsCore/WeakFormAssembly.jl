@@ -44,16 +44,24 @@ Base.haskey(fd::FieldDict, s::Symbol)   = haskey(fd._map, s)
 Base.keys(fd::FieldDict)                = keys(fd._map)
 
 # ─────────────────────────────────────────────────────────────
-# Helper: sum a given form function over all terms
+# Helpers: sum only active form contributions
 # ─────────────────────────────────────────────────────────────
 
-function _assemble(f, terms, args...)
-    val = f(first(terms), args...)
-    for i in 2:length(terms)
-        val += f(terms[i], args...)
+function _assemble_active(f, has_form, terms, args...)
+    val = nothing
+    for term in terms
+        if has_form(term)
+            contrib = f(term, args...)
+            val = isnothing(val) ? contrib : (val + contrib)
+        end
     end
+    isnothing(val) && error("No active $(nameof(f)) contributions in provided terms")
     return val
 end
+
+_has_weakform(term) =
+    has_mass_form(term) || has_damping_form(term) || has_stiffness_form(term)
+_has_residual(term) = _has_weakform(term) || has_rhs_form(term)
 
 # ─────────────────────────────────────────────────────────────
 # Internal: wrap raw tuples in FieldDict
@@ -74,7 +82,7 @@ wrapping the raw tuples with `fmap`.
 function assemble_mass(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int}, x_tt, y)
     xd = _wrap(x_tt, fmap)
     yd = _wrap(y, fmap)
-    _assemble(mass, terms, dom, xd, yd)
+    _assemble_active(mass, has_mass_form, terms, dom, xd, yd)
 end
 
 """
@@ -85,7 +93,7 @@ Sum `damping(term, dom, x_t, y)` over all `terms`.
 function assemble_damping(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int}, x_t, y)
     xd = _wrap(x_t, fmap)
     yd = _wrap(y, fmap)
-    _assemble(damping, terms, dom, xd, yd)
+    _assemble_active(damping, has_damping_form, terms, dom, xd, yd)
 end
 
 """
@@ -96,7 +104,7 @@ Sum `stiffness(term, dom, x, y)` over all `terms`.
 function assemble_stiffness(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int}, x, y)
     xd = _wrap(x, fmap)
     yd = _wrap(y, fmap)
-    _assemble(stiffness, terms, dom, xd, yd)
+    _assemble_active(stiffness, has_stiffness_form, terms, dom, xd, yd)
 end
 
 """
@@ -107,7 +115,7 @@ Sum `rhs(term, dom, f, y)` over all `terms`.
 function assemble_rhs(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int}, f, y)
     fd = _wrap(f, fmap)
     yd = _wrap(y, fmap)
-    _assemble(rhs, terms, dom, fd, yd)
+    _assemble_active(rhs, has_rhs_form, terms, dom, fd, yd)
 end
 
 # ─────────────────────────────────────────────────────────────
@@ -123,7 +131,7 @@ wrapping the raw tuples with `fmap`.
 function assemble_weakform(terms, dom::WeakFormDomains, ω, fmap::Dict{Symbol,Int}, x, y)
     xd = _wrap(x, fmap)
     yd = _wrap(y, fmap)
-    _assemble(weakform, terms, dom, ω, xd, yd)
+    _assemble_active(weakform, _has_weakform, terms, dom, ω, xd, yd)
 end
 
 # ─────────────────────────────────────────────────────────────
@@ -140,7 +148,7 @@ function assemble_residual(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int},
     xd_tt = _wrap(x_tt, fmap)
     fd    = _wrap(f, fmap)
     yd    = _wrap(y, fmap)
-    _assemble(residual, terms, dom, xd, xd_t, xd_tt, fd, yd)
+    _assemble_active(residual, _has_residual, terms, dom, xd, xd_t, xd_tt, fd, yd)
 end
 
 """
@@ -152,7 +160,10 @@ function assemble_jacobian(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int},
     xd_t  = _wrap(x_t, fmap)
     xd_tt = _wrap(x_tt, fmap)
     yd    = _wrap(y, fmap)
-    _assemble(jacobian, terms, dom, dxd, xd_t, xd_tt, yd)
+    _assemble_active(
+        jacobian, has_stiffness_form,
+        terms, dom, dxd, xd_t, xd_tt, yd,
+    )
 end
 
 """
@@ -164,7 +175,10 @@ function assemble_jacobian_t(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int}
     dxd_t = _wrap(dx_t, fmap)
     xd_tt = _wrap(x_tt, fmap)
     yd    = _wrap(y, fmap)
-    _assemble(jacobian_t, terms, dom, xd, dxd_t, xd_tt, yd)
+    _assemble_active(
+        jacobian_t, has_damping_form,
+        terms, dom, xd, dxd_t, xd_tt, yd,
+    )
 end
 
 """
@@ -176,7 +190,10 @@ function assemble_jacobian_tt(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int
     xd_t  = _wrap(x_t, fmap)
     dxd_tt = _wrap(dx_tt, fmap)
     yd    = _wrap(y, fmap)
-    _assemble(jacobian_tt, terms, dom, xd, xd_t, dxd_tt, yd)
+    _assemble_active(
+        jacobian_tt, has_mass_form,
+        terms, dom, xd, xd_t, dxd_tt, yd,
+    )
 end
 
 # ─────────────────────────────────────────────────────────────

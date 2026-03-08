@@ -21,20 +21,12 @@ end
 
 variable_symbol(::PotentialFlow) = :ϕ
 
+# Potential-flow dynamics are elliptic: no standalone mass/damping forms.
+has_mass_form(::PotentialFlow) = false
+has_damping_form(::PotentialFlow) = false
+
 # ── Single-variable weak forms ─────────────────────────────
 #    Field access via variable_symbol (velocity potential)
-
-function mass(pf::PotentialFlow, dom::WeakFormDomains, x_tt, y)
-    sym = variable_symbol(pf)
-    w = y[sym]
-    ∫(0.0 * w)dom[:dΩ]
-end
-
-function damping(pf::PotentialFlow, dom::WeakFormDomains, x_t, y)
-    sym = variable_symbol(pf)
-    w = y[sym]
-    ∫(0.0 * w)dom[:dΩ]
-end
 
 function stiffness(pf::PotentialFlow, dom::WeakFormDomains, x, y)
     sym = variable_symbol(pf)

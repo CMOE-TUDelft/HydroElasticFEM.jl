@@ -12,10 +12,8 @@
 #     ∫( y[η] * x_t[:ϕ] − y[:ϕ] * x_t[η] ) dΓ_s
 # =========================================================================
 
-function mass(pf::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, x_tt, y)
-    w = y[variable_symbol(pf)]
-    ∫(0.0 * w)dom[:dΓ_s]
-end
+# Fluid-structure coupling only contributes through damping terms.
+has_damping_form(::PotentialFlow, ::AbstractStructure) = true
 
 function damping(pf::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, x_t, y)
     ϕ_sym = variable_symbol(pf)
@@ -23,16 +21,6 @@ function damping(pf::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, 
     ϕₜ = x_t[ϕ_sym];  ηₜ = x_t[η_sym]
     w  = y[ϕ_sym];     v  = y[η_sym]
     ∫(v * ϕₜ - w * ηₜ)dom[:dΓ_s]
-end
-
-function stiffness(pf::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, x, y)
-    w = y[variable_symbol(pf)]
-    ∫(0.0 * w)dom[:dΓ_s]
-end
-
-function rhs(pf::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, f, y)
-    w = y[variable_symbol(pf)]
-    ∫(0.0 * w)dom[:dΓ_s]
 end
 
 # =========================================================================
@@ -45,6 +33,11 @@ end
 # Decomposed into mass/damping/stiffness so that the composed
 # weakform = −ω²·mass + (−iω)·damping + stiffness reproduces the above.
 # =========================================================================
+
+# Free-surface coupling has mass, damping, stiffness terms only.
+has_mass_form(::PotentialFlow, ::FreeSurface) = true
+has_damping_form(::PotentialFlow, ::FreeSurface) = true
+has_stiffness_form(::PotentialFlow, ::FreeSurface) = true
 
 function mass(pf::PotentialFlow, fs::FreeSurface, dom::WeakFormDomains, x_tt, y)
     ϕ_sym = variable_symbol(pf)
@@ -75,10 +68,6 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, dom::WeakFormDomains, x, 
     ∫(βₕ * g * u * κ)dom[:dΓ_fs]
 end
 
-function rhs(pf::PotentialFlow, fs::FreeSurface, dom::WeakFormDomains, f, y)
-    u = y[variable_symbol(fs)]
-    ∫(0.0 * u)dom[:dΓ_fs]
-end
 
 # =========================================================================
 # Resonator ↔ Structure coupling
@@ -87,12 +76,9 @@ end
 # Uses variable_symbol(s) to identify which structure field to couple to.
 # =========================================================================
 
-function mass(resn::Vector{ResonatorSingle}, s::AbstractStructure,
-              dom::WeakFormDomains, x_tt, y)
-    ξ1 = y[Symbol("q_1")]
-    q1 = x_tt[Symbol("q_1")]
-    ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
-end
+# Resonator-structure coupling has damping and stiffness terms only.
+has_damping_form(::Vector{ResonatorSingle}, ::AbstractStructure) = true
+has_stiffness_form(::Vector{ResonatorSingle}, ::AbstractStructure) = true
 
 function damping(resn::Vector{ResonatorSingle}, s::AbstractStructure,
                  dom::WeakFormDomains, x_t, y)
@@ -134,10 +120,4 @@ function stiffness(resn::Vector{ResonatorSingle}, s::AbstractStructure,
         val += -ri.K * δi((ξi ⋅ î1) * η)
     end
     return val
-end
-
-function rhs(resn::Vector{ResonatorSingle}, s::AbstractStructure,
-             dom::WeakFormDomains, f, y)
-    ξ1 = y[Symbol("q_1")]
-    ∫((ξ1 ⋅ ξ1) * 0.0)dom[:dΩ]
 end

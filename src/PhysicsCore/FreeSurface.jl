@@ -29,30 +29,8 @@ end
 
 variable_symbol(::FreeSurface) = :κ
 
-# ── Single-variable weak forms ──
-#    κ has no standalone dynamics; all physics enters via
-#    coupling with PotentialFlow (see CouplingTerms.jl).
-
-function mass(fs::FreeSurface, dom::WeakFormDomains, x_tt, y)
-    κ_sym = variable_symbol(fs)
-    u = y[κ_sym]
-    ∫(0.0 * u)dom[:dΓ_fs]
-end
-
-function damping(fs::FreeSurface, dom::WeakFormDomains, x_t, y)
-    κ_sym = variable_symbol(fs)
-    u = y[κ_sym]
-    ∫(0.0 * u)dom[:dΓ_fs]
-end
-
-function stiffness(fs::FreeSurface, dom::WeakFormDomains, x, y)
-    κ_sym = variable_symbol(fs)
-    u = y[κ_sym]
-    ∫(0.0 * u)dom[:dΓ_fs]
-end
-
-function rhs(fs::FreeSurface, dom::WeakFormDomains, f, y)
-    κ_sym = variable_symbol(fs)
-    u = y[κ_sym]
-    ∫(0.0 * u)dom[:dΓ_fs]
-end
+# κ has no standalone dynamics; all contributions are in coupling terms.
+has_mass_form(::FreeSurface) = false
+has_damping_form(::FreeSurface) = false
+has_stiffness_form(::FreeSurface) = false
+has_rhs_form(::FreeSurface) = false
