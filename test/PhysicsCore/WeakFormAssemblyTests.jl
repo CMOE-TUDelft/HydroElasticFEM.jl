@@ -94,7 +94,7 @@ using Gridap.CellData
   @testset "variable_symbol dispatch" begin
     @test variable_symbol(fluid) == :ϕ
     @test variable_symbol(mem) == :η_m
-    beam = Beam2D(L=20.0, m=922.5, E=1e9, I=1e-4)
+    beam = EulerBernoulliBeam(L=20.0, m=922.5, E=1e9, I=1e-4)
     @test variable_symbol(beam) == :η_b
   end
 

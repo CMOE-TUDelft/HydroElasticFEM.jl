@@ -1,7 +1,7 @@
 @testset "PhysicsCore" begin
   include("PhysicalEntitiesTests.jl")
   include("Membrane2DTests.jl")
-  include("Beam2DTests.jl")
+  include("EulerBernoulliBeamTests.jl")
   include("ResonatorTests.jl")
   include("WeakFormAssemblyTests.jl")
 end

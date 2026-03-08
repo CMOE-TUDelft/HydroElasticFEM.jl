@@ -53,7 +53,7 @@ end
   beam_old = HydroElasticFEM.BeamNoJoints.Beam2D(
     20.0, 192.956, 500e6, 6.667e-4, 0.0,
     HydroElasticFEM.BeamNoJoints.Free())
-  beam_new = HydroElasticFEM.Beam2D(
+  beam_new = HydroElasticFEM.EulerBernoulliBeam(
     L=20.0, m=192.956, E=500e6, I=6.667e-4, τ=0.0, bndType=FreeBoundary())
   @test beam_old.ωn1 ≈ beam_new.ωn1
   @test beam_old.EI ≈ beam_new.EI

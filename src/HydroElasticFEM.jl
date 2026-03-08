@@ -26,7 +26,7 @@ module HydroElasticFEM
   # Re-export PhysicsCore public API
   export PhysicsParameters, print_parameters
   export BoundaryCondition, FreeBoundary, FixedBoundary
-  export AbstractStructure, PotentialFlow, Membrane2D, Beam2D
+  export AbstractStructure, PotentialFlow, Membrane2D, EulerBernoulliBeam
   export ResonatorSingle, resonator_array
   export WeakFormDomains
   export variable_symbol

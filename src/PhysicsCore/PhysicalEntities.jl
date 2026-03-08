@@ -107,7 +107,7 @@ include("WeakFormDomains.jl")
 # Entity files (struct definition + single-variable weak forms)
 include("PotentialFlow.jl")
 include("Membrane2D.jl")
-include("Beam2D.jl")
+include("EulerBernoulliBeam.jl")
 include("Resonator.jl")
 
 # Coupling weak forms (cross-terms between pairs of entities)
@@ -201,7 +201,7 @@ jacobian_tt(a, b, dom::WeakFormDomains, x, x_t, dx_tt, y) =
 
 export PhysicsParameters, print_parameters
 export BoundaryCondition, FreeBoundary, FixedBoundary
-export AbstractStructure, PotentialFlow, Membrane2D, Beam2D
+export AbstractStructure, PotentialFlow, Membrane2D, EulerBernoulliBeam
 export ResonatorSingle, resonator_array
 export WeakFormDomains
 export variable_symbol

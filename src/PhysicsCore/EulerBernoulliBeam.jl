@@ -1,5 +1,5 @@
 """
-    Beam2D <: AbstractStructure
+    EulerBernoulliBeam <: AbstractStructure
 
 Parameters for a 2D Euler-Bernoulli beam model (no joints).
 
@@ -17,7 +17,7 @@ Parameters for a 2D Euler-Bernoulli beam model (no joints).
 - `MTotal::Float64` — Total Mass per unit width (derived: `m * L`)
 - `ωn1::Float64` — Dry Analytical Natural frequency (derived)
 """
-@with_kw struct Beam2D <: AbstractStructure
+@with_kw struct EulerBernoulliBeam <: AbstractStructure
     L::Float64
     m::Float64
     E::Float64
@@ -34,7 +34,7 @@ Parameters for a 2D Euler-Bernoulli beam model (no joints).
     ωn1::Float64   = 22.3733 * sqrt(EI / (m * L^4))
 end
 
-function print_parameters(beam::Beam2D)
+function print_parameters(beam::EulerBernoulliBeam)
     mᵨ = beam.m / beam.ρw
     EIᵨ = beam.EI / beam.ρw
     @printf("\n[MSG] Beam Properties:\n")
@@ -53,19 +53,19 @@ function print_parameters(beam::Beam2D)
     println()
 end
 
-variable_symbol(::Beam2D) = :η_b
+variable_symbol(::EulerBernoulliBeam) = :η_b
 
 # ── Single-variable weak forms: mass, damping, stiffness, rhs ──
 #    Only η_b terms — no coupling to ϕ or other fields
 
-function mass(s::Beam2D, dom::WeakFormDomains, x_tt, y)
+function mass(s::EulerBernoulliBeam, dom::WeakFormDomains, x_tt, y)
     sym = variable_symbol(s)
     ηₜₜ = x_tt[sym]
     v   = y[sym]
     ∫((s.m / s.ρw) * v * ηₜₜ)dom[:dΓ_s]
 end
 
-function damping(s::Beam2D, dom::WeakFormDomains, x_t, y)
+function damping(s::EulerBernoulliBeam, dom::WeakFormDomains, x_t, y)
     sym = variable_symbol(s)
     ηₜ = x_t[sym]
     v  = y[sym]
@@ -86,7 +86,7 @@ function damping(s::Beam2D, dom::WeakFormDomains, x_t, y)
     return val
 end
 
-function stiffness(s::Beam2D, dom::WeakFormDomains, x, y)
+function stiffness(s::EulerBernoulliBeam, dom::WeakFormDomains, x, y)
     sym = variable_symbol(s)
     η = x[sym]
     v = y[sym]
@@ -106,7 +106,7 @@ function stiffness(s::Beam2D, dom::WeakFormDomains, x, y)
     return val
 end
 
-function rhs(s::Beam2D, dom::WeakFormDomains, f, y)
+function rhs(s::EulerBernoulliBeam, dom::WeakFormDomains, f, y)
     sym = variable_symbol(s)
     v = y[sym]
     ∫(v * f[sym])dom[:dΓ_s]
