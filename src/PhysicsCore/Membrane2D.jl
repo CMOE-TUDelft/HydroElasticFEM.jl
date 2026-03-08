@@ -22,6 +22,7 @@ Parameters for a 2D membrane model, normalised by fluid density ρw.
 
     # Derived quantities
     ωn1::Float64    = (π / L) * sqrt(Tᵨ / mᵨ)
+    fe::FESpaceConfig = FESpaceConfig()
 end
 
 function print_parameters(memb::Membrane2D)

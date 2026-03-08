@@ -17,7 +17,7 @@ changing this type.
 - `:dΩ`     — fluid interior measure
 - `:dΓ_fs`  — free-surface measure (outside structure)
 - `:dΓ_s`   — structure surface measure
-- `:dΛ_s`, `:n_Λ_s`, `:h_s`, `:γ_s` — beam skeleton + Nitsche params
+- `:dΛ_s`, `:n_Λ_s`, `:h_s` — beam skeleton measures/normals + mesh size
 - `:dΛ_sb`, `:n_Λ_sb`  — structure boundary (fixed BC Neumann)
 - `:dΓ_in`, `:dΓ_ot`   — inlet / outlet radiation boundaries
 - `:dΓ_d1`, `:dΓ_d2`   — damping zone measures

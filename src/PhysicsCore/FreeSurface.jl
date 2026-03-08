@@ -18,6 +18,7 @@ term `βₕ·g·u·κ`; coupling with the velocity potential `ϕ` (from
     ρw::Float64 = 1025.0
     g::Float64  = 9.81
     βₕ::Float64 = 0.5
+    fe::FESpaceConfig = FESpaceConfig()
 end
 
 function print_parameters(fs::FreeSurface)

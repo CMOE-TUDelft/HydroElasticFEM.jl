@@ -33,8 +33,13 @@ using Gridap
 # ─────────────────────────────────────────────────────────────
 
 # 1. Define physics parameters
+order = 2
 beam = EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0, g=0.0,
-                          bndType=FixedBoundary())
+                          bndType=FixedBoundary(),
+                          fe=FESpaceConfig(order=order,
+                                           vector_type=Vector{Float64},
+                                           dirichlet_tags="boundary",
+                                           dirichlet_value=0.0))
 print_parameters(beam)
 
 # 2. Build Gridap model and FE spaces
@@ -45,33 +50,19 @@ model = CartesianDiscreteModel((0, beam.L), (nel,))
 Λ  = Skeleton(Ω)
 Λb = Boundary(model, tags="boundary")
 
-order = 2
-reffe = ReferenceFE(lagrangian, Float64, order)
-V = TestFESpace(model, reffe, dirichlet_tags="boundary")
-U = TrialFESpace(V, 0.0)
+X, Y, fmap = build_fe_spaces(beam => model)
 
-# Wrap in MultiFieldFESpace so Gridap passes 1-tuples to closures,
-# which lets FieldDict index correctly: x[1] → first (only) field.
-Y = MultiFieldFESpace([V])
-X = MultiFieldFESpace([U])
-
-# 3. Populate WeakFormDomains with measures, normals, Nitsche params
+# 3. Populate WeakFormDomains with measures, normals, mesh size
 dom = WeakFormDomains(
     dΓ_s   = Measure(Ω, 2 * order + 2),
     dΛ_s   = Measure(Λ, 2 * order + 2),
     n_Λ_s  = get_normal_vector(Λ),
     h_s    = h,
-    γ_s    = 10.0 * order^2,
     dΛ_sb  = Measure(Λb, 2 * order + 2),
     n_Λ_sb = get_normal_vector(Λb),
 )
 
 # 4. Build the bilinear and linear forms using the weak form interface.
-#    The FieldDict maps the beam's symbol (:η_b) to position 1 in the
-#    single-field tuple that Gridap passes to our closures.
-sym  = variable_symbol(beam)          # :η_b
-fmap = Dict(sym => 1)
-
 a((u,), (v,)) = stiffness(beam, dom,
                            FieldDict((u,), fmap), FieldDict((v,), fmap))
 

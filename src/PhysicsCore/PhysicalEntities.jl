@@ -128,8 +128,9 @@ struct FixedBoundary <: BoundaryCondition end
 
 abstract type AbstractStructure <: PhysicsParameters end
 
-# Domain container (must be included before entity files that reference it)
+# Domain container and FE config (must be included before entity files that reference them)
 include("WeakFormDomains.jl")
+include("FESpaceConfig.jl")
 
 # Entity files (struct definition + single-variable weak forms)
 include("PotentialFlow.jl")
@@ -269,7 +270,7 @@ export PhysicsParameters, print_parameters
 export BoundaryCondition, FreeBoundary, FixedBoundary
 export AbstractStructure, PotentialFlow, FreeSurface, Membrane2D, EulerBernoulliBeam
 export ResonatorSingle, resonator_array
-export WeakFormDomains
+export WeakFormDomains, FESpaceConfig
 export variable_symbol
 export weakform, mass, damping, stiffness, rhs
 export residual, jacobian, jacobian_t, jacobian_tt

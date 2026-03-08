@@ -23,6 +23,7 @@ normalised by fluid density ρw.
 
     # Derived quantities
     ωn1::Float64   = 22.3733 * sqrt(EIᵨ / (mᵨ * L^4))
+    fe::FESpaceConfig = FESpaceConfig()
 end
 
 function print_parameters(beam::EulerBernoulliBeam)
@@ -55,7 +56,7 @@ function damping(s::EulerBernoulliBeam, dom::WeakFormDomains, x_t, y)
     v  = y[sym]
     EIᵨ = s.EIᵨ
     τ   = s.τ
-    γ   = dom[:γ_s]
+    γ   = s.fe.γ
     h   = dom[:h_s]
     n_Λ = dom[:n_Λ_s]
 
@@ -75,7 +76,7 @@ function stiffness(s::EulerBernoulliBeam, dom::WeakFormDomains, x, y)
     η = x[sym]
     v = y[sym]
     EIᵨ = s.EIᵨ
-    γ   = dom[:γ_s]
+    γ   = s.fe.γ
     h   = dom[:h_s]
     n_Λ = dom[:n_Λ_s]
 

@@ -10,6 +10,7 @@ Parameters for the 2D fluid potential (Laplace equation).
 @with_kw struct PotentialFlow <: PhysicsParameters
     ρw::Float64 = 1025.0
     g::Float64  = 9.81
+    fe::FESpaceConfig = FESpaceConfig()
 end
 
 function print_parameters(f::PotentialFlow)

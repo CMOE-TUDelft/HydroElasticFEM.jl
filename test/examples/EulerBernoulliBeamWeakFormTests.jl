@@ -25,14 +25,12 @@ using Gridap.FESpaces
     Λb = Boundary(model, tags="boundary")
 
     h = L / nel
-    γ = 10.0 * order^2   # Nitsche penalty scaling
 
     dom = WeakFormDomains(
       dΓ_s   = Measure(Ω, 2 * order + 2),
       dΛ_s   = Measure(Λ, 2 * order + 2),
       n_Λ_s  = get_normal_vector(Λ),
       h_s    = h,
-      γ_s    = γ,
       dΛ_sb  = Measure(Λb, 2 * order + 2),
       n_Λ_sb = get_normal_vector(Λb),
     )
@@ -89,7 +87,8 @@ using Gridap.FESpaces
     q   = 1.0
 
     beam = EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
-                              bndType=FreeBoundary())
+                              bndType=FreeBoundary(),
+                              fe=FESpaceConfig(order=2, vector_type=Vector{Float64}))
 
     w_exact_max = 5 * q * L^4 / (384 * EIᵨ)
 
@@ -122,7 +121,8 @@ using Gridap.FESpaces
     q   = 1.0
 
     beam = EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
-                              bndType=FixedBoundary())
+                              bndType=FixedBoundary(),
+                              fe=FESpaceConfig(order=2, vector_type=Vector{Float64}))
 
     w_exact_max = q * L^4 / (384 * EIᵨ)
 
@@ -152,11 +152,14 @@ using Gridap.FESpaces
     q = 1.0
 
     beam1 = EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0,
-                               g=0.0, bndType=FreeBoundary())
+                               g=0.0, bndType=FreeBoundary(),
+                               fe=FESpaceConfig(order=2, vector_type=Vector{Float64}))
     beam2 = EulerBernoulliBeam(L=2.0, mᵨ=1.0, EIᵨ=100.0,
-                               g=0.0, bndType=FreeBoundary())
+                               g=0.0, bndType=FreeBoundary(),
+                               fe=FESpaceConfig(order=2, vector_type=Vector{Float64}))
     beam3 = EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=200.0,
-                               g=0.0, bndType=FreeBoundary())
+                               g=0.0, bndType=FreeBoundary(),
+                               fe=FESpaceConfig(order=2, vector_type=Vector{Float64}))
 
     sol1 = solve_beam(beam1, 40, 2, q)
     sol2 = solve_beam(beam2, 80, 2, q)
@@ -183,7 +186,8 @@ using Gridap.FESpaces
     q   = 1.0
 
     beam = EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
-                              bndType=FreeBoundary())
+                              bndType=FreeBoundary(),
+                              fe=FESpaceConfig(order=2, vector_type=Vector{Float64}))
     w_exact = 5 * q * L^4 / (384 * EIᵨ)
 
     errors = Float64[]
@@ -209,7 +213,8 @@ using Gridap.FESpaces
 
   @testset "Zero load — zero deflection" begin
     beam = EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0, g=0.0,
-                              bndType=FreeBoundary())
+                              bndType=FreeBoundary(),
+                              fe=FESpaceConfig(order=2, vector_type=Vector{Float64}))
 
     sol = solve_beam(beam, 20, 2, 0.0)
     w_mid = sol.uh(Point(0.5))
