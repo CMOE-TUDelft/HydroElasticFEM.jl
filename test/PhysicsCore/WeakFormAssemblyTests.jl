@@ -165,8 +165,9 @@ using Gridap.CellData
     a((ϕ,κ,η),(w,u,v)) = begin
       xd = FieldDict((ϕ,κ,η), fmap)
       yd = FieldDict((w,u,v), fmap)
-      # single-variable (FreeSurface has no standalone forms)
+      # single-variable
       weakform(fluid, dom, ω, xd, yd) +
+      weakform(fsurf, dom, ω, xd, yd) +
       weakform(mem, dom, ω, xd, yd) +
       # coupling
       weakform(fluid, fsurf, dom, ω, xd, yd) +

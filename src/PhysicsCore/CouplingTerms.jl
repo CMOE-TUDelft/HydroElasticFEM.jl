@@ -34,10 +34,9 @@ end
 # weakform = −ω²·mass + (−iω)·damping + stiffness reproduces the above.
 # =========================================================================
 
-# Free-surface coupling has mass, damping, stiffness terms only.
+# Free-surface coupling has mass and damping terms only.
 has_mass_form(::PotentialFlow, ::FreeSurface) = true
 has_damping_form(::PotentialFlow, ::FreeSurface) = true
-has_stiffness_form(::PotentialFlow, ::FreeSurface) = true
 
 function mass(pf::PotentialFlow, fs::FreeSurface, dom::WeakFormDomains, x_tt, y)
     ϕ_sym = variable_symbol(pf)
@@ -57,15 +56,6 @@ function damping(pf::PotentialFlow, fs::FreeSurface, dom::WeakFormDomains, x_t, 
     u  = y[κ_sym]
     βₕ = fs.βₕ
     ∫(βₕ * u * ϕₜ - βₕ * w * κₜ)dom[:dΓ_fs]
-end
-
-function stiffness(pf::PotentialFlow, fs::FreeSurface, dom::WeakFormDomains, x, y)
-    κ_sym = variable_symbol(fs)
-    κ = x[κ_sym]
-    u = y[κ_sym]
-    βₕ = fs.βₕ
-    g  = fs.g
-    ∫(βₕ * g * u * κ)dom[:dΓ_fs]
 end
 
 
