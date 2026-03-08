@@ -48,6 +48,46 @@ function variable_symbol(s::PhysicsParameters)
 end
 
 # ─────────────────────────────────────────────────────────────
+# Abstract weak form interface
+# ─────────────────────────────────────────────────────────────
+
+"""
+    mass(s, dom, x_tt, y)
+
+Mass weak form. Must be implemented for every concrete subtype.
+"""
+function mass(s::PhysicsParameters, dom, x_tt, y)
+    error("mass not implemented for $(typeof(s))")
+end
+
+"""
+    damping(s, dom, x_t, y)
+
+Damping weak form. Must be implemented for every concrete subtype.
+"""
+function damping(s::PhysicsParameters, dom, x_t, y)
+    error("damping not implemented for $(typeof(s))")
+end
+
+"""
+    stiffness(s, dom, x, y)
+
+Stiffness weak form. Must be implemented for every concrete subtype.
+"""
+function stiffness(s::PhysicsParameters, dom, x, y)
+    error("stiffness not implemented for $(typeof(s))")
+end
+
+"""
+    rhs(s, dom, f, y)
+
+Right-hand side weak form. Must be implemented for every concrete subtype.
+"""
+function rhs(s::PhysicsParameters, dom, f, y)
+    error("rhs not implemented for $(typeof(s))")
+end
+
+# ─────────────────────────────────────────────────────────────
 # Boundary conditions
 # ─────────────────────────────────────────────────────────────
 
