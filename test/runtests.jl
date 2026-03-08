@@ -34,4 +34,10 @@ using Gridap
 
   include("Membrane2D/TimeDomain/MemTimeLrmmTests.jl")
 
+  # ==========================================================================
+  # Examples (integration tests against analytical solutions)
+  # ==========================================================================
+
+  include("examples/EulerBernoulliBeamWeakFormTests.jl")
+
 end
