@@ -9,6 +9,8 @@ Parameters for a 2D Euler-Bernoulli beam model (no joints).
 - `E::Float64` — Young's Modulus
 - `I::Float64` — Second Moment of Area
 - `τ::Float64` — Stiffness Proportional Structural Damping coefficient
+- `ρw::Float64` — Density of water
+- `g::Float64` — Gravitational acceleration
 - `bndType::BoundaryCondition` — Boundary Type
 - `EI::Float64` — Flexural Rigidity (derived: `E * I`)
 - `τEI::Float64` — Damping Rigidity (derived: `τ * EI`)
@@ -21,6 +23,8 @@ Parameters for a 2D Euler-Bernoulli beam model (no joints).
     E::Float64
     I::Float64
     τ::Float64     = 0.0
+    ρw::Float64    = 1025.0
+    g::Float64     = 9.81
     bndType::BoundaryCondition = FreeBoundary()
 
     # Derived quantities
@@ -30,11 +34,11 @@ Parameters for a 2D Euler-Bernoulli beam model (no joints).
     ωn1::Float64   = 22.3733 * sqrt(EI / (m * L^4))
 end
 
-function print_parameters(beam::Beam2D, ρw::Real=1025)
-    mᵨ = beam.m / ρw
-    EIᵨ = beam.EI / ρw
+function print_parameters(beam::Beam2D)
+    mᵨ = beam.m / beam.ρw
+    EIᵨ = beam.EI / beam.ρw
     @printf("\n[MSG] Beam Properties:\n")
-    @printf("[VAL] Density of water, ρw = %.2f kg/m3\n", ρw)
+    @printf("[VAL] Density of water, ρw = %.2f kg/m3\n", beam.ρw)
     @printf("[VAL] L = %.4f m\n", beam.L)
     @printf("[VAL] m, mᵨ = %.4f kg/m2, %.4f m\n", beam.m, mᵨ)
     @printf("[VAL] E = %.4f Pa\n", beam.E)
@@ -47,4 +51,57 @@ function print_parameters(beam::Beam2D, ρw::Real=1025)
     @printf("[VAL] 1st Dry Analytical Natural Freq, ωn1 = %.4f rad/s\n", beam.ωn1)
     @printf("[MSG] See free-free vibration frequency formula involving 22.3733 from Wiki.\n")
     println()
+end
+
+# ── Linear weak forms: mass, damping, stiffness, rhs ──────
+#    Field access via symbols — :ϕ (potential), :η_b (beam displacement)
+
+function mass(s::Beam2D, dom::WeakFormDomains, x_tt, y)
+    ηₜₜ = x_tt[:η_b]
+    v   = y[:η_b]
+    ∫((s.m / s.ρw) * v * ηₜₜ)dom[:dΓ_s]
+end
+
+function damping(s::Beam2D, dom::WeakFormDomains, x_t, y)
+    ϕₜ = x_t[:ϕ];  ηₜ = x_t[:η_b]
+    w  = y[:ϕ];     v  = y[:η_b]
+    EIᵨ = s.EI / s.ρw
+    τ   = s.τ
+    γ   = dom[:γ_s]
+    h   = dom[:h_s]
+    n_Λ = dom[:n_Λ_s]
+
+    val = ∫(v * ϕₜ - w * ηₜ + EIᵨ * τ * Δ(v) * Δ(ηₜ))dom[:dΓ_s] +
+          ∫(EIᵨ * τ * (
+              -jump(∇(v) ⋅ n_Λ) * mean(Δ(ηₜ))
+              - mean(Δ(v)) * jump(∇(ηₜ) ⋅ n_Λ)
+              + (γ / h) * jump(∇(v) ⋅ n_Λ) * jump(∇(ηₜ) ⋅ n_Λ)))dom[:dΛ_s]
+    if s.bndType isa FixedBoundary
+        val += ∫(-EIᵨ * τ * y[:η_b] * Δ(x_t[:η_b]) * dom[:n_Λ_sb])dom[:dΛ_sb]
+    end
+    return val
+end
+
+function stiffness(s::Beam2D, dom::WeakFormDomains, x, y)
+    η = x[:η_b]
+    v = y[:η_b]
+    EIᵨ = s.EI / s.ρw
+    γ   = dom[:γ_s]
+    h   = dom[:h_s]
+    n_Λ = dom[:n_Λ_s]
+
+    val = ∫(v * (s.g * η) + EIᵨ * Δ(v) * Δ(η))dom[:dΓ_s] +
+          ∫(EIᵨ * (
+              -jump(∇(v) ⋅ n_Λ) * mean(Δ(η))
+              - mean(Δ(v)) * jump(∇(η) ⋅ n_Λ)
+              + (γ / h) * jump(∇(v) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ)))dom[:dΛ_s]
+    if s.bndType isa FixedBoundary
+        val += ∫(-EIᵨ * y[:η_b] * Δ(x[:η_b]) * dom[:n_Λ_sb])dom[:dΛ_sb]
+    end
+    return val
+end
+
+function rhs(s::Beam2D, dom::WeakFormDomains, x, y)
+    v = y[:η_b]
+    ∫(0.0 * v)dom[:dΓ_s]
 end

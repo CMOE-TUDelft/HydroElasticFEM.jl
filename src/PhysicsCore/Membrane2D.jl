@@ -8,6 +8,8 @@ Parameters for a 2D membrane model.
 - `m::Float64` — Mass per unit length per unit width
 - `T::Float64` — Pre-Tension
 - `τ::Float64` — Proportional Structural Damping coefficient
+- `ρw::Float64` — Density of water
+- `g::Float64` — Gravitational acceleration
 - `bndType::BoundaryCondition` — Boundary Type
 - `MTotal::Float64` — Total Mass per unit width (derived: `m * L`)
 - `ωn1::Float64` — Dry Analytical Natural frequency (derived: `(π/L) * √(T/m)`)
@@ -17,6 +19,8 @@ Parameters for a 2D membrane model.
     m::Float64
     T::Float64
     τ::Float64     = 0.0
+    ρw::Float64    = 1025.0
+    g::Float64     = 9.81
     bndType::BoundaryCondition = FreeBoundary()
 
     # Derived quantities
@@ -24,11 +28,11 @@ Parameters for a 2D membrane model.
     ωn1::Float64    = (π / L) * sqrt(T / m)
 end
 
-function print_parameters(memb::Membrane2D, ρw::Real=1025)
-    mᵨ = memb.m / ρw
-    Tᵨ = memb.T / ρw
+function print_parameters(memb::Membrane2D)
+    mᵨ = memb.m / memb.ρw
+    Tᵨ = memb.T / memb.ρw
     @printf("\n[MSG] Membrane Properties:\n")
-    @printf("[VAL] Density of water, ρw = %.2f kg/m3\n", ρw)
+    @printf("[VAL] Density of water, ρw = %.2f kg/m3\n", memb.ρw)
     @printf("[VAL] Lm = %.4f m\n", memb.L)
     @printf("[VAL] m, mᵨ = %.4f kg/m2, %.4f m\n", memb.m, mᵨ)
     @printf("[VAL] T, Tᵨ = %.4f N/m, %.4f m3/s2\n", memb.T, Tᵨ)
@@ -37,4 +41,41 @@ function print_parameters(memb::Membrane2D, ρw::Real=1025)
     @printf("[VAL] MTotal = %.4f kg/m \n", memb.MTotal)
     @printf("[VAL] 1st Dry Analytical Natural Freq, ωn1 = %.4f rad/s \n", memb.ωn1)
     println()
+end
+
+# ── Linear weak forms: mass, damping, stiffness, rhs ──────
+#    Field access via symbols — :ϕ (potential), :η_m (membrane displacement)
+
+function mass(s::Membrane2D, dom::WeakFormDomains, x_tt, y)
+    ηₜₜ = x_tt[:η_m]
+    v   = y[:η_m]
+    ∫((s.m / s.ρw) * v * ηₜₜ)dom[:dΓ_s]
+end
+
+function damping(s::Membrane2D, dom::WeakFormDomains, x_t, y)
+    ϕₜ = x_t[:ϕ];  ηₜ = x_t[:η_m]
+    w  = y[:ϕ];     v  = y[:η_m]
+    Tᵨ = s.T / s.ρw
+    τ  = s.τ
+    val = ∫(v * ϕₜ - w * ηₜ + Tᵨ * τ * ∇(v) ⋅ ∇(ηₜ))dom[:dΓ_s]
+    if s.bndType isa FixedBoundary
+        val += ∫(-Tᵨ * τ * y[:η_m] * ∇(x_t[:η_m]) ⋅ dom[:n_Λ_sb])dom[:dΛ_sb]
+    end
+    return val
+end
+
+function stiffness(s::Membrane2D, dom::WeakFormDomains, x, y)
+    η = x[:η_m]
+    v = y[:η_m]
+    Tᵨ = s.T / s.ρw
+    val = ∫(v * (s.g * η) + Tᵨ * ∇(v) ⋅ ∇(η))dom[:dΓ_s]
+    if s.bndType isa FixedBoundary
+        val += ∫(-Tᵨ * y[:η_m] * ∇(x[:η_m]) ⋅ dom[:n_Λ_sb])dom[:dΛ_sb]
+    end
+    return val
+end
+
+function rhs(s::Membrane2D, dom::WeakFormDomains, x, y)
+    v = y[:η_m]
+    ∫(0.0 * v)dom[:dΓ_s]
 end

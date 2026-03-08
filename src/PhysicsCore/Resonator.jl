@@ -7,6 +7,8 @@ Parameters for a single locally resonant mass-spring-damper.
 - `M::Float64` — Mass
 - `K::Float64` — Stiffness
 - `C::Float64` — Damping
+- `ρw::Float64` — Density of water
+- `η_sym::Symbol` — Symbol of the structural field this resonator couples to
 - `XZ::VectorValue{2,Float64}` — Position
 - `ωn1::Float64` — Natural frequency (derived: `√(K/M)`)
 """
@@ -14,6 +16,8 @@ Parameters for a single locally resonant mass-spring-damper.
     M::Float64
     K::Float64
     C::Float64     = 0.0
+    ρw::Float64    = 1025.0
+    η_sym::Symbol  = :η_m
     XZ::VectorValue{2,Float64} = VectorValue(0.0, 0.0)
     ωn1::Float64   = sqrt(K / M)
 end
@@ -33,26 +37,91 @@ function print_parameters(resn::Vector{ResonatorSingle})
 end
 
 """
-    resonator_array(N, M::Real, K::Real, C::Real, XZ) -> Vector{ResonatorSingle}
+    resonator_array(N, M::Real, K::Real, C::Real, XZ; ρw=1025.0, η_sym=:η_m) -> Vector{ResonatorSingle}
 
 Create `N` identical resonators at positions `XZ`.
 """
 function resonator_array(N::Int, M::Real, K::Real, C::Real,
-                         XZ::Vector{VectorValue{2,Float64}})
+                         XZ::Vector{VectorValue{2,Float64}};
+                         ρw::Real=1025.0, η_sym::Symbol=:η_m)
     length(XZ) == N || throw(ArgumentError("XZ must be of length N"))
-    [ResonatorSingle(M=M, K=K, C=C, XZ=xz) for xz in XZ]
+    [ResonatorSingle(M=M, K=K, C=C, ρw=ρw, η_sym=η_sym, XZ=xz) for xz in XZ]
 end
 
 """
-    resonator_array(N, M::Vector, K::Vector, C::Vector, XZ) -> Vector{ResonatorSingle}
+    resonator_array(N, M::Vector, K::Vector, C::Vector, XZ; ρw=1025.0, η_sym=:η_m) -> Vector{ResonatorSingle}
 
 Create `N` resonators with individual parameters.
 """
 function resonator_array(N::Int, M::Vector{<:Real}, K::Vector{<:Real},
                          C::Vector{<:Real},
-                         XZ::Vector{VectorValue{2,Float64}})
+                         XZ::Vector{VectorValue{2,Float64}};
+                         ρw::Real=1025.0, η_sym::Symbol=:η_m)
     (length(M) == N && length(K) == N &&
      length(C) == N && length(XZ) == N) ||
         throw(ArgumentError("M, K, C, and XZ must be of length N"))
-    [ResonatorSingle(M=m, K=k, C=c, XZ=xz) for (m, k, c, xz) in zip(M, K, C, XZ)]
+    [ResonatorSingle(M=m, K=k, C=c, ρw=ρw, η_sym=η_sym, XZ=xz) for (m, k, c, xz) in zip(M, K, C, XZ)]
+end
+
+# ── Linear weak forms: mass, damping, stiffness, rhs ──────
+#    Field access via symbols — :q_1, :q_2, ... (resonator DOFs)
+#    Structure coupling via ri.η_sym (e.g. :η_m or :η_b)
+
+function mass(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x_tt, y)
+    δ_p = dom[:δ_p]
+    N   = length(resn)
+    ξ1  = y[Symbol("q_1")]
+    q1  = x_tt[Symbol("q_1")]
+    val = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
+    for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
+        qₜₜi = x_tt[Symbol("q_$i")]
+        ξi   = y[Symbol("q_$i")]
+        val += ri.M * δi(qₜₜi ⋅ ξi)
+    end
+    return val
+end
+
+function damping(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x_t, y)
+    δ_p   = dom[:δ_p]
+    η_sym = first(resn).η_sym
+    ηₜ    = x_t[η_sym]
+    v     = y[η_sym]
+    î1    = VectorValue(1.0)
+    ξ1    = y[Symbol("q_1")]
+    q1    = x_t[Symbol("q_1")]
+    val   = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
+    for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
+        qₜi = x_t[Symbol("q_$i")]
+        ξi  = y[Symbol("q_$i")]
+        val +=
+            (ri.C / ri.ρw) * δi(v * ((qₜi ⋅ î1) - ηₜ)) +
+            ri.C * δi(-(ξi ⋅ î1) * ηₜ + qₜi ⋅ ξi)
+    end
+    return val
+end
+
+function stiffness(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x, y)
+    δ_p   = dom[:δ_p]
+    η_sym = first(resn).η_sym
+    η     = x[η_sym]
+    v     = y[η_sym]
+    î1    = VectorValue(1.0)
+    ξ1    = y[Symbol("q_1")]
+    q1    = x[Symbol("q_1")]
+    val   = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
+    for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
+        qi = x[Symbol("q_$i")]
+        ξi = y[Symbol("q_$i")]
+        val +=
+            (-ri.K / ri.ρw) * δi(v * ((qi ⋅ î1) - η)) +
+            ∫((ξi ⋅ qi) * 0.0)dom[:dΩ] +
+            ri.K * δi(qi ⋅ ξi - (ξi ⋅ î1) * η)
+    end
+    return val
+end
+
+function rhs(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x, y)
+    ξ1 = y[Symbol("q_1")]
+    val = ∫((ξ1 ⋅ ξ1) * 0.0)dom[:dΩ]
+    return val
 end
