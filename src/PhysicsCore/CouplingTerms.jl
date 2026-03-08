@@ -29,7 +29,7 @@ function stiffness(f::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains,
     ∫(0.0 * w)dom[:dΓ_s]
 end
 
-function rhs(f::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, x, y)
+function rhs(pf::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, f, y)
     w = y[:ϕ]
     ∫(0.0 * w)dom[:dΓ_s]
 end
@@ -91,7 +91,7 @@ function stiffness(resn::Vector{ResonatorSingle}, s::AbstractStructure,
 end
 
 function rhs(resn::Vector{ResonatorSingle}, s::AbstractStructure,
-             dom::WeakFormDomains, x, y)
+             dom::WeakFormDomains, f, y)
     ξ1 = y[Symbol("q_1")]
     ∫((ξ1 ⋅ ξ1) * 0.0)dom[:dΩ]
 end

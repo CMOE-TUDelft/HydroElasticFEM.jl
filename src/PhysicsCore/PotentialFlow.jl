@@ -38,7 +38,7 @@ function stiffness(f::PotentialFlow, dom::WeakFormDomains, x, y)
     ∫(∇(w) ⋅ ∇(ϕ))dom[:dΩ]
 end
 
-function rhs(f::PotentialFlow, dom::WeakFormDomains, x, y)
+function rhs(pf::PotentialFlow, dom::WeakFormDomains, f, y)
     w = y[:ϕ]
-    ∫(0.0 * w)dom[:dΩ]
+    ∫(w * f[:ϕ])dom[:dΩ]
 end

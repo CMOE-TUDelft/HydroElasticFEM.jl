@@ -105,8 +105,15 @@ function stiffness(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x, y)
     return val
 end
 
-function rhs(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x, y)
-    ξ1 = y[Symbol("q_1")]
-    val = ∫((ξ1 ⋅ ξ1) * 0.0)dom[:dΩ]
+function rhs(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, f, y)
+    δ_p = dom[:δ_p]
+    ξ1  = y[Symbol("q_1")]
+    q1  = f[Symbol("q_1")]
+    val = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
+    for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
+        fi = f[Symbol("q_$i")]
+        ξi = y[Symbol("q_$i")]
+        val += δi(fi ⋅ ξi)
+    end
     return val
 end

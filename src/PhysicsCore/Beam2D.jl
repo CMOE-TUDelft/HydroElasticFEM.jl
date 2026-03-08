@@ -103,7 +103,7 @@ function stiffness(s::Beam2D, dom::WeakFormDomains, x, y)
     return val
 end
 
-function rhs(s::Beam2D, dom::WeakFormDomains, x, y)
+function rhs(s::Beam2D, dom::WeakFormDomains, f, y)
     v = y[:η_b]
-    ∫(0.0 * v)dom[:dΓ_s]
+    ∫(v * f[:η_b])dom[:dΓ_s]
 end

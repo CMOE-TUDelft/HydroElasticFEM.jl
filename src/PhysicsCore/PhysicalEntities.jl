@@ -92,22 +92,22 @@ weakform(a, b, dom::WeakFormDomains, ω, x, y) =
 # ─────────────────────────────────────────────────────────────
 
 """
-    residual(s, dom, x, x_t, x_tt, y)
+    residual(s, dom, x, x_t, x_tt, f, y)
 
-Nonlinear residual: `mass(x_tt, y) + damping(x_t, y) + stiffness(x, y) - rhs(x, y)`.
+Nonlinear residual: `mass(x_tt, y) + damping(x_t, y) + stiffness(x, y) - rhs(f, y)`.
 """
-residual(s, dom::WeakFormDomains, x, x_t, x_tt, y) =
+residual(s, dom::WeakFormDomains, x, x_t, x_tt, f, y) =
     mass(s, dom, x_tt, y) +
     damping(s, dom, x_t, y) +
     stiffness(s, dom, x, y) -
-    rhs(s, dom, x, y)
+    rhs(s, dom, f, y)
 
 # Two-entity coupling variant
-residual(a, b, dom::WeakFormDomains, x, x_t, x_tt, y) =
+residual(a, b, dom::WeakFormDomains, x, x_t, x_tt, f, y) =
     mass(a, b, dom, x_tt, y) +
     damping(a, b, dom, x_t, y) +
     stiffness(a, b, dom, x, y) -
-    rhs(a, b, dom, x, y)
+    rhs(a, b, dom, f, y)
 
 """
     jacobian(s, dom, dx, x_t, x_tt, y)

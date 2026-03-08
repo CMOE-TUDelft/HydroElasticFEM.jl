@@ -100,14 +100,14 @@ function assemble_stiffness(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int},
 end
 
 """
-    assemble_rhs(terms, dom, fmap, x, y)
+    assemble_rhs(terms, dom, fmap, f, y)
 
-Sum `rhs(term, dom, x, y)` over all `terms`.
+Sum `rhs(term, dom, f, y)` over all `terms`.
 """
-function assemble_rhs(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int}, x, y)
-    xd = _wrap(x, fmap)
+function assemble_rhs(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int}, f, y)
+    fd = _wrap(f, fmap)
     yd = _wrap(y, fmap)
-    _assemble(rhs, terms, dom, xd, yd)
+    _assemble(rhs, terms, dom, fd, yd)
 end
 
 # ─────────────────────────────────────────────────────────────
@@ -131,15 +131,16 @@ end
 # ─────────────────────────────────────────────────────────────
 
 """
-    assemble_residual(terms, dom, fmap, x, x_t, x_tt, y)
+    assemble_residual(terms, dom, fmap, x, x_t, x_tt, f, y)
 """
 function assemble_residual(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int},
-                           x, x_t, x_tt, y)
+                           x, x_t, x_tt, f, y)
     xd    = _wrap(x, fmap)
     xd_t  = _wrap(x_t, fmap)
     xd_tt = _wrap(x_tt, fmap)
+    fd    = _wrap(f, fmap)
     yd    = _wrap(y, fmap)
-    _assemble(residual, terms, dom, xd, xd_t, xd_tt, yd)
+    _assemble(residual, terms, dom, xd, xd_t, xd_tt, fd, yd)
 end
 
 """

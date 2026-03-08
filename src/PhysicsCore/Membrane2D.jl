@@ -77,7 +77,7 @@ function stiffness(s::Membrane2D, dom::WeakFormDomains, x, y)
     return val
 end
 
-function rhs(s::Membrane2D, dom::WeakFormDomains, x, y)
+function rhs(s::Membrane2D, dom::WeakFormDomains, f, y)
     v = y[:η_m]
-    ∫(0.0 * v)dom[:dΓ_s]
+    ∫(v * f[:η_m])dom[:dΓ_s]
 end
