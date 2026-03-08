@@ -19,26 +19,32 @@ function print_parameters(f::PotentialFlow)
     println()
 end
 
+variable_symbol(::PotentialFlow) = :ϕ
+
 # ── Single-variable weak forms ─────────────────────────────
-#    Field access via symbol :ϕ (velocity potential)
+#    Field access via variable_symbol (velocity potential)
 
-function mass(f::PotentialFlow, dom::WeakFormDomains, x_tt, y)
-    w = y[:ϕ]
+function mass(pf::PotentialFlow, dom::WeakFormDomains, x_tt, y)
+    sym = variable_symbol(pf)
+    w = y[sym]
     ∫(0.0 * w)dom[:dΩ]
 end
 
-function damping(f::PotentialFlow, dom::WeakFormDomains, x_t, y)
-    w = y[:ϕ]
+function damping(pf::PotentialFlow, dom::WeakFormDomains, x_t, y)
+    sym = variable_symbol(pf)
+    w = y[sym]
     ∫(0.0 * w)dom[:dΩ]
 end
 
-function stiffness(f::PotentialFlow, dom::WeakFormDomains, x, y)
-    ϕ = x[:ϕ]
-    w = y[:ϕ]
+function stiffness(pf::PotentialFlow, dom::WeakFormDomains, x, y)
+    sym = variable_symbol(pf)
+    ϕ = x[sym]
+    w = y[sym]
     ∫(∇(w) ⋅ ∇(ϕ))dom[:dΩ]
 end
 
 function rhs(pf::PotentialFlow, dom::WeakFormDomains, f, y)
-    w = y[:ϕ]
-    ∫(w * f[:ϕ])dom[:dΩ]
+    sym = variable_symbol(pf)
+    w = y[sym]
+    ∫(w * f[sym])dom[:dΩ]
 end

@@ -32,7 +32,7 @@ module HydroElasticFEM
   export AbstractStructure, PotentialFlow, Membrane2D, Beam2D
   export ResonatorSingle, resonator_array
   export WeakFormDomains
-  export η_symbol
+  export variable_symbol
   export weakform, mass, damping, stiffness, rhs
   export residual, jacobian, jacobian_t, jacobian_tt
 

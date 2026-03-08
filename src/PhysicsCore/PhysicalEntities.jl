@@ -37,6 +37,16 @@ function print_parameters(params::PhysicsParameters)
     error("print_parameters not implemented for $(typeof(params))")
 end
 
+"""
+    variable_symbol(s::PhysicsParameters) -> Symbol
+
+Return the field symbol for the primary variable of entity `s`.
+Must be implemented for every concrete subtype.
+"""
+function variable_symbol(s::PhysicsParameters)
+    error("variable_symbol not implemented for $(typeof(s))")
+end
+
 # ─────────────────────────────────────────────────────────────
 # Boundary conditions
 # ─────────────────────────────────────────────────────────────
@@ -154,7 +164,7 @@ export BoundaryCondition, FreeBoundary, FixedBoundary
 export AbstractStructure, PotentialFlow, Membrane2D, Beam2D
 export ResonatorSingle, resonator_array
 export WeakFormDomains
-export η_symbol
+export variable_symbol
 export weakform, mass, damping, stiffness, rhs
 export residual, jacobian, jacobian_t, jacobian_tt
 

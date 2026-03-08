@@ -8,7 +8,6 @@ Parameters for a single locally resonant mass-spring-damper.
 - `K::Float64` — Stiffness
 - `C::Float64` — Damping
 - `ρw::Float64` — Density of water
-- `η_sym::Symbol` — Symbol of the structural field this resonator couples to
 - `XZ::VectorValue{2,Float64}` — Position
 - `ωn1::Float64` — Natural frequency (derived: `√(K/M)`)
 """
@@ -17,7 +16,6 @@ Parameters for a single locally resonant mass-spring-damper.
     K::Float64
     C::Float64     = 0.0
     ρw::Float64    = 1025.0
-    η_sym::Symbol  = :η_m
     XZ::VectorValue{2,Float64} = VectorValue(0.0, 0.0)
     ωn1::Float64   = sqrt(K / M)
 end
@@ -37,30 +35,30 @@ function print_parameters(resn::Vector{ResonatorSingle})
 end
 
 """
-    resonator_array(N, M::Real, K::Real, C::Real, XZ; ρw=1025.0, η_sym=:η_m) -> Vector{ResonatorSingle}
+    resonator_array(N, M::Real, K::Real, C::Real, XZ; ρw=1025.0) -> Vector{ResonatorSingle}
 
 Create `N` identical resonators at positions `XZ`.
 """
 function resonator_array(N::Int, M::Real, K::Real, C::Real,
                          XZ::Vector{VectorValue{2,Float64}};
-                         ρw::Real=1025.0, η_sym::Symbol=:η_m)
+                         ρw::Real=1025.0)
     length(XZ) == N || throw(ArgumentError("XZ must be of length N"))
-    [ResonatorSingle(M=M, K=K, C=C, ρw=ρw, η_sym=η_sym, XZ=xz) for xz in XZ]
+    [ResonatorSingle(M=M, K=K, C=C, ρw=ρw, XZ=xz) for xz in XZ]
 end
 
 """
-    resonator_array(N, M::Vector, K::Vector, C::Vector, XZ; ρw=1025.0, η_sym=:η_m) -> Vector{ResonatorSingle}
+    resonator_array(N, M::Vector, K::Vector, C::Vector, XZ; ρw=1025.0) -> Vector{ResonatorSingle}
 
 Create `N` resonators with individual parameters.
 """
 function resonator_array(N::Int, M::Vector{<:Real}, K::Vector{<:Real},
                          C::Vector{<:Real},
                          XZ::Vector{VectorValue{2,Float64}};
-                         ρw::Real=1025.0, η_sym::Symbol=:η_m)
+                         ρw::Real=1025.0)
     (length(M) == N && length(K) == N &&
      length(C) == N && length(XZ) == N) ||
         throw(ArgumentError("M, K, C, and XZ must be of length N"))
-    [ResonatorSingle(M=m, K=k, C=c, ρw=ρw, η_sym=η_sym, XZ=xz) for (m, k, c, xz) in zip(M, K, C, XZ)]
+    [ResonatorSingle(M=m, K=k, C=c, ρw=ρw, XZ=xz) for (m, k, c, xz) in zip(M, K, C, XZ)]
 end
 
 # ── Single-variable weak forms: mass, damping, stiffness, rhs ──

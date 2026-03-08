@@ -12,25 +12,26 @@
 #     ∫( y[η] * x_t[:ϕ] − y[:ϕ] * x_t[η] ) dΓ_s
 # =========================================================================
 
-function mass(f::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, x_tt, y)
-    w = y[:ϕ]
+function mass(pf::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, x_tt, y)
+    w = y[variable_symbol(pf)]
     ∫(0.0 * w)dom[:dΓ_s]
 end
 
-function damping(f::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, x_t, y)
-    ηs = η_symbol(s)
-    ϕₜ = x_t[:ϕ];  ηₜ = x_t[ηs]
-    w  = y[:ϕ];     v  = y[ηs]
+function damping(pf::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, x_t, y)
+    ϕ_sym = variable_symbol(pf)
+    η_sym = variable_symbol(s)
+    ϕₜ = x_t[ϕ_sym];  ηₜ = x_t[η_sym]
+    w  = y[ϕ_sym];     v  = y[η_sym]
     ∫(v * ϕₜ - w * ηₜ)dom[:dΓ_s]
 end
 
-function stiffness(f::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, x, y)
-    w = y[:ϕ]
+function stiffness(pf::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, x, y)
+    w = y[variable_symbol(pf)]
     ∫(0.0 * w)dom[:dΓ_s]
 end
 
 function rhs(pf::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, f, y)
-    w = y[:ϕ]
+    w = y[variable_symbol(pf)]
     ∫(0.0 * w)dom[:dΓ_s]
 end
 
@@ -38,7 +39,7 @@ end
 # Resonator ↔ Structure coupling
 #
 # Cross-terms between q_i DOFs and the structural displacement η.
-# Uses ri.η_sym to identify which structure field to couple to.
+# Uses variable_symbol(s) to identify which structure field to couple to.
 # =========================================================================
 
 function mass(resn::Vector{ResonatorSingle}, s::AbstractStructure,
@@ -51,7 +52,7 @@ end
 function damping(resn::Vector{ResonatorSingle}, s::AbstractStructure,
                  dom::WeakFormDomains, x_t, y)
     δ_p   = dom[:δ_p]
-    η_sym = first(resn).η_sym
+    η_sym = variable_symbol(s)
     ηₜ    = x_t[η_sym]
     v     = y[η_sym]
     î1    = VectorValue(1.0)
@@ -72,7 +73,7 @@ end
 function stiffness(resn::Vector{ResonatorSingle}, s::AbstractStructure,
                    dom::WeakFormDomains, x, y)
     δ_p   = dom[:δ_p]
-    η_sym = first(resn).η_sym
+    η_sym = variable_symbol(s)
     η     = x[η_sym]
     v     = y[η_sym]
     î1    = VectorValue(1.0)

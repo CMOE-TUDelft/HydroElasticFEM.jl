@@ -53,20 +53,22 @@ function print_parameters(beam::Beam2D)
     println()
 end
 
-η_symbol(::Beam2D) = :η_b
+variable_symbol(::Beam2D) = :η_b
 
 # ── Single-variable weak forms: mass, damping, stiffness, rhs ──
 #    Only η_b terms — no coupling to ϕ or other fields
 
 function mass(s::Beam2D, dom::WeakFormDomains, x_tt, y)
-    ηₜₜ = x_tt[:η_b]
-    v   = y[:η_b]
+    sym = variable_symbol(s)
+    ηₜₜ = x_tt[sym]
+    v   = y[sym]
     ∫((s.m / s.ρw) * v * ηₜₜ)dom[:dΓ_s]
 end
 
 function damping(s::Beam2D, dom::WeakFormDomains, x_t, y)
-    ηₜ = x_t[:η_b]
-    v  = y[:η_b]
+    sym = variable_symbol(s)
+    ηₜ = x_t[sym]
+    v  = y[sym]
     EIᵨ = s.EI / s.ρw
     τ   = s.τ
     γ   = dom[:γ_s]
@@ -85,8 +87,9 @@ function damping(s::Beam2D, dom::WeakFormDomains, x_t, y)
 end
 
 function stiffness(s::Beam2D, dom::WeakFormDomains, x, y)
-    η = x[:η_b]
-    v = y[:η_b]
+    sym = variable_symbol(s)
+    η = x[sym]
+    v = y[sym]
     EIᵨ = s.EI / s.ρw
     γ   = dom[:γ_s]
     h   = dom[:h_s]
@@ -104,6 +107,7 @@ function stiffness(s::Beam2D, dom::WeakFormDomains, x, y)
 end
 
 function rhs(s::Beam2D, dom::WeakFormDomains, f, y)
-    v = y[:η_b]
-    ∫(v * f[:η_b])dom[:dΓ_s]
+    sym = variable_symbol(s)
+    v = y[sym]
+    ∫(v * f[sym])dom[:dΓ_s]
 end
