@@ -9,7 +9,7 @@ using Gridap.FESpaces
 # Solve static beam problems (stiffness = rhs) and verify against
 # analytical Euler-Bernoulli solutions.
 #
-# PDE (with g=0, ρw=1):  EI·u'''' = q
+# PDE:  EIᵨ·u'''' = q
 # =========================================================================
 
 @testset "EulerBernoulliBeam weak forms" begin
@@ -79,19 +79,19 @@ using Gridap.FESpaces
   # -----------------------------------------------------------------------
   # Test 1: Simply-supported beam (FreeBoundary), uniform load
   #
-  #   Analytical: w(x) = q/(24·EI) · x·(L³ - 2L·x² + x³)
-  #               w_max = 5·q·L⁴ / (384·EI)   at x = L/2
+  #   Analytical: w(x) = q/(24·EIᵨ) · x·(L³ - 2L·x² + x³)
+  #               w_max = 5·q·L⁴ / (384·EIᵨ)   at x = L/2
   # -----------------------------------------------------------------------
 
   @testset "Simply-supported beam — uniform load" begin
-    L  = 1.0
-    EI = 100.0
-    q  = 1.0
+    L   = 1.0
+    EIᵨ = 100.0
+    q   = 1.0
 
-    beam = EulerBernoulliBeam(L=L, m=1.0, E=EI, I=1.0, ρw=1.0, g=0.0,
+    beam = EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
                               bndType=FreeBoundary())
 
-    w_exact_max = 5 * q * L^4 / (384 * EI)
+    w_exact_max = 5 * q * L^4 / (384 * EIᵨ)
 
     # Refine mesh to get close to analytical solution
     sol = solve_beam(beam, 40, 2, q)
@@ -113,18 +113,18 @@ using Gridap.FESpaces
   # -----------------------------------------------------------------------
   # Test 2: Clamped-clamped beam (FixedBoundary), uniform load
   #
-  #   Analytical: w_max = q·L⁴ / (384·EI)   at x = L/2
+  #   Analytical: w_max = q·L⁴ / (384·EIᵨ)   at x = L/2
   # -----------------------------------------------------------------------
 
   @testset "Clamped-clamped beam — uniform load" begin
-    L  = 1.0
-    EI = 100.0
-    q  = 1.0
+    L   = 1.0
+    EIᵨ = 100.0
+    q   = 1.0
 
-    beam = EulerBernoulliBeam(L=L, m=1.0, E=EI, I=1.0, ρw=1.0, g=0.0,
+    beam = EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
                               bndType=FixedBoundary())
 
-    w_exact_max = q * L^4 / (384 * EI)
+    w_exact_max = q * L^4 / (384 * EIᵨ)
 
     sol = solve_beam(beam, 40, 2, q)
 
@@ -142,21 +142,21 @@ using Gridap.FESpaces
   end
 
   # -----------------------------------------------------------------------
-  # Test 3: Scaling — deflection scales as L⁴/EI
+  # Test 3: Scaling — deflection scales as L⁴/EIᵨ
   #
   #   Doubling L should multiply w_max by 16.
-  #   Doubling EI should halve w_max.
+  #   Doubling EIᵨ should halve w_max.
   # -----------------------------------------------------------------------
 
-  @testset "Deflection scaling with L and EI" begin
+  @testset "Deflection scaling with L and EIᵨ" begin
     q = 1.0
 
-    beam1 = EulerBernoulliBeam(L=1.0, m=1.0, E=100.0, I=1.0,
-                               ρw=1.0, g=0.0, bndType=FreeBoundary())
-    beam2 = EulerBernoulliBeam(L=2.0, m=1.0, E=100.0, I=1.0,
-                               ρw=1.0, g=0.0, bndType=FreeBoundary())
-    beam3 = EulerBernoulliBeam(L=1.0, m=1.0, E=200.0, I=1.0,
-                               ρw=1.0, g=0.0, bndType=FreeBoundary())
+    beam1 = EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0,
+                               g=0.0, bndType=FreeBoundary())
+    beam2 = EulerBernoulliBeam(L=2.0, mᵨ=1.0, EIᵨ=100.0,
+                               g=0.0, bndType=FreeBoundary())
+    beam3 = EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=200.0,
+                               g=0.0, bndType=FreeBoundary())
 
     sol1 = solve_beam(beam1, 40, 2, q)
     sol2 = solve_beam(beam2, 80, 2, q)
@@ -169,7 +169,7 @@ using Gridap.FESpaces
     # w ∝ L⁴ ⟹ w2/w1 ≈ 16
     @test w2 / w1 ≈ 16.0  rtol=1e-2
 
-    # w ∝ 1/EI ⟹ w3/w1 ≈ 0.5
+    # w ∝ 1/EIᵨ ⟹ w3/w1 ≈ 0.5
     @test w3 / w1 ≈ 0.5  rtol=1e-2
   end
 
@@ -178,13 +178,13 @@ using Gridap.FESpaces
   # -----------------------------------------------------------------------
 
   @testset "Mesh convergence" begin
-    L  = 1.0
-    EI = 100.0
-    q  = 1.0
+    L   = 1.0
+    EIᵨ = 100.0
+    q   = 1.0
 
-    beam = EulerBernoulliBeam(L=L, m=1.0, E=EI, I=1.0, ρw=1.0, g=0.0,
+    beam = EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
                               bndType=FreeBoundary())
-    w_exact = 5 * q * L^4 / (384 * EI)
+    w_exact = 5 * q * L^4 / (384 * EIᵨ)
 
     errors = Float64[]
     nels   = [10, 20, 40]
@@ -208,7 +208,7 @@ using Gridap.FESpaces
   # -----------------------------------------------------------------------
 
   @testset "Zero load — zero deflection" begin
-    beam = EulerBernoulliBeam(L=1.0, m=1.0, E=100.0, I=1.0, ρw=1.0, g=0.0,
+    beam = EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0, g=0.0,
                               bndType=FreeBoundary())
 
     sol = solve_beam(beam, 20, 2, 0.0)

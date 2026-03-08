@@ -33,7 +33,7 @@ using Gridap
 # ─────────────────────────────────────────────────────────────
 
 # 1. Define physics parameters
-beam = EulerBernoulliBeam(L=1.0, m=1.0, E=100.0, I=1.0, ρw=1.0, g=0.0,
+beam = EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0, g=0.0,
                           bndType=FixedBoundary())
 print_parameters(beam)
 

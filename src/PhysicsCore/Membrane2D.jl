@@ -1,44 +1,36 @@
 """
     Membrane2D <: AbstractStructure
 
-Parameters for a 2D membrane model.
+Parameters for a 2D membrane model, normalised by fluid density ρw.
 
 # Fields
-- `L::Float64` — Length of membrane
-- `m::Float64` — Mass per unit length per unit width
-- `T::Float64` — Pre-Tension
-- `τ::Float64` — Proportional Structural Damping coefficient
-- `ρw::Float64` — Density of water
-- `g::Float64` — Gravitational acceleration
+- `L::Float64`   — Length of membrane
+- `mᵨ::Float64`  — Mass per unit length per unit width / ρw
+- `Tᵨ::Float64`  — Pre-Tension / ρw
+- `τ::Float64`   — Proportional Structural Damping coefficient
+- `g::Float64`   — Gravitational acceleration
 - `bndType::BoundaryCondition` — Boundary Type
-- `MTotal::Float64` — Total Mass per unit width (derived: `m * L`)
-- `ωn1::Float64` — Dry Analytical Natural frequency (derived: `(π/L) * √(T/m)`)
+- `ωn1::Float64`  — Dry Analytical Natural frequency (derived: `(π/L) * √(Tᵨ/mᵨ)`)
 """
 @with_kw struct Membrane2D <: AbstractStructure
     L::Float64
-    m::Float64
-    T::Float64
+    mᵨ::Float64
+    Tᵨ::Float64
     τ::Float64     = 0.0
-    ρw::Float64    = 1025.0
     g::Float64     = 9.81
     bndType::BoundaryCondition = FreeBoundary()
 
     # Derived quantities
-    MTotal::Float64 = m * L
-    ωn1::Float64    = (π / L) * sqrt(T / m)
+    ωn1::Float64    = (π / L) * sqrt(Tᵨ / mᵨ)
 end
 
 function print_parameters(memb::Membrane2D)
-    mᵨ = memb.m / memb.ρw
-    Tᵨ = memb.T / memb.ρw
     @printf("\n[MSG] Membrane Properties:\n")
-    @printf("[VAL] Density of water, ρw = %.2f kg/m3\n", memb.ρw)
-    @printf("[VAL] Lm = %.4f m\n", memb.L)
-    @printf("[VAL] m, mᵨ = %.4f kg/m2, %.4f m\n", memb.m, mᵨ)
-    @printf("[VAL] T, Tᵨ = %.4f N/m, %.4f m3/s2\n", memb.T, Tᵨ)
+    @printf("[VAL] L = %.4f m\n", memb.L)
+    @printf("[VAL] mᵨ = %.4f m\n", memb.mᵨ)
+    @printf("[VAL] Tᵨ = %.4f m3/s2\n", memb.Tᵨ)
     @printf("[VAL] τ = %.4f \n", memb.τ)
     @printf("[VAL] memBndType = %s \n", string(memb.bndType))
-    @printf("[VAL] MTotal = %.4f kg/m \n", memb.MTotal)
     @printf("[VAL] 1st Dry Analytical Natural Freq, ωn1 = %.4f rad/s \n", memb.ωn1)
     println()
 end
@@ -52,14 +44,14 @@ function mass(s::Membrane2D, dom::WeakFormDomains, x_tt, y)
     sym = variable_symbol(s)
     ηₜₜ = x_tt[sym]
     v   = y[sym]
-    ∫((s.m / s.ρw) * v * ηₜₜ)dom[:dΓ_s]
+    ∫(s.mᵨ * v * ηₜₜ)dom[:dΓ_s]
 end
 
 function damping(s::Membrane2D, dom::WeakFormDomains, x_t, y)
     sym = variable_symbol(s)
     ηₜ = x_t[sym]
     v  = y[sym]
-    Tᵨ = s.T / s.ρw
+    Tᵨ = s.Tᵨ
     τ  = s.τ
     val = ∫(Tᵨ * τ * ∇(v) ⋅ ∇(ηₜ))dom[:dΓ_s]
     if s.bndType isa FixedBoundary
@@ -72,7 +64,7 @@ function stiffness(s::Membrane2D, dom::WeakFormDomains, x, y)
     sym = variable_symbol(s)
     η = x[sym]
     v = y[sym]
-    Tᵨ = s.T / s.ρw
+    Tᵨ = s.Tᵨ
     val = ∫(v * (s.g * η) + Tᵨ * ∇(v) ⋅ ∇(η))dom[:dΓ_s]
     if s.bndType isa FixedBoundary
         val += ∫(-Tᵨ * v * ∇(η) ⋅ dom[:n_Λ_sb])dom[:dΛ_sb]

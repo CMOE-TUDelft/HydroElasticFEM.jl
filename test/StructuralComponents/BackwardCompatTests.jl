@@ -41,20 +41,19 @@ end
 end
 
 @testset "Backward compat - old vs new API" begin
+  ρw = 1025.0
   # Old API still produces same physics
   mem_old = HydroElasticFEM.Membrane.Membrane2D(
-    20.0, 922.5, 98.1 * 1025.0, 0.0,
+    20.0, 922.5, 98.1 * ρw, 0.0,
     HydroElasticFEM.Membrane.Free())
   mem_new = HydroElasticFEM.Membrane2D(
-    L=20.0, m=922.5, T=98.1 * 1025.0, τ=0.0, bndType=FreeBoundary())
+    L=20.0, mᵨ=922.5/ρw, Tᵨ=98.1, τ=0.0, bndType=FreeBoundary())
   @test mem_old.ωn1 ≈ mem_new.ωn1
-  @test mem_old.MTotal ≈ mem_new.MTotal
 
   beam_old = HydroElasticFEM.BeamNoJoints.Beam2D(
     20.0, 192.956, 500e6, 6.667e-4, 0.0,
     HydroElasticFEM.BeamNoJoints.Free())
   beam_new = HydroElasticFEM.EulerBernoulliBeam(
-    L=20.0, m=192.956, E=500e6, I=6.667e-4, τ=0.0, bndType=FreeBoundary())
+    L=20.0, mᵨ=192.956/ρw, EIᵨ=500e6*6.667e-4/ρw, τ=0.0, bndType=FreeBoundary())
   @test beam_old.ωn1 ≈ beam_new.ωn1
-  @test beam_old.EI ≈ beam_new.EI
 end

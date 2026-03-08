@@ -1,21 +1,20 @@
 @testset "EulerBernoulliBeam" begin
+  ρw = 1025.0
+  EIᵨ = 500e6 * 6.667e-4 / ρw
   beam = HydroElasticFEM.EulerBernoulliBeam(
-    L=20.0, m=192.956, E=500e6, I=6.667e-4, τ=0.0, bndType=FreeBoundary())
-  @test beam.EI ≈ 500e6 * 6.667e-4
-  @test beam.τEI ≈ 0.0
-  @test beam.ωn1 ≈ 22.3733 * sqrt(beam.EI / (192.956 * 20.0^4))
+    L=20.0, mᵨ=192.956/ρw, EIᵨ=EIᵨ, τ=0.0, bndType=FreeBoundary())
+  @test beam.EIᵨ ≈ EIᵨ
+  @test beam.ωn1 ≈ 22.3733 * sqrt(EIᵨ / ((192.956/ρw) * 20.0^4))
   @test beam isa HydroElasticFEM.AbstractStructure
 
   # Defaults: τ and bndType default, derived fields auto-computed
-  beam_def = EulerBernoulliBeam(L=20.0, m=192.956, E=500e6, I=6.667e-4)
+  beam_def = EulerBernoulliBeam(L=20.0, mᵨ=192.956/ρw, EIᵨ=EIᵨ)
   @test beam_def.τ == 0.0
   @test beam_def.bndType isa FreeBoundary
-  @test beam_def.EI ≈ 500e6 * 6.667e-4
-  @test beam_def.τEI ≈ 0.0
-  @test beam_def.MTotal ≈ 192.956 * 20.0
-  @test beam_def.ωn1 ≈ 22.3733 * sqrt(beam_def.EI / (192.956 * 20.0^4))
+  @test beam_def.EIᵨ ≈ EIᵨ
+  @test beam_def.ωn1 ≈ 22.3733 * sqrt(beam_def.EIᵨ / ((192.956/ρw) * 20.0^4))
 
   # Nonzero τ
-  beam_d = EulerBernoulliBeam(L=10.0, m=100.0, E=1e9, I=1e-3, τ=0.05)
-  @test beam_d.τEI ≈ 0.05 * 1e9 * 1e-3
+  beam_d = EulerBernoulliBeam(L=10.0, mᵨ=100.0/ρw, EIᵨ=1e9*1e-3/ρw, τ=0.05)
+  @test beam_d.τ == 0.05
 end

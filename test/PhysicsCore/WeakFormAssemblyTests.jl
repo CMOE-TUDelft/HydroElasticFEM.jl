@@ -63,7 +63,7 @@ using Gridap.CellData
   # Physics entities
   fluid = PotentialFlow(ρw=ρw, g=g_)
   fsurf = FreeSurface(ρw=ρw, g=g_, βₕ=βₕ)
-  mem   = Membrane2D(L=20.0, m=922.5, T=98.1*ρw, ρw=ρw, g=g_)
+  mem   = Membrane2D(L=20.0, mᵨ=922.5/ρw, Tᵨ=98.1, g=g_)
 
   # Field mapping
   fmap = Dict(:ϕ => 1, :κ => 2, :η_m => 3)
@@ -95,7 +95,7 @@ using Gridap.CellData
     @test variable_symbol(fluid) == :ϕ
     @test variable_symbol(fsurf) == :κ
     @test variable_symbol(mem) == :η_m
-    beam = EulerBernoulliBeam(L=20.0, m=922.5, E=1e9, I=1e-4)
+    beam = EulerBernoulliBeam(L=20.0, mᵨ=922.5/ρw, EIᵨ=1e9*1e-4/ρw)
     @test variable_symbol(beam) == :η_b
   end
 
@@ -165,9 +165,8 @@ using Gridap.CellData
     a((ϕ,κ,η),(w,u,v)) = begin
       xd = FieldDict((ϕ,κ,η), fmap)
       yd = FieldDict((w,u,v), fmap)
-      # single-variable
+      # single-variable (FreeSurface has no standalone forms)
       weakform(fluid, dom, ω, xd, yd) +
-      weakform(fsurf, dom, ω, xd, yd) +
       weakform(mem, dom, ω, xd, yd) +
       # coupling
       weakform(fluid, fsurf, dom, ω, xd, yd) +
