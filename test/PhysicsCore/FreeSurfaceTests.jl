@@ -1,0 +1,19 @@
+@testset "FreeSurface" begin
+  fs = FreeSurface()
+  @test fs isa PhysicsParameters
+  @test fs.ρw == 1025.0
+  @test fs.g  == 9.81
+  @test fs.βₕ == 0.5
+
+  # Custom values
+  fs2 = FreeSurface(ρw=1000.0, g=9.80, βₕ=0.3)
+  @test fs2.ρw == 1000.0
+  @test fs2.g  == 9.80
+  @test fs2.βₕ == 0.3
+
+  # variable_symbol
+  @test variable_symbol(fs) == :κ
+
+  # print_parameters should not throw
+  @test_nowarn print_parameters(fs)
+end

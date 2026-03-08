@@ -59,10 +59,10 @@ using Gridap.CellData
   ρw  = 1025.0
   g_  = 9.81
   βₕ  = 0.5
-  αₕ  = -im * ω / g_ * (1 - βₕ) / βₕ
 
   # Physics entities
   fluid = PotentialFlow(ρw=ρw, g=g_)
+  fsurf = FreeSurface(ρw=ρw, g=g_, βₕ=βₕ)
   mem   = Membrane2D(L=20.0, m=922.5, T=98.1*ρw, ρw=ρw, g=g_)
 
   # Field mapping
@@ -93,6 +93,7 @@ using Gridap.CellData
 
   @testset "variable_symbol dispatch" begin
     @test variable_symbol(fluid) == :ϕ
+    @test variable_symbol(fsurf) == :κ
     @test variable_symbol(mem) == :η_m
     beam = EulerBernoulliBeam(L=20.0, m=922.5, E=1e9, I=1e-4)
     @test variable_symbol(beam) == :η_b
@@ -158,18 +159,18 @@ using Gridap.CellData
   # Test composed weakform: fluid + structure + coupling
   # =========================================================================
 
-  @testset "Composed weakform (fluid + membrane + coupling)" begin
+  @testset "Composed weakform (fluid + free surface + membrane + coupling)" begin
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
     a((ϕ,κ,η),(w,u,v)) = begin
       xd = FieldDict((ϕ,κ,η), fmap)
       yd = FieldDict((w,u,v), fmap)
-      # free surface BC (external, not entity-managed)
-      ∫(βₕ * (u + αₕ * w) * (g_ * κ - im * ω * ϕ) + im * ω * w * κ)dΓfs +
       # single-variable
       weakform(fluid, dom, ω, xd, yd) +
+      weakform(fsurf, dom, ω, xd, yd) +
       weakform(mem, dom, ω, xd, yd) +
       # coupling
+      weakform(fluid, fsurf, dom, ω, xd, yd) +
       weakform(fluid, mem, dom, ω, xd, yd)
     end
 
@@ -184,11 +185,12 @@ using Gridap.CellData
   # =========================================================================
 
   @testset "assemble_weakform composition" begin
-    terms = (fluid, mem)
+    terms = (fluid, fsurf, mem)
 
     a((ϕ,κ,η),(w,u,v)) =
-      ∫(βₕ * (u + αₕ * w) * (g_ * κ - im * ω * ϕ) + im * ω * w * κ)dΓfs +
-      assemble_weakform(terms, dom, ω, fmap, (ϕ,κ,η), (w,u,v))
+      assemble_weakform(terms, dom, ω, fmap, (ϕ,κ,η), (w,u,v)) +
+      weakform(fluid, fsurf, dom, ω,
+               FieldDict((ϕ,κ,η), fmap), FieldDict((w,u,v), fmap))
 
     l((w,u,v)) = ∫(0.0 * w)dΓin
 

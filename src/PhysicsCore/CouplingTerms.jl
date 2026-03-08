@@ -36,6 +36,51 @@ function rhs(pf::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, f, y
 end
 
 # =========================================================================
+# Fluid ↔ FreeSurface coupling (linearised free-surface BC on Γ_fs)
+#
+# Frequency domain:
+#   ∫( βₕ*(u + αₕ*w)*(g*κ − iω*ϕ) + iω*w*κ ) dΓ_fs
+#   with αₕ = −iω/g * (1−βₕ)/βₕ
+#
+# Decomposed into mass/damping/stiffness so that the composed
+# weakform = −ω²·mass + (−iω)·damping + stiffness reproduces the above.
+# =========================================================================
+
+function mass(pf::PotentialFlow, fs::FreeSurface, dom::WeakFormDomains, x_tt, y)
+    ϕ_sym = variable_symbol(pf)
+    ϕₜₜ = x_tt[ϕ_sym]
+    w    = y[ϕ_sym]
+    βₕ   = fs.βₕ
+    g    = fs.g
+    ∫((1 - βₕ) / g * w * ϕₜₜ)dom[:dΓ_fs]
+end
+
+function damping(pf::PotentialFlow, fs::FreeSurface, dom::WeakFormDomains, x_t, y)
+    ϕ_sym = variable_symbol(pf)
+    κ_sym = variable_symbol(fs)
+    ϕₜ = x_t[ϕ_sym]
+    κₜ = x_t[κ_sym]
+    w  = y[ϕ_sym]
+    u  = y[κ_sym]
+    βₕ = fs.βₕ
+    ∫(βₕ * u * ϕₜ - βₕ * w * κₜ)dom[:dΓ_fs]
+end
+
+function stiffness(pf::PotentialFlow, fs::FreeSurface, dom::WeakFormDomains, x, y)
+    κ_sym = variable_symbol(fs)
+    κ = x[κ_sym]
+    u = y[κ_sym]
+    βₕ = fs.βₕ
+    g  = fs.g
+    ∫(βₕ * g * u * κ)dom[:dΓ_fs]
+end
+
+function rhs(pf::PotentialFlow, fs::FreeSurface, dom::WeakFormDomains, f, y)
+    u = y[variable_symbol(fs)]
+    ∫(0.0 * u)dom[:dΓ_fs]
+end
+
+# =========================================================================
 # Resonator ↔ Structure coupling
 #
 # Cross-terms between q_i DOFs and the structural displacement η.
