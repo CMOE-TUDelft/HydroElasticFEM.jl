@@ -37,5 +37,7 @@ writevtk(tank_trians.Γfs, joinpath(filedir, "floating_membrane_free_surface")) 
 writevtk(tank_trians.Γη, joinpath(filedir, "floating_membrane_eta"))      # All-structure surface (η)
 writevtk(tank_trians.Γκ, joinpath(filedir, "floating_membrane_kappa"))    # Non-structure surface (κ)
 
-
+# ── Weak form domains ───────────────────────────────────────
+# Extract the measures needed for weak form assembly, which are derived from the triangulations.
+measures = G.get_weak_form_domains(tank_trians, degree=2)
 end

@@ -141,9 +141,9 @@ end
   tank = G.TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[s1], damping_zones=[d1, d2])
   model = G.build_model(tank)
-  tri   = G.build_triangulations(tank, model)
+  trians   = G.build_triangulations(tank, model)
 
-  d = G.get_weak_form_domains(tri; degree=4)
+  d = G.get_weak_form_domains(trians; degree=4)
 
   @test d isa Dict{Symbol, Any}
 
