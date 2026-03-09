@@ -115,3 +115,10 @@ function rhs(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, f, y)
     end
     return val
 end
+
+# Form-presence traits for Vector{ResonatorSingle}
+# (Vector is not a PhysicsParameters subtype, so the defaults don't apply)
+has_mass_form(::Vector{ResonatorSingle}) = true
+has_damping_form(::Vector{ResonatorSingle}) = true
+has_stiffness_form(::Vector{ResonatorSingle}) = true
+has_rhs_form(::Vector{ResonatorSingle}) = false
