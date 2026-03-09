@@ -1,3 +1,6 @@
+using Test
+using HydroElasticFEM
+
 @testset "Legacy Membrane construction" begin
   mem = HydroElasticFEM.Membrane.Membrane2D(
     20.0, 922.5, 98.1 * 1025.0, 0.0,
@@ -46,14 +49,14 @@ end
   mem_old = HydroElasticFEM.Membrane.Membrane2D(
     20.0, 922.5, 98.1 * ρw, 0.0,
     HydroElasticFEM.Membrane.Free())
-  mem_new = HydroElasticFEM.Membrane2D(
-    L=20.0, mᵨ=922.5/ρw, Tᵨ=98.1, τ=0.0, bndType=FreeBoundary())
+  mem_new = HydroElasticFEM.PhysicsCore.Entities.Membrane2D(
+    L=20.0, mᵨ=922.5/ρw, Tᵨ=98.1, τ=0.0)
   @test mem_old.ωn1 ≈ mem_new.ωn1
 
   beam_old = HydroElasticFEM.BeamNoJoints.Beam2D(
     20.0, 192.956, 500e6, 6.667e-4, 0.0,
     HydroElasticFEM.BeamNoJoints.Free())
-  beam_new = HydroElasticFEM.EulerBernoulliBeam(
-    L=20.0, mᵨ=192.956/ρw, EIᵨ=500e6*6.667e-4/ρw, τ=0.0, bndType=FreeBoundary())
+  beam_new = HydroElasticFEM.PhysicsCore.Entities.EulerBernoulliBeam(
+    L=20.0, mᵨ=192.956/ρw, EIᵨ=500e6*6.667e-4/ρw, τ=0.0)
   @test beam_old.ωn1 ≈ beam_new.ωn1
 end
