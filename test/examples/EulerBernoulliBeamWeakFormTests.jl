@@ -1,7 +1,14 @@
+using Test
+
 using Gridap
 using Gridap.Geometry
 using Gridap.CellData
 using Gridap.FESpaces
+
+import HydroElasticFEM.PhysicsCore.Entities as E
+import HydroElasticFEM.PhysicsCore.Domains as D
+import HydroElasticFEM.PhysicsCore.FESpaceAssembly as FEA
+import HydroElasticFEM.PhysicsCore.FESpaces as FES
 
 # =========================================================================
 # EulerBernoulliBeam weak form integration tests
@@ -18,7 +25,7 @@ using Gridap.FESpaces
   # Helper: build 1D beam mesh, FE spaces, and WeakFormDomains
   # -----------------------------------------------------------------------
 
-  function build_beam_problem(; L, nel, order, bndType)
+  function build_beam_problem(; L, nel, order)
     model = CartesianDiscreteModel((0, L), (nel,))
     Ω  = Triangulation(model)
     Λ  = Skeleton(Ω)
@@ -26,7 +33,7 @@ using Gridap.FESpaces
 
     h = L / nel
 
-    dom = WeakFormDomains(
+    dom = D.WeakFormDomains(
       dΓ_s   = Measure(Ω, 2 * order + 2),
       dΛ_s   = Measure(Λ, 2 * order + 2),
       n_Λ_s  = get_normal_vector(Λ),
@@ -53,17 +60,16 @@ using Gridap.FESpaces
   # -----------------------------------------------------------------------
 
   function solve_beam(beam, nel, order, q)
-    prob = build_beam_problem(L=beam.L, nel=nel, order=order,
-                              bndType=beam.bndType)
-    sym  = variable_symbol(beam)
+    prob = build_beam_problem(L=beam.L, nel=nel, order=order)
+    sym  = E.variable_symbol(beam)
     fmap = Dict(sym => 1)
 
-    a((u,), (v,)) = stiffness(beam, prob.dom,
-                               FieldDict((u,), fmap), FieldDict((v,), fmap))
+    a((u,), (v,)) = E.stiffness(beam, prob.dom,
+                               D.FieldDict((u,), fmap), D.FieldDict((v,), fmap))
 
     src(x) = q
-    l((v,)) = rhs(beam, prob.dom,
-                   FieldDict((src,), fmap), FieldDict((v,), fmap))
+    l((v,)) = E.rhs(beam, prob.dom,
+                   D.FieldDict((src,), fmap), D.FieldDict((v,), fmap))
 
     op = AffineFEOperator(a, l, prob.X, prob.Y)
     uh = solve(LUSolver(), op)
@@ -86,9 +92,8 @@ using Gridap.FESpaces
     EIᵨ = 100.0
     q   = 1.0
 
-    beam = EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
-                              bndType=FreeBoundary(),
-                              fe=FESpaceConfig(order=2, vector_type=Vector{Float64}))
+    beam = E.EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
+                              fe=FES.FESpaceConfig(order=2, vector_type=Vector{Float64}))
 
     w_exact_max = 5 * q * L^4 / (384 * EIᵨ)
 
@@ -120,9 +125,8 @@ using Gridap.FESpaces
     EIᵨ = 100.0
     q   = 1.0
 
-    beam = EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
-                              bndType=FixedBoundary(),
-                              fe=FESpaceConfig(order=2, vector_type=Vector{Float64}))
+    beam = E.EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
+                              fe=FES.FESpaceConfig(order=2, vector_type=Vector{Float64}))
 
     w_exact_max = q * L^4 / (384 * EIᵨ)
 
@@ -151,15 +155,12 @@ using Gridap.FESpaces
   @testset "Deflection scaling with L and EIᵨ" begin
     q = 1.0
 
-    beam1 = EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0,
-                               g=0.0, bndType=FreeBoundary(),
-                               fe=FESpaceConfig(order=2, vector_type=Vector{Float64}))
-    beam2 = EulerBernoulliBeam(L=2.0, mᵨ=1.0, EIᵨ=100.0,
-                               g=0.0, bndType=FreeBoundary(),
-                               fe=FESpaceConfig(order=2, vector_type=Vector{Float64}))
-    beam3 = EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=200.0,
-                               g=0.0, bndType=FreeBoundary(),
-                               fe=FESpaceConfig(order=2, vector_type=Vector{Float64}))
+    beam1 = E.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0,
+                               fe=FES.FESpaceConfig(order=2, vector_type=Vector{Float64}))
+    beam2 = E.EulerBernoulliBeam(L=2.0, mᵨ=1.0, EIᵨ=100.0,
+                               fe=FES.FESpaceConfig(order=2, vector_type=Vector{Float64}))
+    beam3 = E.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=200.0,
+                               fe=FES.FESpaceConfig(order=2, vector_type=Vector{Float64}))
 
     sol1 = solve_beam(beam1, 40, 2, q)
     sol2 = solve_beam(beam2, 80, 2, q)
@@ -185,9 +186,8 @@ using Gridap.FESpaces
     EIᵨ = 100.0
     q   = 1.0
 
-    beam = EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
-                              bndType=FreeBoundary(),
-                              fe=FESpaceConfig(order=2, vector_type=Vector{Float64}))
+    beam = E.EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
+                              fe=FES.FESpaceConfig(order=2, vector_type=Vector{Float64}))
     w_exact = 5 * q * L^4 / (384 * EIᵨ)
 
     errors = Float64[]
@@ -212,9 +212,8 @@ using Gridap.FESpaces
   # -----------------------------------------------------------------------
 
   @testset "Zero load — zero deflection" begin
-    beam = EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0, g=0.0,
-                              bndType=FreeBoundary(),
-                              fe=FESpaceConfig(order=2, vector_type=Vector{Float64}))
+    beam = E.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0, g=0.0,
+                              fe=FES.FESpaceConfig(order=2, vector_type=Vector{Float64}))
 
     sol = solve_beam(beam, 20, 2, 0.0)
     w_mid = sol.uh(Point(0.5))
