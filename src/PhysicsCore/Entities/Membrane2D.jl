@@ -18,7 +18,6 @@ Parameters for a 2D membrane model, normalised by fluid density ρw.
     Tᵨ::Float64
     τ::Float64     = 0.0
     g::Float64     = 9.81
-    bndType::BoundaryCondition = FreeBoundary()
 
     # Derived quantities
     ωn1::Float64    = (π / L) * sqrt(Tᵨ / mᵨ)
@@ -31,7 +30,6 @@ function print_parameters(memb::Membrane2D)
     @printf("[VAL] mᵨ = %.4f m\n", memb.mᵨ)
     @printf("[VAL] Tᵨ = %.4f m3/s2\n", memb.Tᵨ)
     @printf("[VAL] τ = %.4f \n", memb.τ)
-    @printf("[VAL] memBndType = %s \n", string(memb.bndType))
     @printf("[VAL] 1st Dry Analytical Natural Freq, ωn1 = %.4f rad/s \n", memb.ωn1)
     println()
 end
@@ -55,9 +53,6 @@ function damping(s::Membrane2D, dom::WeakFormDomains, x_t, y)
     Tᵨ = s.Tᵨ
     τ  = s.τ
     val = ∫(Tᵨ * τ * ∇(v) ⋅ ∇(ηₜ))dom[:dΓ_s]
-    if s.bndType isa FixedBoundary
-        val += ∫(-Tᵨ * τ * v * ∇(ηₜ) ⋅ dom[:n_Λ_sb])dom[:dΛ_sb]
-    end
     return val
 end
 
@@ -67,9 +62,6 @@ function stiffness(s::Membrane2D, dom::WeakFormDomains, x, y)
     v = y[sym]
     Tᵨ = s.Tᵨ
     val = ∫(v * (s.g * η) + Tᵨ * ∇(v) ⋅ ∇(η))dom[:dΓ_s]
-    if s.bndType isa FixedBoundary
-        val += ∫(-Tᵨ * v * ∇(η) ⋅ dom[:n_Λ_sb])dom[:dΛ_sb]
-    end
     return val
 end
 
