@@ -2,6 +2,10 @@ module HydroElasticFEM
 
   const PKG_ROOT = normpath(joinpath(@__DIR__, ".."))  # because @__DIR__ here is src/
 
+  # Geometry
+  include(joinpath(@__DIR__, "Geometry", "Geometry.jl"))
+  using .Geometry
+
   # PhysicsCore (new canonical types)
   include(joinpath(@__DIR__, "PhysicsCore", "PhysicsCore.jl"))
   using .PhysicsCore
