@@ -128,7 +128,7 @@ end
 """
     assemble_jacobian(terms, dom, fmap, dx, x_t, x_tt, y)
 """
-function assemble_jacobian(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int},
+function assemble_jacobian(terms, dom::D.WeakFormDomains, fmap::Dict{Symbol,Int},
                            dx, x_t, x_tt, y)
     dxd   = _wrap(dx, fmap)
     xd_t  = _wrap(x_t, fmap)
@@ -143,7 +143,7 @@ end
 """
     assemble_jacobian_t(terms, dom, fmap, x, dx_t, x_tt, y)
 """
-function assemble_jacobian_t(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int},
+function assemble_jacobian_t(terms, dom::D.WeakFormDomains, fmap::Dict{Symbol,Int},
                              x, dx_t, x_tt, y)
     xd    = _wrap(x, fmap)
     dxd_t = _wrap(dx_t, fmap)
@@ -158,7 +158,7 @@ end
 """
     assemble_jacobian_tt(terms, dom, fmap, x, x_t, dx_tt, y)
 """
-function assemble_jacobian_tt(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int},
+function assemble_jacobian_tt(terms, dom::D.WeakFormDomains, fmap::Dict{Symbol,Int},
                               x, x_t, dx_tt, y)
     xd    = _wrap(x, fmap)
     xd_t  = _wrap(x_t, fmap)

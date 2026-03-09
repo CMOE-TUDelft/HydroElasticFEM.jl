@@ -25,7 +25,7 @@ import ..Entities as E
 Build a Gridap `TestFESpace` for `entity` on triangulation `trian`,
 using the numerical parameters from `entity.fe`.
 """
-function build_test_fe_space(entity::PhysicsParameters, trian)
+function build_test_fe_space(entity::E.PhysicsParameters, trian)
     fe = entity.fe
     reffe = ReferenceFE(fe.reffe_type, fe.space_type, fe.order)
     if fe.dirichlet_tags !== nothing
@@ -41,12 +41,12 @@ function build_test_fe_space(entity::PhysicsParameters, trian)
 end
 
 """
-    build_test_fe_space(resn::Vector{ResonatorSingle}, trian)
+    build_test_fe_space(resn::Vector{E.ResonatorSingle}, trian)
 
 Build one `ConstantFESpace` per resonator on triangulation `trian`.
 Returns a `Vector` of test spaces.
 """
-function build_test_fe_space(resn::Vector{ResonatorSingle}, trian)
+function build_test_fe_space(resn::Vector{E.ResonatorSingle}, trian)
     [ConstantFESpace(trian;
         vector_type = Vector{ComplexF64},
         field_type  = VectorValue{1, ComplexF64})
@@ -54,12 +54,12 @@ function build_test_fe_space(resn::Vector{ResonatorSingle}, trian)
 end
 
 """
-    build_trial_fe_space(entity::PhysicsParameters, V_test)
+    build_trial_fe_space(entity::E.PhysicsParameters, V_test)
 
 Build a `TrialFESpace` from the test space `V_test`, applying
 Dirichlet values from `entity.fe` if present.
 """
-function build_trial_fe_space(entity::PhysicsParameters, V_test)
+function build_trial_fe_space(entity::E.PhysicsParameters, V_test)
     fe = entity.fe
     if fe.dirichlet_value !== nothing
         TrialFESpace(V_test, fe.dirichlet_value)
@@ -69,11 +69,11 @@ function build_trial_fe_space(entity::PhysicsParameters, V_test)
 end
 
 """
-    build_trial_fe_space(resn::Vector{ResonatorSingle}, Vs::Vector)
+    build_trial_fe_space(resn::Vector{E.ResonatorSingle}, Vs::Vector)
 
 Build trial spaces for each resonator's test space.
 """
-function build_trial_fe_space(resn::Vector{ResonatorSingle}, Vs::Vector)
+function build_trial_fe_space(resn::Vector{E.ResonatorSingle}, Vs::Vector)
     [TrialFESpace(V) for V in Vs]
 end
 
@@ -91,7 +91,7 @@ pairs.  Automatically constructs per-entity spaces using each entity's
 
 # Arguments
 - `pairs`: sequence of `entity => triangulation`.  Entity may be any
-  `PhysicsParameters` subtype or a `Vector{ResonatorSingle}`.
+  `E.PhysicsParameters` subtype or a `Vector{E.ResonatorSingle}`.
 
 # Returns
 - `X::MultiFieldFESpace` — trial space
@@ -115,7 +115,7 @@ function build_fe_spaces(pairs::Pair...)
     idx  = 0
 
     for (entity, trian) in pairs
-        if entity isa Vector{ResonatorSingle}
+        if entity isa Vector{E.ResonatorSingle}
             Vs = build_test_fe_space(entity, trian)
             Us = build_trial_fe_space(entity, Vs)
             for (i, (Vi, Ui)) in enumerate(zip(Vs, Us))
