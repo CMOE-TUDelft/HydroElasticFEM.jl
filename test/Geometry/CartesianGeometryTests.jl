@@ -80,3 +80,56 @@ end
   @test dmasks[2]([VectorValue(9.7, 1.0)]) == true
   @test dmasks[1]([VectorValue(9.7, 1.0)]) == false
 end
+
+@testset "build_triangulations — single structure + two damping zones" begin
+  # Domain: [0, 4] × [0, 1],  40 × 4 elements
+  # Structure at x ∈ [1.5, 2.5] on y = 1.0  (L = 1.0)
+  # Damping inlet  x ∈ [0.0, 0.5]  on y = 1.0
+  # Damping outlet x ∈ [3.5, 4.0]  on y = 1.0
+  s1 = G.StructureDomain1D(L=1.0, x₀=[1.5, 1.0])
+  d1 = G.DampingZone1D(L=0.5, x₀=[0.0, 1.0])
+  d2 = G.DampingZone1D(L=0.5, x₀=[3.5, 1.0])
+  tank = G.TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
+    structure_domains=[s1], damping_zones=[d1, d2])
+
+  model = G.build_model(tank)
+  tri   = G.build_triangulations(tank, model)
+
+  @test tri isa G.TankTriangulations
+
+  # Number of per-zone triangulations matches input
+  @test length(tri.Γ_structures) == 1
+  @test length(tri.Γ_dampings)   == 2
+
+  # Surface partition: every surface cell is in exactly one of
+  # Γ_structures[i], Γ_dampings[j], or Γfs.
+  # Total surface cells = nx = 40
+  n_struct = sum(num_cells(t) for t in tri.Γ_structures)
+  n_damp   = sum(num_cells(t) for t in tri.Γ_dampings)
+  n_fs     = num_cells(tri.Γfs)
+  @test n_struct + n_damp + n_fs == num_cells(tri.Γ)
+
+  # Γκ = non-structure = damping + free surface
+  @test num_cells(tri.Γκ) == n_damp + n_fs
+  # Γη = all structures
+  @test num_cells(tri.Γη) == n_struct
+
+  # Sanity: structure zone gets 10 cells (1.0 / 0.1 element size)
+  @test num_cells(tri.Γ_structures[1]) == 10
+  # Each damping zone gets 5 cells (0.5 / 0.1)
+  @test num_cells(tri.Γ_dampings[1]) == 5
+  @test num_cells(tri.Γ_dampings[2]) == 5
+end
+
+@testset "build_triangulations — no structures or damping" begin
+  tank = G.TankDomain2D(L=4.0, H=1.0, nx=20, ny=2)
+  model = G.build_model(tank)
+  tri   = G.build_triangulations(tank, model)
+
+  @test length(tri.Γ_structures) == 0
+  @test length(tri.Γ_dampings)   == 0
+  # Entire surface is free surface
+  @test num_cells(tri.Γfs) == num_cells(tri.Γ)
+  @test num_cells(tri.Γκ)  == num_cells(tri.Γ)
+  @test num_cells(tri.Γη)  == 0
+end

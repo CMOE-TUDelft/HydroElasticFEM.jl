@@ -134,3 +134,114 @@ function surface_masks(domain::TankDomain2D)
     return smasks, dmasks
 end
 
+
+# ─────────────────────────────────────────────────────────────
+# Triangulations
+# ─────────────────────────────────────────────────────────────
+
+"""
+    TankTriangulations
+
+Container for the triangulations produced by [`build_triangulations`](@ref).
+
+# Fields
+- `Ω`  — Interior (fluid domain)
+- `Γ`  — Full top-surface boundary
+- `Γbot` — Bottom boundary
+- `Γin` — Inlet (left wall) boundary
+- `Γout` — Outlet (right wall) boundary
+- `Γ_structures` — `Vector`: one triangulation per structure domain, ordered as in `TankDomain2D.structure_domains`
+- `Γ_dampings`   — `Vector`: one triangulation per damping zone, ordered as in `TankDomain2D.damping_zones`
+- `Γfs` — Free surface: surface cells that belong to no structure and no damping zone
+- `Γκ`  — Non-structure surface (free surface ∪ damping zones)
+- `Γη`  — All-structure surface (union of all structure triangulations)
+"""
+struct TankTriangulations
+    Ω::Gridap.Geometry.Triangulation
+    Γ::Gridap.Geometry.BoundaryTriangulation
+    Γbot::Gridap.Geometry.BoundaryTriangulation
+    Γin::Gridap.Geometry.BoundaryTriangulation
+    Γout::Gridap.Geometry.BoundaryTriangulation
+    Γ_structures::Vector
+    Γ_dampings::Vector
+    Γfs::Gridap.Geometry.Triangulation
+    Γκ::Gridap.Geometry.Triangulation
+    Γη::Gridap.Geometry.Triangulation
+end
+
+"""
+    build_triangulations(domain::TankDomain2D, model) -> TankTriangulations
+
+Label the model, extract base triangulations (`Ω`, `Γ`, `Γin`, `Γot`),
+then partition the top surface `Γ` using the masks derived from the
+structure domains and damping zones in `domain`.
+
+Returns a [`TankTriangulations`](@ref) holding every sub-triangulation
+needed for simulation assembly.
+
+Labelling convention (Cartesian 2D, entity ids):
+- `"surface"` → entities 3, 4, 6 (top side + top corners)
+- `"bottom"`  → entities 1, 2, 5 (bottom side + bottom corners)
+- `"inlet"`   → entity 7 (left wall)
+- `"outlet"`  → entity 8 (right wall)
+- `"water"`   → entity 9 (interior)
+"""
+function build_triangulations(domain::TankDomain2D, model)
+    # — Label model faces ————————————————————————————————
+    labels = get_face_labeling(model)
+    add_tag_from_tags!(labels, "surface", [3, 4, 6])
+    add_tag_from_tags!(labels, "bottom",  [1, 2, 5])
+    add_tag_from_tags!(labels, "inlet",   [7])
+    add_tag_from_tags!(labels, "outlet",  [8])
+    add_tag_from_tags!(labels, "water",   [9])
+
+    # — Base triangulations ——————————————————————————————
+    Ω    = Interior(model)
+    Γ    = Boundary(model, tags="surface")
+    Γbot = Boundary(model, tags="bottom")
+    Γin  = Boundary(model, tags="inlet")
+    Γout = Boundary(model, tags="outlet")
+
+    # — Build boolean masks on surface cell coordinates ——
+    xΓ = get_cell_coordinates(Γ)
+    smasks, dmasks = surface_masks(domain)
+
+    s_bits = [lazy_map(m, xΓ) for m in smasks]  # per-structure
+    d_bits = [lazy_map(m, xΓ) for m in dmasks]  # per-damping
+
+    # — Per-zone sub-triangulations ——————————————————————
+    Γ_structures = [Triangulation(Γ, findall(b)) for b in s_bits]
+    Γ_dampings   = [Triangulation(Γ, findall(b)) for b in d_bits]
+
+    # — Composed masks ——————————————————————————————————
+    n = length(xΓ)
+    any_structure = _or_bits(s_bits, n)
+    any_damping   = _or_bits(d_bits, n)
+    any_zone      = any_structure .| any_damping
+
+    # Free surface = surface cells in no zone at all
+    Γfs = Triangulation(Γ, findall(!, any_zone))
+    # κ surface = everything except structures (free surface + damping)
+    Γκ  = Triangulation(Γ, findall(!, any_structure))
+    # η surface = all structures
+    Γη  = Triangulation(Γ, findall(any_structure))
+
+    return TankTriangulations(Ω, Γ, Γbot, Γin, Γout,
+                              Γ_structures, Γ_dampings,
+                              Γfs, Γκ, Γη)
+end
+
+"""
+    _or_bits(bits, n) -> BitVector
+
+Element-wise OR of a vector of boolean arrays.
+Returns a `falses(n)` vector when `bits` is empty.
+"""
+function _or_bits(bits, n)
+    result = falses(n)
+    for b in bits
+        result .= result .| b
+    end
+    return result
+end
+
