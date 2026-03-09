@@ -1,6 +1,4 @@
 using Test
-using HydroElasticFEM
-using Gridap
 
 @testset "HydroElasticFEM" begin
 
