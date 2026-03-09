@@ -3,45 +3,19 @@
 
 Generic weak form assembler for HydroElasticFEM.
 
-Provides the `FieldDict` wrapper for symbol-based field access,
-and `assemble_*` functions that loop over a collection of physics
-terms and sum contributions.
+Provides `assemble_*` functions that loop over a collection of physics
+terms and sum contributions.  Field tuples are wrapped in `FieldDict`
+(from `Domains`) for symbol-based access.
 
 All concrete methods (`mass`, `damping`, `stiffness`, `rhs`,
 `weakform`, `residual`, `jacobian`, `jacobian_t`, `jacobian_tt`)
-are defined in PhysicalEntities (inside each entity file);
+are defined in Entities (inside each entity file);
 this module only provides composition logic and the field mapping.
 """
 module WeakFormAssembly
 
-using ..PhysicalEntities
-
-# ─────────────────────────────────────────────────────────────
-# FieldDict: symbol-indexed wrapper around Gridap field tuples
-# ─────────────────────────────────────────────────────────────
-
-"""
-    FieldDict{T}
-
-Wraps a positional tuple of FE fields (from Gridap's multi-field
-decomposition) and maps `Symbol` keys to positional indices.
-
-# Usage
-```julia
-fmap = Dict(:ϕ => 1, :κ => 2, :η_m => 3)
-x = FieldDict((ϕ, κ, η), fmap)
-x[:ϕ]   # returns ϕ
-x[:η_m] # returns η
-```
-"""
-struct FieldDict{T}
-    _data::T
-    _map::Dict{Symbol, Int}
-end
-
-Base.getindex(fd::FieldDict, s::Symbol) = fd._data[fd._map[s]]
-Base.haskey(fd::FieldDict, s::Symbol)   = haskey(fd._map, s)
-Base.keys(fd::FieldDict)                = keys(fd._map)
+using ..Entities
+using ..Domains
 
 # ─────────────────────────────────────────────────────────────
 # Helpers: sum only active form contributions
@@ -200,7 +174,6 @@ end
 # Exports
 # ─────────────────────────────────────────────────────────────
 
-export FieldDict
 export assemble_weakform
 export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
 export assemble_residual, assemble_jacobian, assemble_jacobian_t, assemble_jacobian_tt

@@ -1,21 +1,23 @@
 """
-    module PhysicalEntities
+    module Entities
 
 Unified type hierarchy for all physical entities in HydroElasticFEM.
 
 Each entity file may define any subset of `mass`, `damping`,
 `stiffness`, and `rhs` methods that access FE fields by symbol
 (e.g. `x[:ϕ]`, `x[:η_m]`) via a `FieldDict` wrapper provided by
-`WeakFormAssembly`.
+`Domains`.
 
 Generic composed forms (`weakform`, `residual`, `jacobian`, ...)
 are defined at module level and dispatch to the linear forms.
 """
-module PhysicalEntities
+module Entities
 
 using Parameters
 using Gridap
 using Printf
+using ..Domains
+using ..FESpaces
 
 # ─────────────────────────────────────────────────────────────
 # Abstract base
@@ -127,10 +129,6 @@ struct FixedBoundary <: BoundaryCondition end
 # ─────────────────────────────────────────────────────────────
 
 abstract type AbstractStructure <: PhysicsParameters end
-
-# Domain container and FE config (must be included before entity files that reference them)
-include("WeakFormDomains.jl")
-include("FESpaceConfig.jl")
 
 # Entity files (struct definition + single-variable weak forms)
 include("PotentialFlow.jl")
@@ -270,10 +268,9 @@ export PhysicsParameters, print_parameters
 export BoundaryCondition, FreeBoundary, FixedBoundary
 export AbstractStructure, PotentialFlow, FreeSurface, Membrane2D, EulerBernoulliBeam
 export ResonatorSingle, resonator_array
-export WeakFormDomains, FESpaceConfig
 export variable_symbol
 export weakform, mass, damping, stiffness, rhs
 export residual, jacobian, jacobian_t, jacobian_tt
 export has_mass_form, has_damping_form, has_stiffness_form, has_rhs_form
 
-end # module PhysicalEntities
+end # module Entities

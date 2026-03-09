@@ -12,7 +12,7 @@ module FESpaceAssembly
 
 using Gridap
 using Gridap.FESpaces: ConstantFESpace, SingleFieldFESpace
-using ..PhysicalEntities
+using ..Entities
 
 # ─────────────────────────────────────────────────────────────
 # Per-entity FE space construction (dispatched on entity type)
