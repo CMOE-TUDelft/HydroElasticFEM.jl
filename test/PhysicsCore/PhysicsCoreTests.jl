@@ -1,9 +1,9 @@
+using Test
+
 @testset "PhysicsCore" begin
-  include("PhysicalEntitiesTests.jl")
-  include("FreeSurfaceTests.jl")
-  include("Membrane2DTests.jl")
-  include("EulerBernoulliBeamTests.jl")
-  include("ResonatorTests.jl")
+
+  @testset "Entities module tests" include("Entities/EntitiesTests.jl")
+
   include("WeakFormAssemblyTests.jl")
   include("FESpaceAssemblyTests.jl")
 end
