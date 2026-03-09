@@ -15,6 +15,8 @@ using SparseArrays
 
   @testset "FESpaceConfig defaults and overrides" begin
     fe = FESpaceConfig()
+    @test fe.reffe_type == lagrangian
+    @test fe.scalar_type == Float64
     @test fe.order == 1
     @test fe.conformity == :H1
     @test fe.vector_type == Vector{ComplexF64}

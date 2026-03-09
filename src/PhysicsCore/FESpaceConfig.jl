@@ -10,6 +10,8 @@ Numerical FE discretisation parameters stored inside each physics entity.
 Controls how `build_fe_spaces` constructs the entity's FE space.
 
 # Fields
+- `reffe_type`          — ReferenceFE family, e.g. `lagrangian` (default `lagrangian`)
+- `scalar_type::DataType` — scalar type for the ReferenceFE (default `Float64`)
 - `order::Int`          — polynomial order of the reference FE (default 1)
 - `conformity::Symbol`  — FE conformity, e.g. `:H1`, `:L2` (default `:H1`)
 - `vector_type::DataType` — Gridap vector type (default `Vector{ComplexF64}`)
@@ -20,6 +22,8 @@ Controls how `build_fe_spaces` constructs the entity's FE space.
                            (default `nothing`)
 """
 @with_kw struct FESpaceConfig
+    reffe_type             = lagrangian
+    scalar_type::DataType  = Float64
     order::Int             = 1
     conformity::Symbol     = :H1
     vector_type::DataType  = Vector{ComplexF64}
