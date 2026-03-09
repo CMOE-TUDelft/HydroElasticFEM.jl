@@ -245,3 +245,62 @@ function _or_bits(bits, n)
     return result
 end
 
+
+# ─────────────────────────────────────────────────────────────
+# WeakFormDomains bridge
+# ─────────────────────────────────────────────────────────────
+
+"""
+    get_weak_form_domains(tri::TankTriangulations; degree::Int=4) -> Dict{Symbol, Any}
+
+Build a `Dict{Symbol,Any}` of integration measures and normals from
+`tri`, ready to be passed to `WeakFormDomains(dict)`.
+
+# Populated keys
+
+| Key | Source | Used by |
+|-----|--------|---------|
+| `:dΩ` | `tri.Ω` | PotentialFlow, Resonator |
+| `:dΓ_fs` | `tri.Γfs` | FreeSurface, PF↔FS coupling |
+| `:dΓ_s` | `tri.Γη` (all structures) | Membrane2D, Beam, PF↔struct coupling |
+| `:dΓ_in` | `tri.Γin` | Inlet boundary terms |
+| `:dΓ_out` | `tri.Γout` | Outlet boundary terms |
+| `:dΓ_bot` | `tri.Γbot` | Bottom boundary terms |
+| `:dΓ_d_i` | `tri.Γ_dampings[i]` | Damping zone terms (`:dΓ_d_1`, `:dΓ_d_2`, …) |
+
+# Optional skeleton keys (beams only)
+
+If the structure triangulation has interior edges,
+add `:dΛ_s`, `:n_Λ_s`, and `:h_s` manually after calling this function.
+
+# Example
+
+```julia
+dom = WeakFormDomains(G.get_weak_form_domains(tank_trians; degree=4))
+```
+"""
+function get_weak_form_domains(tri::TankTriangulations; degree::Int=4)
+    d = Dict{Symbol, Any}()
+
+    # Fluid interior
+    d[:dΩ]     = Measure(tri.Ω, degree)
+
+    # Free surface (outside structures and damping)
+    d[:dΓ_fs]  = Measure(tri.Γfs, degree)
+
+    # All-structure surface
+    d[:dΓ_s]   = Measure(tri.Γη, degree)
+
+    # Walls
+    d[:dΓ_in]  = Measure(tri.Γin, degree)
+    d[:dΓ_out] = Measure(tri.Γout, degree)
+    d[:dΓ_bot] = Measure(tri.Γbot, degree)
+
+    # Per-damping-zone measures (:dΓ_d_1, :dΓ_d_2, …)
+    for (i, Γd) in enumerate(tri.Γ_dampings)
+        d[Symbol("dΓ_d_$i")] = Measure(Γd, degree)
+    end
+
+    return d
+end
+
