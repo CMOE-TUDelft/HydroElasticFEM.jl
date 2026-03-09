@@ -19,7 +19,6 @@ normalised by fluid density ρw.
     EIᵨ::Float64
     τ::Float64     = 0.0
     g::Float64     = 9.81
-    bndType::BoundaryCondition = FreeBoundary()
 
     # Derived quantities
     ωn1::Float64   = 22.3733 * sqrt(EIᵨ / (mᵨ * L^4))
@@ -32,7 +31,6 @@ function print_parameters(beam::EulerBernoulliBeam)
     @printf("[VAL] mᵨ = %.4f m\n", beam.mᵨ)
     @printf("[VAL] EIᵨ = %.4f m5/s2\n", beam.EIᵨ)
     @printf("[VAL] τ = %.4f \n", beam.τ)
-    @printf("[VAL] beamBndType = %s \n", string(beam.bndType))
     @printf("[VAL] 1st Dry Analytical Natural Freq, ωn1 = %.4f rad/s\n", beam.ωn1)
     @printf("[MSG] See free-free vibration frequency formula involving 22.3733 from Wiki.\n")
     println()
@@ -65,9 +63,6 @@ function damping(s::EulerBernoulliBeam, dom::WeakFormDomains, x_t, y)
               -jump(∇(v) ⋅ n_Λ) * mean(Δ(ηₜ))
               - mean(Δ(v)) * jump(∇(ηₜ) ⋅ n_Λ)
               + (γ / h) * jump(∇(v) ⋅ n_Λ) * jump(∇(ηₜ) ⋅ n_Λ)))dom[:dΛ_s]
-    if s.bndType isa FixedBoundary
-        val += ∫(-EIᵨ * τ * v * Δ(ηₜ) * dom[:n_Λ_sb])dom[:dΛ_sb]
-    end
     return val
 end
 
@@ -85,9 +80,6 @@ function stiffness(s::EulerBernoulliBeam, dom::WeakFormDomains, x, y)
               -jump(∇(v) ⋅ n_Λ) * mean(Δ(η))
               - mean(Δ(v)) * jump(∇(η) ⋅ n_Λ)
               + (γ / h) * jump(∇(v) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ)))dom[:dΛ_s]
-    if s.bndType isa FixedBoundary
-        val += ∫(-EIᵨ * v * Δ(η) * dom[:n_Λ_sb])dom[:dΛ_sb]
-    end
     return val
 end
 
