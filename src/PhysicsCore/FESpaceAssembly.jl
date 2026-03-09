@@ -26,7 +26,7 @@ using the numerical parameters from `entity.fe`.
 """
 function build_test_fe_space(entity::PhysicsParameters, trian)
     fe = entity.fe
-    reffe = ReferenceFE(fe.reffe_type, fe.scalar_type, fe.order)
+    reffe = ReferenceFE(fe.reffe_type, fe.space_type, fe.order)
     if fe.dirichlet_tags !== nothing
         TestFESpace(trian, reffe;
             conformity   = fe.conformity,
