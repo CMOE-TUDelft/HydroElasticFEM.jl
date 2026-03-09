@@ -116,13 +116,6 @@ end
 _require_nonempty(val, kind, obj) =
     isnothing(val) ? error("$kind has no active contributions for $(typeof(obj))") : val
 
-# ─────────────────────────────────────────────────────────────
-# Boundary conditions
-# ─────────────────────────────────────────────────────────────
-
-abstract type BoundaryCondition end
-struct FreeBoundary  <: BoundaryCondition end
-struct FixedBoundary <: BoundaryCondition end
 
 # ─────────────────────────────────────────────────────────────
 # Structural entities
@@ -265,12 +258,9 @@ jacobian_tt(a, b, dom::WeakFormDomains, x, x_t, dx_tt, y) =
 # ─────────────────────────────────────────────────────────────
 
 export PhysicsParameters, print_parameters
-export BoundaryCondition, FreeBoundary, FixedBoundary
+export mass, damping, stiffness, rhs
+export weak_form, residual, jacobian, jacobian_t, jacobian_tt
 export AbstractStructure, PotentialFlow, FreeSurface, Membrane2D, EulerBernoulliBeam
 export ResonatorSingle, resonator_array
-export variable_symbol
-export weakform, mass, damping, stiffness, rhs
-export residual, jacobian, jacobian_t, jacobian_tt
-export has_mass_form, has_damping_form, has_stiffness_form, has_rhs_form
 
 end # module Entities
