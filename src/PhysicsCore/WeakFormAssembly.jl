@@ -14,8 +14,8 @@ this module only provides composition logic and the field mapping.
 """
 module WeakFormAssembly
 
-using ..Entities
-using ..Domains
+import ..Entities as E
+import ..Domains as D
 
 # ─────────────────────────────────────────────────────────────
 # Helpers: sum only active form contributions
@@ -34,14 +34,14 @@ function _assemble_active(f, has_form, terms, args...)
 end
 
 _has_weakform(term) =
-    has_mass_form(term) || has_damping_form(term) || has_stiffness_form(term)
-_has_residual(term) = _has_weakform(term) || has_rhs_form(term)
+    E.has_mass_form(term) || E.has_damping_form(term) || E.has_stiffness_form(term)
+_has_residual(term) = _has_weakform(term) || E.has_rhs_form(term)
 
 # ─────────────────────────────────────────────────────────────
 # Internal: wrap raw tuples in FieldDict
 # ─────────────────────────────────────────────────────────────
 
-_wrap(t, fmap::Dict{Symbol,Int}) = FieldDict(t, fmap)
+_wrap(t, fmap::Dict{Symbol,Int}) = D.FieldDict(t, fmap)
 
 # ─────────────────────────────────────────────────────────────
 # Linear form assemblers
@@ -53,10 +53,10 @@ _wrap(t, fmap::Dict{Symbol,Int}) = FieldDict(t, fmap)
 Sum `mass(term, dom, x_tt, y)` over all `terms`,
 wrapping the raw tuples with `fmap`.
 """
-function assemble_mass(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int}, x_tt, y)
+function assemble_mass(terms, dom::D.WeakFormDomains, fmap::Dict{Symbol,Int}, x_tt, y)
     xd = _wrap(x_tt, fmap)
     yd = _wrap(y, fmap)
-    _assemble_active(mass, has_mass_form, terms, dom, xd, yd)
+    _assemble_active(E.mass, E.has_mass_form, terms, dom, xd, yd)
 end
 
 """
@@ -64,10 +64,10 @@ end
 
 Sum `damping(term, dom, x_t, y)` over all `terms`.
 """
-function assemble_damping(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int}, x_t, y)
+function assemble_damping(terms, dom::D.WeakFormDomains, fmap::Dict{Symbol,Int}, x_t, y)
     xd = _wrap(x_t, fmap)
     yd = _wrap(y, fmap)
-    _assemble_active(damping, has_damping_form, terms, dom, xd, yd)
+    _assemble_active(E.damping, E.has_damping_form, terms, dom, xd, yd)
 end
 
 """
@@ -75,10 +75,10 @@ end
 
 Sum `stiffness(term, dom, x, y)` over all `terms`.
 """
-function assemble_stiffness(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int}, x, y)
+function assemble_stiffness(terms, dom::D.WeakFormDomains, fmap::Dict{Symbol,Int}, x, y)
     xd = _wrap(x, fmap)
     yd = _wrap(y, fmap)
-    _assemble_active(stiffness, has_stiffness_form, terms, dom, xd, yd)
+    _assemble_active(E.stiffness, E.has_stiffness_form, terms, dom, xd, yd)
 end
 
 """
@@ -86,10 +86,10 @@ end
 
 Sum `rhs(term, dom, f, y)` over all `terms`.
 """
-function assemble_rhs(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int}, f, y)
+function assemble_rhs(terms, dom::D.WeakFormDomains, fmap::Dict{Symbol,Int}, f, y)
     fd = _wrap(f, fmap)
     yd = _wrap(y, fmap)
-    _assemble_active(rhs, has_rhs_form, terms, dom, fd, yd)
+    _assemble_active(E.rhs, E.has_rhs_form, terms, dom, fd, yd)
 end
 
 # ─────────────────────────────────────────────────────────────
@@ -102,10 +102,10 @@ end
 Sum `weakform(term, dom, ω, x, y)` over all `terms`,
 wrapping the raw tuples with `fmap`.
 """
-function assemble_weakform(terms, dom::WeakFormDomains, ω, fmap::Dict{Symbol,Int}, x, y)
+function assemble_weakform(terms, dom::D.WeakFormDomains, ω, fmap::Dict{Symbol,Int}, x, y)
     xd = _wrap(x, fmap)
     yd = _wrap(y, fmap)
-    _assemble_active(weakform, _has_weakform, terms, dom, ω, xd, yd)
+    _assemble_active(E.weakform, _has_weakform, terms, dom, ω, xd, yd)
 end
 
 # ─────────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ end
 """
     assemble_residual(terms, dom, fmap, x, x_t, x_tt, f, y)
 """
-function assemble_residual(terms, dom::WeakFormDomains, fmap::Dict{Symbol,Int},
+function assemble_residual(terms, dom::D.WeakFormDomains, fmap::Dict{Symbol,Int},
                            x, x_t, x_tt, f, y)
     xd    = _wrap(x, fmap)
     xd_t  = _wrap(x_t, fmap)

@@ -3,6 +3,11 @@ using Gridap.Geometry
 using Gridap.CellData
 using SparseArrays
 
+import HydroElasticFEM.PhysicsCore.FESpaceAssembly as FEA
+import HydroElasticFEM.PhysicsCore.FESpaces as FES
+import HydroElasticFEM.PhysicsCore.Entities as E
+import HydroElasticFEM.PhysicsCore.Domains as D
+
 # =========================================================================
 # FESpaceAssembly tests
 # =========================================================================
@@ -14,7 +19,7 @@ using SparseArrays
   # -----------------------------------------------------------------------
 
   @testset "FESpaceConfig defaults and overrides" begin
-    fe = FESpaceConfig()
+    fe = FES.FESpaceConfig()
     @test fe.reffe_type == lagrangian
     @test fe.space_type == Float64
     @test fe.order == 1
@@ -24,11 +29,11 @@ using SparseArrays
     @test fe.dirichlet_tags === nothing
     @test fe.dirichlet_value === nothing
 
-    fe2 = FESpaceConfig(order=2)
+    fe2 = FES.FESpaceConfig(order=2)
     @test fe2.order == 2
     @test fe2.γ == 40.0   # 10.0 * 2^2
 
-    fe3 = FESpaceConfig(order=3, γ=100.0, dirichlet_tags="boundary")
+    fe3 = FES.FESpaceConfig(order=3, γ=100.0, dirichlet_tags="boundary")
     @test fe3.order == 3
     @test fe3.γ == 100.0
     @test fe3.dirichlet_tags == "boundary"
@@ -39,23 +44,23 @@ using SparseArrays
   # -----------------------------------------------------------------------
 
   @testset "Entity fe field defaults" begin
-    fluid = PotentialFlow(ρw=1025.0, g=9.81)
+    fluid = E.PotentialFlow(ρw=1025.0, g=9.81)
     @test fluid.fe.order == 1
 
-    fsurf = FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5)
+    fsurf = E.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5)
     @test fsurf.fe.order == 1
 
-    mem = Membrane2D(L=20.0, mᵨ=1.0, Tᵨ=100.0)
+    mem = E.Membrane2D(L=20.0, mᵨ=1.0, Tᵨ=100.0)
     @test mem.fe.order == 1
 
-    beam = EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0)
+    beam = E.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0)
     @test beam.fe.order == 1
     @test beam.fe.γ == 10.0
   end
 
   @testset "Entity fe field overrides" begin
-    beam = EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0,
-                              fe=FESpaceConfig(order=2))
+    beam = E.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0,
+                                fe=FES.FESpaceConfig(order=2))
     @test beam.fe.order == 2
     @test beam.fe.γ == 40.0
   end
@@ -85,11 +90,11 @@ using SparseArrays
     Γη  = Triangulation(Γ, findall(Γm_mask))
     Γκ  = Triangulation(Γ, findall(!, Γm_mask))
 
-    fluid = PotentialFlow(ρw=1025.0, g=9.81, fe=FESpaceConfig(order=order))
-    fsurf = FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FESpaceConfig(order=order))
-    mem   = Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FESpaceConfig(order=order))
+    fluid = E.PotentialFlow(ρw=1025.0, g=9.81, fe=FES.FESpaceConfig(order=order))
+    fsurf = E.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FES.FESpaceConfig(order=order))
+    mem   = E.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order))
 
-    X, Y, fmap = build_fe_spaces(
+    X, Y, fmap = FEA.build_fe_spaces(
         fluid => Ω,
         fsurf => Γκ,
         mem   => Γη,
@@ -113,14 +118,13 @@ using SparseArrays
   @testset "build_fe_spaces — beam with Dirichlet" begin
     model = CartesianDiscreteModel((0, 1.0), (20,))
 
-    beam = EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0, g=0.0,
-                              bndType=FixedBoundary(),
-                              fe=FESpaceConfig(order=2,
-                                               vector_type=Vector{Float64},
-                                               dirichlet_tags="boundary",
-                                               dirichlet_value=0.0))
+    beam = E.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0, g=0.0,
+                                fe=FES.FESpaceConfig(order=2,
+                                                     vector_type=Vector{Float64},
+                                                     dirichlet_tags="boundary",
+                                                     dirichlet_value=0.0))
 
-    X, Y, fmap = build_fe_spaces(beam => model)
+    X, Y, fmap = FEA.build_fe_spaces(beam => model)
 
     @test fmap[:η_b] == 1
     @test length(fmap) == 1
@@ -159,11 +163,11 @@ using SparseArrays
 
     degree = 2 * order
 
-    fluid = PotentialFlow(ρw=1025.0, g=9.81, fe=FESpaceConfig(order=order))
-    fsurf = FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FESpaceConfig(order=order))
-    mem   = Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FESpaceConfig(order=order))
+    fluid = E.PotentialFlow(ρw=1025.0, g=9.81, fe=FES.FESpaceConfig(order=order))
+    fsurf = E.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FES.FESpaceConfig(order=order))
+    mem   = E.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order))
 
-    X, Y, fmap = build_fe_spaces(
+    X, Y, fmap = FEA.build_fe_spaces(
         fluid => Ω,
         fsurf => Γκ,
         mem   => Γη,
@@ -174,18 +178,18 @@ using SparseArrays
     dΓfs = Measure(Γfs, degree)
     dΓin = Measure(Γin, degree)
 
-    dom = WeakFormDomains(dΩ=dΩ, dΓ_fs=dΓfs, dΓ_s=dΓm, dΓ_in=dΓin)
+    dom = D.WeakFormDomains(dΩ=dΩ, dΓ_fs=dΓfs, dΓ_s=dΓm, dΓ_in=dΓin)
 
     ω = 2.0
 
     a((ϕ,κ,η),(w,u,v)) = begin
-      xd = FieldDict((ϕ,κ,η), fmap)
-      yd = FieldDict((w,u,v), fmap)
-      weakform(fluid, dom, ω, xd, yd) +
-      weakform(fsurf, dom, ω, xd, yd) +
-      weakform(mem, dom, ω, xd, yd) +
-      weakform(fluid, fsurf, dom, ω, xd, yd) +
-      weakform(fluid, mem, dom, ω, xd, yd)
+      xd = D.FieldDict((ϕ,κ,η), fmap)
+      yd = D.FieldDict((w,u,v), fmap)
+      E.weakform(fluid, dom, ω, xd, yd) +
+      E.weakform(fsurf, dom, ω, xd, yd) +
+      E.weakform(mem, dom, ω, xd, yd) +
+      E.weakform(fluid, fsurf, dom, ω, xd, yd) +
+      E.weakform(fluid, mem, dom, ω, xd, yd)
     end
 
     l((w,u,v)) = ∫(0.0 * w)dΓin

@@ -12,7 +12,8 @@ module FESpaceAssembly
 
 using Gridap
 using Gridap.FESpaces: ConstantFESpace, SingleFieldFESpace
-using ..Entities
+
+import ..Entities as E 
 
 # ─────────────────────────────────────────────────────────────
 # Per-entity FE space construction (dispatched on entity type)
@@ -129,7 +130,7 @@ function build_fe_spaces(pairs::Pair...)
             idx += 1
             push!(test_spaces, V)
             push!(trial_spaces, U)
-            fmap[variable_symbol(entity)] = idx
+            fmap[E.variable_symbol(entity)] = idx
         end
     end
 

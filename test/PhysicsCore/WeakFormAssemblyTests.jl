@@ -1,6 +1,11 @@
 using Gridap
 using Gridap.Geometry
 using Gridap.CellData
+using SparseArrays
+
+import HydroElasticFEM.PhysicsCore.Entities as Entities
+import HydroElasticFEM.PhysicsCore.Domains as Domains
+import HydroElasticFEM.PhysicsCore.WeakFormAssembly as WF
 
 # =========================================================================
 # Mini mesh setup: 50m × 10m tank, membrane from x=15 to x=35
@@ -61,29 +66,29 @@ using Gridap.CellData
   βₕ  = 0.5
 
   # Physics entities
-  fluid = PotentialFlow(ρw=ρw, g=g_)
-  fsurf = FreeSurface(ρw=ρw, g=g_, βₕ=βₕ)
-  mem   = Membrane2D(L=20.0, mᵨ=922.5/ρw, Tᵨ=98.1, g=g_)
+  fluid = Entities.PotentialFlow(ρw=ρw, g=g_)
+  fsurf = Entities.FreeSurface(ρw=ρw, g=g_, βₕ=βₕ)
+  mem   = Entities.Membrane2D(L=20.0, mᵨ=922.5/ρw, Tᵨ=98.1, g=g_)
 
   # Field mapping
   fmap = Dict(:ϕ => 1, :κ => 2, :η_m => 3)
 
-  dom = WeakFormDomains(dΩ=dΩ, dΓ_fs=dΓfs, dΓ_s=dΓm,
-                        dΓ_in=dΓin, dΓ_ot=dΓot)
+  dom = Domains.WeakFormDomains(dΩ=dΩ, dΓ_fs=dΓfs, dΓ_s=dΓm,
+                                dΓ_in=dΓin, dΓ_ot=dΓot)
 
   # =========================================================================
   # Test WeakFormDomains + FieldDict construction
   # =========================================================================
 
   @testset "WeakFormDomains construction" begin
-    d = WeakFormDomains(dΩ=dΩ, dΓ_s=dΓm)
+    d = Domains.WeakFormDomains(dΩ=dΩ, dΓ_s=dΓm)
     @test d[:dΩ] === dΩ
     @test haskey(d, :dΓ_s)
     @test !haskey(d, :dΓ_fs)
   end
 
   @testset "FieldDict construction" begin
-    fd = FieldDict((1, 2, 3), fmap)
+    fd = Domains.FieldDict((1, 2, 3), fmap)
     @test fd[:ϕ] == 1
     @test fd[:κ] == 2
     @test fd[:η_m] == 3
@@ -92,11 +97,11 @@ using Gridap.CellData
   end
 
   @testset "variable_symbol dispatch" begin
-    @test variable_symbol(fluid) == :ϕ
-    @test variable_symbol(fsurf) == :κ
-    @test variable_symbol(mem) == :η_m
-    beam = EulerBernoulliBeam(L=20.0, mᵨ=922.5/ρw, EIᵨ=1e9*1e-4/ρw)
-    @test variable_symbol(beam) == :η_b
+    @test Entities.variable_symbol(fluid) == :ϕ
+    @test Entities.variable_symbol(fsurf) == :κ
+    @test Entities.variable_symbol(mem) == :η_m
+    beam = Entities.EulerBernoulliBeam(L=20.0, mᵨ=922.5/ρw, EIᵨ=1e9*1e-4/ρw)
+    @test Entities.variable_symbol(beam) == :η_b
   end
 
   # =========================================================================
@@ -107,17 +112,17 @@ using Gridap.CellData
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
     a_mass((ϕ,κ,η),(w,u,v)) = begin
-      xd = FieldDict((ϕ,κ,η), fmap)
-      yd = FieldDict((w,u,v), fmap)
-      ∫(∇(w) ⋅ ∇(ϕ))dΩ + mass(mem, dom, xd, yd)
+      xd = Domains.FieldDict((ϕ,κ,η), fmap)
+      yd = Domains.FieldDict((w,u,v), fmap)
+      ∫(∇(w) ⋅ ∇(ϕ))dΩ + Entities.mass(mem, dom, xd, yd)
     end
     op_m = AffineFEOperator(a_mass, l, X, Y)
     @test nnz(get_matrix(op_m)) > 0
 
     a_stiff((ϕ,κ,η),(w,u,v)) = begin
-      xd = FieldDict((ϕ,κ,η), fmap)
-      yd = FieldDict((w,u,v), fmap)
-      ∫(∇(w) ⋅ ∇(ϕ))dΩ + stiffness(mem, dom, xd, yd)
+      xd = Domains.FieldDict((ϕ,κ,η), fmap)
+      yd = Domains.FieldDict((w,u,v), fmap)
+      ∫(∇(w) ⋅ ∇(ϕ))dΩ + Entities.stiffness(mem, dom, xd, yd)
     end
     op_k = AffineFEOperator(a_stiff, l, X, Y)
     @test nnz(get_matrix(op_k)) > 0
@@ -131,9 +136,9 @@ using Gridap.CellData
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
     a_fluid((ϕ,κ,η),(w,u,v)) = begin
-      xd = FieldDict((ϕ,κ,η), fmap)
-      yd = FieldDict((w,u,v), fmap)
-      stiffness(fluid, dom, xd, yd)
+      xd = Domains.FieldDict((ϕ,κ,η), fmap)
+      yd = Domains.FieldDict((w,u,v), fmap)
+      Entities.stiffness(fluid, dom, xd, yd)
     end
     op = AffineFEOperator(a_fluid, l, X, Y)
     @test nnz(get_matrix(op)) > 0
@@ -147,9 +152,9 @@ using Gridap.CellData
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
     a_coupling((ϕ,κ,η),(w,u,v)) = begin
-      xd = FieldDict((ϕ,κ,η), fmap)
-      yd = FieldDict((w,u,v), fmap)
-      ∫(∇(w) ⋅ ∇(ϕ))dΩ + damping(fluid, mem, dom, xd, yd)
+      xd = Domains.FieldDict((ϕ,κ,η), fmap)
+      yd = Domains.FieldDict((w,u,v), fmap)
+      ∫(∇(w) ⋅ ∇(ϕ))dΩ + Entities.damping(fluid, mem, dom, xd, yd)
     end
     op = AffineFEOperator(a_coupling, l, X, Y)
     @test nnz(get_matrix(op)) > 0
@@ -163,15 +168,15 @@ using Gridap.CellData
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
     a((ϕ,κ,η),(w,u,v)) = begin
-      xd = FieldDict((ϕ,κ,η), fmap)
-      yd = FieldDict((w,u,v), fmap)
+      xd = Domains.FieldDict((ϕ,κ,η), fmap)
+      yd = Domains.FieldDict((w,u,v), fmap)
       # single-variable
-      weakform(fluid, dom, ω, xd, yd) +
-      weakform(fsurf, dom, ω, xd, yd) +
-      weakform(mem, dom, ω, xd, yd) +
+      Entities.weakform(fluid, dom, ω, xd, yd) +
+      Entities.weakform(fsurf, dom, ω, xd, yd) +
+      Entities.weakform(mem, dom, ω, xd, yd) +
       # coupling
-      weakform(fluid, fsurf, dom, ω, xd, yd) +
-      weakform(fluid, mem, dom, ω, xd, yd)
+      Entities.weakform(fluid, fsurf, dom, ω, xd, yd) +
+      Entities.weakform(fluid, mem, dom, ω, xd, yd)
     end
 
     op = AffineFEOperator(a, l, X, Y)
@@ -188,9 +193,9 @@ using Gridap.CellData
     terms = (fluid, fsurf, mem)
 
     a((ϕ,κ,η),(w,u,v)) =
-      assemble_weakform(terms, dom, ω, fmap, (ϕ,κ,η), (w,u,v)) +
-      weakform(fluid, fsurf, dom, ω,
-               FieldDict((ϕ,κ,η), fmap), FieldDict((w,u,v), fmap))
+      WF.assemble_weakform(terms, dom, ω, fmap, (ϕ,κ,η), (w,u,v)) +
+      Entities.weakform(fluid, fsurf, dom, ω,
+               Domains.FieldDict((ϕ,κ,η), fmap), Domains.FieldDict((w,u,v), fmap))
 
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
