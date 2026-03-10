@@ -10,6 +10,10 @@ module HydroElasticFEM
   include(joinpath(@__DIR__, "PhysicsCore", "PhysicsCore.jl"))
   using .PhysicsCore
 
+  # SimManager (simulation orchestrator)
+  include(joinpath(@__DIR__, "SimManager", "SimManager.jl"))
+  using .SimManager
+
   # Backward-compatible shims (kept during transition)
   include(joinpath(PKG_ROOT, "src", "StructuralComponents", "BeamNoJoints.jl"))
   include(joinpath(PKG_ROOT, "src", "StructuralComponents", "Resonator.jl"))
@@ -42,5 +46,9 @@ module HydroElasticFEM
   export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
   export assemble_residual, assemble_jacobian, assemble_jacobian_t, assemble_jacobian_tt
   export build_fe_spaces, build_test_fe_space, build_trial_fe_space
+
+  # Re-export SimManager public API
+  export SimConfig, TimeConfig, SimResult
+  export simulate, detect_couplings
 
 end # module HydroElasticFEM

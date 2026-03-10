@@ -12,6 +12,7 @@ module FESpaceAssembly
 
 using Gridap
 using Gridap.FESpaces: ConstantFESpace, SingleFieldFESpace
+using Gridap.ODEs: TransientTrialFESpace, TransientMultiFieldFESpace
 
 import ..Entities as E 
 
@@ -54,27 +55,40 @@ function build_test_fe_space(resn::Vector{E.ResonatorSingle}, trian)
 end
 
 """
-    build_trial_fe_space(entity::E.PhysicsParameters, V_test)
+    build_trial_fe_space(entity::E.PhysicsParameters, V_test; transient=false)
 
-Build a `TrialFESpace` from the test space `V_test`, applying
-Dirichlet values from `entity.fe` if present.
+Build a `TrialFESpace` (or `TransientTrialFESpace` when `transient=true`)
+from the test space `V_test`, applying Dirichlet values from `entity.fe`
+if present.
 """
-function build_trial_fe_space(entity::E.PhysicsParameters, V_test)
+function build_trial_fe_space(entity::E.PhysicsParameters, V_test; transient::Bool=false)
     fe = entity.fe
-    if fe.dirichlet_value !== nothing
-        TrialFESpace(V_test, fe.dirichlet_value)
+    if transient
+        if fe.dirichlet_value !== nothing
+            TransientTrialFESpace(V_test, fe.dirichlet_value)
+        else
+            TransientTrialFESpace(V_test)
+        end
     else
-        TrialFESpace(V_test)
+        if fe.dirichlet_value !== nothing
+            TrialFESpace(V_test, fe.dirichlet_value)
+        else
+            TrialFESpace(V_test)
+        end
     end
 end
 
 """
-    build_trial_fe_space(resn::Vector{E.ResonatorSingle}, Vs::Vector)
+    build_trial_fe_space(resn::Vector{E.ResonatorSingle}, Vs::Vector; transient=false)
 
 Build trial spaces for each resonator's test space.
 """
-function build_trial_fe_space(resn::Vector{E.ResonatorSingle}, Vs::Vector)
-    [TrialFESpace(V) for V in Vs]
+function build_trial_fe_space(resn::Vector{E.ResonatorSingle}, Vs::Vector; transient::Bool=false)
+    if transient
+        [TransientTrialFESpace(V) for V in Vs]
+    else
+        [TrialFESpace(V) for V in Vs]
+    end
 end
 
 # ─────────────────────────────────────────────────────────────
@@ -108,7 +122,7 @@ X, Y, fmap = build_fe_spaces(
 # fmap == Dict(:ϕ => 1, :κ => 2, :η_m => 3)
 ```
 """
-function build_fe_spaces(pairs::Pair...)
+function build_fe_spaces(pairs::Pair...; transient::Bool=false)
     test_spaces  = SingleFieldFESpace[]
     trial_spaces = SingleFieldFESpace[]
     fmap = Dict{Symbol, Int}()
@@ -117,7 +131,7 @@ function build_fe_spaces(pairs::Pair...)
     for (entity, trian) in pairs
         if entity isa Vector{E.ResonatorSingle}
             Vs = build_test_fe_space(entity, trian)
-            Us = build_trial_fe_space(entity, Vs)
+            Us = build_trial_fe_space(entity, Vs; transient=transient)
             for (i, (Vi, Ui)) in enumerate(zip(Vs, Us))
                 idx += 1
                 push!(test_spaces, Vi)
@@ -126,7 +140,7 @@ function build_fe_spaces(pairs::Pair...)
             end
         else
             V = build_test_fe_space(entity, trian)
-            U = build_trial_fe_space(entity, V)
+            U = build_trial_fe_space(entity, V; transient=transient)
             idx += 1
             push!(test_spaces, V)
             push!(trial_spaces, U)
