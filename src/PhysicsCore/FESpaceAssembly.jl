@@ -87,7 +87,7 @@ end
 Build multi-field test and trial FE spaces from entity => triangulation
 pairs.  Automatically constructs per-entity spaces using each entity's
 `FESpaceConfig`, bundles them into `MultiFieldFESpace`, and builds the
-`FieldDict`-compatible field-index mapping.
+`FieldMap`-compatible field-index mapping.
 
 # Arguments
 - `pairs`: sequence of `entity => triangulation`.  Entity may be any

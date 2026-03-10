@@ -37,7 +37,7 @@ module HydroElasticFEM
   export weakform, mass, damping, stiffness, rhs
   export residual, jacobian, jacobian_t, jacobian_tt
   export has_mass_form, has_damping_form, has_stiffness_form, has_rhs_form
-  export FieldDict
+  export FieldMap
   export assemble_weakform
   export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
   export assemble_residual, assemble_jacobian, assemble_jacobian_t, assemble_jacobian_tt

@@ -4,7 +4,7 @@
 Generic weak form assembler for HydroElasticFEM.
 
 Provides `assemble_*` functions that loop over a collection of physics
-terms and sum contributions.  Field tuples are wrapped in `FieldDict`
+terms and sum contributions.  Field tuples are wrapped in `FieldMap`
 (from `Geometry`) for symbol-based access.
 
 All concrete methods (`mass`, `damping`, `stiffness`, `rhs`,
@@ -38,10 +38,10 @@ _has_weakform(term) =
 _has_residual(term) = _has_weakform(term) || E.has_rhs_form(term)
 
 # ─────────────────────────────────────────────────────────────
-# Internal: wrap raw tuples in FieldDict
+# Internal: wrap raw tuples in FieldMap
 # ─────────────────────────────────────────────────────────────
 
-_wrap(t, fmap::Dict{Symbol,Int}) = G.FieldDict(t, fmap)
+_wrap(t, fmap::Dict{Symbol,Int}) = G.FieldMap(t, fmap)
 
 # ─────────────────────────────────────────────────────────────
 # Linear form assemblers

@@ -183,8 +183,8 @@ import HydroElasticFEM.Geometry as D
     ω = 2.0
 
     a((ϕ,κ,η),(w,u,v)) = begin
-      xd = D.FieldDict((ϕ,κ,η), fmap)
-      yd = D.FieldDict((w,u,v), fmap)
+      xd = D.FieldMap((ϕ,κ,η), fmap)
+      yd = D.FieldMap((w,u,v), fmap)
       E.weakform(fluid, dom, ω, xd, yd) +
       E.weakform(fsurf, dom, ω, xd, yd) +
       E.weakform(mem, dom, ω, xd, yd) +

@@ -4,7 +4,7 @@
 Wrapper module for all physics-related types and assembly routines.
 
 Loads submodules in dependency order:
-1. **Geometry** (parent) — `IntegrationDomains`, `FieldDict`
+1. **Geometry** (parent) — `IntegrationDomains`, `FieldMap`
 2. **FESpaces** — `FESpaceConfig` (standalone)
 3. **Entities** — physics types, traits, composed weak forms (uses Geometry + FESpaces)
 4. **WeakFormAssembly** — `assemble_*` helpers (uses Entities + Geometry)
@@ -12,7 +12,7 @@ Loads submodules in dependency order:
 """
 module PhysicsCore
 
-# 1. IntegrationDomains & FieldDict come from the Geometry sibling module
+# 1. IntegrationDomains & FieldMap come from the Geometry sibling module
 using ..Geometry
 
 # 2. FESpaces config (standalone)

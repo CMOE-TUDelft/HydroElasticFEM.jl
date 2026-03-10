@@ -64,11 +64,11 @@ dom = IntegrationDomains(
 
 # 4. Build the bilinear and linear forms using the weak form interface.
 a((u,), (v,)) = stiffness(beam, dom,
-                           FieldDict((u,), fmap), FieldDict((v,), fmap))
+                           FieldMap((u,), fmap), FieldMap((v,), fmap))
 
 f(x) = 1.0
 l((v,)) = rhs(beam, dom,
-              FieldDict((f,), fmap), FieldDict((v,), fmap))
+              FieldMap((f,), fmap), FieldMap((v,), fmap))
 
 # 5. Solve
 op = AffineFEOperator(a, l, X, Y)

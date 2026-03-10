@@ -48,7 +48,7 @@ import HydroElasticFEM.PhysicsCore.FESpaces as FES
     U = TrialFESpace(V, 0.0)
 
     # Wrap in MultiFieldFESpace so Gridap passes 1-tuples to closures,
-    # allowing FieldDict indexing to work.
+    # allowing FieldMap indexing to work.
     Y = MultiFieldFESpace([V])
     X = MultiFieldFESpace([U])
 
@@ -65,11 +65,11 @@ import HydroElasticFEM.PhysicsCore.FESpaces as FES
     fmap = Dict(sym => 1)
 
     a((u,), (v,)) = E.stiffness(beam, prob.dom,
-                               D.FieldDict((u,), fmap), D.FieldDict((v,), fmap))
+                               D.FieldMap((u,), fmap), D.FieldMap((v,), fmap))
 
     src(x) = q
     l((v,)) = E.rhs(beam, prob.dom,
-                   D.FieldDict((src,), fmap), D.FieldDict((v,), fmap))
+                   D.FieldMap((src,), fmap), D.FieldMap((v,), fmap))
 
     op = AffineFEOperator(a, l, prob.X, prob.Y)
     uh = solve(LUSolver(), op)
