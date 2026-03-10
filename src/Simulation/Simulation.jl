@@ -1,5 +1,5 @@
 """
-    module SimManager
+    module Simulation
 
 High-level simulation orchestrator for HydroElasticFEM.
 
@@ -11,7 +11,7 @@ and returns a `SimResult`.
 - `simulate(config, entities_trians...; dom, ...)` — frequency-domain
 - `simulate(config, tconfig, entities_trians...; dom, ...)` — time-domain
 """
-module SimManager
+module Simulation
 
 using Parameters
 using Gridap
@@ -29,4 +29,4 @@ include("simulate.jl")
 export SimConfig, TimeConfig, SimResult
 export simulate, detect_couplings
 
-end # module SimManager
+end # module Simulation

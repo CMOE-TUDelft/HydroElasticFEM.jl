@@ -2,7 +2,7 @@ using Gridap
 using Gridap.ODEs
 using Gridap.CellData
 
-import HydroElasticFEM.SimManager as SM
+import HydroElasticFEM.Simulation as SM
 import HydroElasticFEM.PhysicsCore.Entities as E
 import HydroElasticFEM.PhysicsCore.FESpaces as FES
 import HydroElasticFEM.Geometry as G
@@ -12,7 +12,7 @@ import HydroElasticFEM.Geometry as G
 # Uses CartesianGeometry functions from the Geometry module.
 # =========================================================================
 
-@testset "SimManager" begin
+@testset "Simulation" begin
 
   order = 1
 

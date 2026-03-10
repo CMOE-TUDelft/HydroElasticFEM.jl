@@ -26,10 +26,10 @@ using Test
   include("PhysicsCore/PhysicsCoreTests.jl")
 
   # ==========================================================================
-  # SimManager
+  # Simulation
   # ==========================================================================
 
-  include("SimManager/SimManagerTests.jl")
+  include("Simulation/SimulationTests.jl")
 
   # ==========================================================================
   # Utilities
