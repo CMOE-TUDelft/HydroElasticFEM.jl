@@ -2,6 +2,7 @@ module FloatingMembraneExample
 using Gridap
 using HydroElasticFEM: PKG_ROOT
 import HydroElasticFEM.Geometry as G
+import HydroElasticFEM.PhysicsCore.Entities as E
 
 # ── Domain setup ────────────────────────────────────────────
 # A 10 × 1 m tank with a 1 m floating membrane centred at x = 4.5–5.5 m
@@ -37,7 +38,14 @@ writevtk(tank_trians.Γfs, joinpath(filedir, "floating_membrane_free_surface")) 
 writevtk(tank_trians.Γη, joinpath(filedir, "floating_membrane_eta"))      # All-structure surface (η)
 writevtk(tank_trians.Γκ, joinpath(filedir, "floating_membrane_kappa"))    # Non-structure surface (κ)
 
-# ── Weak form domains ───────────────────────────────────────
+# ── Integration domains ───────────────────────────────────────
 # Extract the measures needed for weak form assembly, which are derived from the triangulations.
-measures = G.get_weak_form_domains(tank_trians, degree=2)
+measures = G.get_integration_domains(tank_trians, degree=2)
+
+# Physics properties
+membrane = E.Membrane2D(L=1.0, mᵨ=0.9, Tᵨ=98.1)
+freesurf = E.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5)
+potential = E.PotentialFlow(ρw=1025.0, g=9.81)
+
+
 end
