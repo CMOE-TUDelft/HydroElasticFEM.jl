@@ -1,5 +1,5 @@
 """
-    module WeakFormAssembly
+    module FEOperators
 
 Generic weak form assembler for HydroElasticFEM.
 
@@ -12,7 +12,7 @@ All concrete methods (`mass`, `damping`, `stiffness`, `rhs`,
 are defined in Entities (inside each entity file);
 this module only provides composition logic and the field mapping.
 """
-module WeakFormAssembly
+module FEOperators
 
 import ..Entities as E
 import ...Geometry as G
@@ -178,4 +178,4 @@ export assemble_weakform
 export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
 export assemble_residual, assemble_jacobian, assemble_jacobian_t, assemble_jacobian_tt
 
-end # module WeakFormAssembly
+end # module FEOperators

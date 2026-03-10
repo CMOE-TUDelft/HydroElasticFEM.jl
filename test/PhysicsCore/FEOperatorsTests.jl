@@ -5,13 +5,13 @@ using SparseArrays
 
 import HydroElasticFEM.PhysicsCore.Entities as Entities
 import HydroElasticFEM.Geometry as Geometry
-import HydroElasticFEM.PhysicsCore.WeakFormAssembly as WF
+import HydroElasticFEM.PhysicsCore.FEOperators as WF
 
 # =========================================================================
 # Mini mesh setup: 50m × 10m tank, membrane from x=15 to x=35
 # =========================================================================
 
-@testset "WeakFormAssembly" begin
+@testset "FEOperators" begin
 
   order = 1
   nx, ny = 20, 4
