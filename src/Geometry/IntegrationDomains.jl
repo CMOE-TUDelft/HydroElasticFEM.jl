@@ -1,10 +1,11 @@
 # ─────────────────────────────────────────────────────────────
-# WeakFormDomains: Dict-based container for Gridap measures,
+# IntegrationDomains: Dict-based container for Gridap measures,
 # normals, and metadata used by weak form assembly.
 # ─────────────────────────────────────────────────────────────
 
 """
-    WeakFormDomains(; key=value, ...)
+    IntegrationDomains(; key=value, ...)
+    IntegrationDomains(dict::Dict{Symbol,Any})
 
 Dict-based container for Gridap measures, normals, DiracDeltas,
 and any other domain data needed by weak form methods.
@@ -19,19 +20,19 @@ changing this type.
 - `:dΓ_s`   — structure surface measure
 - `:dΛ_s`, `:n_Λ_s`, `:h_s` — beam skeleton measures/normals + mesh size
 - `:dΛ_sb`, `:n_Λ_sb`  — structure boundary (fixed BC Neumann)
-- `:dΓ_in`, `:dΓ_ot`   — inlet / outlet radiation boundaries
-- `:dΓ_d1`, `:dΓ_d2`   — damping zone measures
+- `:dΓ_in`, `:dΓ_out`  — inlet / outlet radiation boundaries
+- `:dΓ_d_1`, `:dΓ_d_2` — damping zone measures
 - `:δ_p`    — vector of DiracDelta functionals (resonator points)
 """
-struct WeakFormDomains
+struct IntegrationDomains
     data::Dict{Symbol, Any}
 end
 
-WeakFormDomains(; kwargs...) =
-    WeakFormDomains(Dict{Symbol, Any}(k => v for (k, v) in pairs(kwargs)))
+IntegrationDomains(; kwargs...) =
+    IntegrationDomains(Dict{Symbol, Any}(k => v for (k, v) in pairs(kwargs)))
 
-Base.getindex(d::WeakFormDomains, k::Symbol)            = d.data[k]
-Base.haskey(d::WeakFormDomains, k::Symbol)               = haskey(d.data, k)
-Base.get(d::WeakFormDomains, k::Symbol, default)         = get(d.data, k, default)
-Base.setindex!(d::WeakFormDomains, val, k::Symbol)       = (d.data[k] = val)
-Base.keys(d::WeakFormDomains)                            = keys(d.data)
+Base.getindex(d::IntegrationDomains, k::Symbol)            = d.data[k]
+Base.haskey(d::IntegrationDomains, k::Symbol)               = haskey(d.data, k)
+Base.get(d::IntegrationDomains, k::Symbol, default)         = get(d.data, k, default)
+Base.setindex!(d::IntegrationDomains, val, k::Symbol)       = (d.data[k] = val)
+Base.keys(d::IntegrationDomains)                            = keys(d.data)
