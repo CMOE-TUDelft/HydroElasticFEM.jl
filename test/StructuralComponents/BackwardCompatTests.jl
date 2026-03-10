@@ -1,4 +1,5 @@
 using Test
+using Gridap
 using HydroElasticFEM
 
 @testset "Legacy Membrane construction" begin
