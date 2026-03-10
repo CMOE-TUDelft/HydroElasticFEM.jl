@@ -6,7 +6,7 @@ using SparseArrays
 import HydroElasticFEM.PhysicsCore.FESpaceAssembly as FEA
 import HydroElasticFEM.PhysicsCore.FESpaces as FES
 import HydroElasticFEM.PhysicsCore.Entities as E
-import HydroElasticFEM.PhysicsCore.Domains as D
+import HydroElasticFEM.Geometry as D
 
 # =========================================================================
 # FESpaceAssembly tests
@@ -178,7 +178,7 @@ import HydroElasticFEM.PhysicsCore.Domains as D
     dΓfs = Measure(Γfs, degree)
     dΓin = Measure(Γin, degree)
 
-    dom = D.WeakFormDomains(dΩ=dΩ, dΓ_fs=dΓfs, dΓ_s=dΓm, dΓ_in=dΓin)
+    dom = D.IntegrationDomains(dΩ=dΩ, dΓ_fs=dΓfs, dΓ_s=dΓm, dΓ_in=dΓin)
 
     ω = 2.0
 

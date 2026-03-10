@@ -32,7 +32,7 @@ module HydroElasticFEM
   export BoundaryCondition, FreeBoundary, FixedBoundary
   export AbstractStructure, PotentialFlow, FreeSurface, Membrane2D, EulerBernoulliBeam
   export ResonatorSingle, resonator_array
-  export WeakFormDomains, FESpaceConfig
+  export IntegrationDomains, FESpaceConfig
   export variable_symbol
   export weakform, mass, damping, stiffness, rhs
   export residual, jacobian, jacobian_t, jacobian_tt

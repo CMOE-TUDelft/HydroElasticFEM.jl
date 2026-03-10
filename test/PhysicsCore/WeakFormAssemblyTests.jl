@@ -4,7 +4,7 @@ using Gridap.CellData
 using SparseArrays
 
 import HydroElasticFEM.PhysicsCore.Entities as Entities
-import HydroElasticFEM.PhysicsCore.Domains as Domains
+import HydroElasticFEM.Geometry as Geometry
 import HydroElasticFEM.PhysicsCore.WeakFormAssembly as WF
 
 # =========================================================================
@@ -73,22 +73,22 @@ import HydroElasticFEM.PhysicsCore.WeakFormAssembly as WF
   # Field mapping
   fmap = Dict(:ϕ => 1, :κ => 2, :η_m => 3)
 
-  dom = Domains.WeakFormDomains(dΩ=dΩ, dΓ_fs=dΓfs, dΓ_s=dΓm,
+  dom = Geometry.IntegrationDomains(dΩ=dΩ, dΓ_fs=dΓfs, dΓ_s=dΓm,
                                 dΓ_in=dΓin, dΓ_ot=dΓot)
 
   # =========================================================================
-  # Test WeakFormDomains + FieldDict construction
+  # Test IntegrationDomains + FieldDict construction
   # =========================================================================
 
-  @testset "WeakFormDomains construction" begin
-    d = Domains.WeakFormDomains(dΩ=dΩ, dΓ_s=dΓm)
+  @testset "IntegrationDomains construction" begin
+    d = Geometry.IntegrationDomains(dΩ=dΩ, dΓ_s=dΓm)
     @test d[:dΩ] === dΩ
     @test haskey(d, :dΓ_s)
     @test !haskey(d, :dΓ_fs)
   end
 
   @testset "FieldDict construction" begin
-    fd = Domains.FieldDict((1, 2, 3), fmap)
+    fd = Geometry.FieldDict((1, 2, 3), fmap)
     @test fd[:ϕ] == 1
     @test fd[:κ] == 2
     @test fd[:η_m] == 3
@@ -112,16 +112,16 @@ import HydroElasticFEM.PhysicsCore.WeakFormAssembly as WF
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
     a_mass((ϕ,κ,η),(w,u,v)) = begin
-      xd = Domains.FieldDict((ϕ,κ,η), fmap)
-      yd = Domains.FieldDict((w,u,v), fmap)
+      xd = Geometry.FieldDict((ϕ,κ,η), fmap)
+      yd = Geometry.FieldDict((w,u,v), fmap)
       ∫(∇(w) ⋅ ∇(ϕ))dΩ + Entities.mass(mem, dom, xd, yd)
     end
     op_m = AffineFEOperator(a_mass, l, X, Y)
     @test nnz(get_matrix(op_m)) > 0
 
     a_stiff((ϕ,κ,η),(w,u,v)) = begin
-      xd = Domains.FieldDict((ϕ,κ,η), fmap)
-      yd = Domains.FieldDict((w,u,v), fmap)
+      xd = Geometry.FieldDict((ϕ,κ,η), fmap)
+      yd = Geometry.FieldDict((w,u,v), fmap)
       ∫(∇(w) ⋅ ∇(ϕ))dΩ + Entities.stiffness(mem, dom, xd, yd)
     end
     op_k = AffineFEOperator(a_stiff, l, X, Y)
@@ -136,8 +136,8 @@ import HydroElasticFEM.PhysicsCore.WeakFormAssembly as WF
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
     a_fluid((ϕ,κ,η),(w,u,v)) = begin
-      xd = Domains.FieldDict((ϕ,κ,η), fmap)
-      yd = Domains.FieldDict((w,u,v), fmap)
+      xd = Geometry.FieldDict((ϕ,κ,η), fmap)
+      yd = Geometry.FieldDict((w,u,v), fmap)
       Entities.stiffness(fluid, dom, xd, yd)
     end
     op = AffineFEOperator(a_fluid, l, X, Y)
@@ -152,8 +152,8 @@ import HydroElasticFEM.PhysicsCore.WeakFormAssembly as WF
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
     a_coupling((ϕ,κ,η),(w,u,v)) = begin
-      xd = Domains.FieldDict((ϕ,κ,η), fmap)
-      yd = Domains.FieldDict((w,u,v), fmap)
+      xd = Geometry.FieldDict((ϕ,κ,η), fmap)
+      yd = Geometry.FieldDict((w,u,v), fmap)
       ∫(∇(w) ⋅ ∇(ϕ))dΩ + Entities.damping(fluid, mem, dom, xd, yd)
     end
     op = AffineFEOperator(a_coupling, l, X, Y)
@@ -168,8 +168,8 @@ import HydroElasticFEM.PhysicsCore.WeakFormAssembly as WF
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
     a((ϕ,κ,η),(w,u,v)) = begin
-      xd = Domains.FieldDict((ϕ,κ,η), fmap)
-      yd = Domains.FieldDict((w,u,v), fmap)
+      xd = Geometry.FieldDict((ϕ,κ,η), fmap)
+      yd = Geometry.FieldDict((w,u,v), fmap)
       # single-variable
       Entities.weakform(fluid, dom, ω, xd, yd) +
       Entities.weakform(fsurf, dom, ω, xd, yd) +
@@ -195,7 +195,7 @@ import HydroElasticFEM.PhysicsCore.WeakFormAssembly as WF
     a((ϕ,κ,η),(w,u,v)) =
       WF.assemble_weakform(terms, dom, ω, fmap, (ϕ,κ,η), (w,u,v)) +
       Entities.weakform(fluid, fsurf, dom, ω,
-               Domains.FieldDict((ϕ,κ,η), fmap), Domains.FieldDict((w,u,v), fmap))
+               Geometry.FieldDict((ϕ,κ,η), fmap), Geometry.FieldDict((w,u,v), fmap))
 
     l((w,u,v)) = ∫(0.0 * w)dΓin
 

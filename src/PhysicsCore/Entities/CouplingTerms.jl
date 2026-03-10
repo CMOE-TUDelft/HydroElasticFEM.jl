@@ -15,7 +15,7 @@
 # Fluid-structure coupling only contributes through damping terms.
 has_damping_form(::PotentialFlow, ::AbstractStructure) = true
 
-function damping(pf::PotentialFlow, s::AbstractStructure, dom::WeakFormDomains, x_t, y)
+function damping(pf::PotentialFlow, s::AbstractStructure, dom::IntegrationDomains, x_t, y)
     ϕ_sym = variable_symbol(pf)
     η_sym = variable_symbol(s)
     ϕₜ = x_t[ϕ_sym];  ηₜ = x_t[η_sym]
@@ -38,7 +38,7 @@ end
 has_mass_form(::PotentialFlow, ::FreeSurface) = true
 has_damping_form(::PotentialFlow, ::FreeSurface) = true
 
-function mass(pf::PotentialFlow, fs::FreeSurface, dom::WeakFormDomains, x_tt, y)
+function mass(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, x_tt, y)
     ϕ_sym = variable_symbol(pf)
     ϕₜₜ = x_tt[ϕ_sym]
     w    = y[ϕ_sym]
@@ -47,7 +47,7 @@ function mass(pf::PotentialFlow, fs::FreeSurface, dom::WeakFormDomains, x_tt, y)
     ∫((1 - βₕ) / g * w * ϕₜₜ)dom[:dΓ_fs]
 end
 
-function damping(pf::PotentialFlow, fs::FreeSurface, dom::WeakFormDomains, x_t, y)
+function damping(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, x_t, y)
     ϕ_sym = variable_symbol(pf)
     κ_sym = variable_symbol(fs)
     ϕₜ = x_t[ϕ_sym]
@@ -71,7 +71,7 @@ has_damping_form(::Vector{ResonatorSingle}, ::AbstractStructure) = true
 has_stiffness_form(::Vector{ResonatorSingle}, ::AbstractStructure) = true
 
 function damping(resn::Vector{ResonatorSingle}, s::AbstractStructure,
-                 dom::WeakFormDomains, x_t, y)
+                 dom::IntegrationDomains, x_t, y)
     δ_p   = dom[:δ_p]
     η_sym = variable_symbol(s)
     ηₜ    = x_t[η_sym]
@@ -92,7 +92,7 @@ function damping(resn::Vector{ResonatorSingle}, s::AbstractStructure,
 end
 
 function stiffness(resn::Vector{ResonatorSingle}, s::AbstractStructure,
-                   dom::WeakFormDomains, x, y)
+                   dom::IntegrationDomains, x, y)
     δ_p   = dom[:δ_p]
     η_sym = variable_symbol(s)
     η     = x[η_sym]

@@ -29,14 +29,14 @@ has_damping_form(::PotentialFlow) = false
 # ── Single-variable weak forms ─────────────────────────────
 #    Field access via variable_symbol (velocity potential)
 
-function stiffness(pf::PotentialFlow, dom::WeakFormDomains, x, y)
+function stiffness(pf::PotentialFlow, dom::IntegrationDomains, x, y)
     sym = variable_symbol(pf)
     ϕ = x[sym]
     w = y[sym]
     ∫(∇(w) ⋅ ∇(ϕ))dom[:dΩ]
 end
 
-function rhs(pf::PotentialFlow, dom::WeakFormDomains, f, y)
+function rhs(pf::PotentialFlow, dom::IntegrationDomains, f, y)
     sym = variable_symbol(pf)
     w = y[sym]
     ∫(w * f[sym])dom[:dΩ]

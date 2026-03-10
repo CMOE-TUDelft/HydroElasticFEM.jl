@@ -64,7 +64,7 @@ end
 # ── Single-variable weak forms: mass, damping, stiffness, rhs ──
 #    Only q_i terms — no coupling to structure η
 
-function mass(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x_tt, y)
+function mass(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x_tt, y)
     δ_p = dom[:δ_p]
     ξ1  = y[Symbol("q_1")]
     q1  = x_tt[Symbol("q_1")]
@@ -77,7 +77,7 @@ function mass(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x_tt, y)
     return val
 end
 
-function damping(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x_t, y)
+function damping(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x_t, y)
     δ_p = dom[:δ_p]
     ξ1  = y[Symbol("q_1")]
     q1  = x_t[Symbol("q_1")]
@@ -90,7 +90,7 @@ function damping(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x_t, y)
     return val
 end
 
-function stiffness(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x, y)
+function stiffness(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x, y)
     δ_p = dom[:δ_p]
     ξ1  = y[Symbol("q_1")]
     q1  = x[Symbol("q_1")]
@@ -103,7 +103,7 @@ function stiffness(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, x, y)
     return val
 end
 
-function rhs(resn::Vector{ResonatorSingle}, dom::WeakFormDomains, f, y)
+function rhs(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, f, y)
     δ_p = dom[:δ_p]
     ξ1  = y[Symbol("q_1")]
     q1  = f[Symbol("q_1")]

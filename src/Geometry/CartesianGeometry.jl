@@ -247,14 +247,14 @@ end
 
 
 # ─────────────────────────────────────────────────────────────
-# WeakFormDomains bridge
+# IntegrationDomains bridge
 # ─────────────────────────────────────────────────────────────
 
 """
-    get_weak_form_domains(tri::TankTriangulations; degree::Int=4) -> Dict{Symbol, Any}
+    get_integration_domains(tri::TankTriangulations; degree::Int=4) -> IntegrationDomains
 
-Build a `Dict{Symbol,Any}` of integration measures and normals from
-`tri`, ready to be passed to `WeakFormDomains(dict)`.
+Build an `IntegrationDomains` container of integration measures and normals
+from `tri`.
 
 # Populated keys
 
@@ -276,10 +276,10 @@ add `:dΛ_s`, `:n_Λ_s`, and `:h_s` manually after calling this function.
 # Example
 
 ```julia
-dom = WeakFormDomains(G.get_weak_form_domains(tank_trians; degree=4))
+dom = G.get_integration_domains(tank_trians; degree=4)
 ```
 """
-function get_weak_form_domains(tri::TankTriangulations; degree::Int=4)
+function get_integration_domains(tri::TankTriangulations; degree::Int=4)
     d = Dict{Symbol, Any}()
 
     # Fluid interior
@@ -291,6 +291,11 @@ function get_weak_form_domains(tri::TankTriangulations; degree::Int=4)
     # All-structure surface
     d[:dΓ_s]   = Measure(tri.Γη, degree)
 
+    # Per-structure measures
+    for (i, Γs) in enumerate(tri.Γ_structures)
+        d[Symbol("dΓ_s_$i")] = Measure(Γs, degree)
+    end
+
     # Walls
     d[:dΓ_in]  = Measure(tri.Γin, degree)
     d[:dΓ_out] = Measure(tri.Γout, degree)
@@ -301,6 +306,6 @@ function get_weak_form_domains(tri::TankTriangulations; degree::Int=4)
         d[Symbol("dΓ_d_$i")] = Measure(Γd, degree)
     end
 
-    return d
+    return IntegrationDomains(d)
 end
 

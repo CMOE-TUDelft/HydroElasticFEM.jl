@@ -6,7 +6,7 @@ using Gridap.CellData
 using Gridap.FESpaces
 
 import HydroElasticFEM.PhysicsCore.Entities as E
-import HydroElasticFEM.PhysicsCore.Domains as D
+import HydroElasticFEM.Geometry as D
 import HydroElasticFEM.PhysicsCore.FESpaceAssembly as FEA
 import HydroElasticFEM.PhysicsCore.FESpaces as FES
 
@@ -22,7 +22,7 @@ import HydroElasticFEM.PhysicsCore.FESpaces as FES
 @testset "EulerBernoulliBeam weak forms" begin
 
   # -----------------------------------------------------------------------
-  # Helper: build 1D beam mesh, FE spaces, and WeakFormDomains
+  # Helper: build 1D beam mesh, FE spaces, and IntegrationDomains
   # -----------------------------------------------------------------------
 
   function build_beam_problem(; L, nel, order)
@@ -33,7 +33,7 @@ import HydroElasticFEM.PhysicsCore.FESpaces as FES
 
     h = L / nel
 
-    dom = D.WeakFormDomains(
+    dom = D.IntegrationDomains(
       dΓ_s   = Measure(Ω, 2 * order + 2),
       dΛ_s   = Measure(Λ, 2 * order + 2),
       n_Λ_s  = get_normal_vector(Λ),

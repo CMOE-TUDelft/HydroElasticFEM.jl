@@ -52,8 +52,8 @@ model = CartesianDiscreteModel((0, beam.L), (nel,))
 
 X, Y, fmap = build_fe_spaces(beam => model)
 
-# 3. Populate WeakFormDomains with measures, normals, mesh size
-dom = WeakFormDomains(
+# 3. Populate IntegrationDomains with measures, normals, mesh size
+dom = IntegrationDomains(
     dΓ_s   = Measure(Ω, 2 * order + 2),
     dΛ_s   = Measure(Λ, 2 * order + 2),
     n_Λ_s  = get_normal_vector(Λ),

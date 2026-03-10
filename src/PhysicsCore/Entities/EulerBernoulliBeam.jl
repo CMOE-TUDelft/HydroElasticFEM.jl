@@ -41,14 +41,14 @@ variable_symbol(::EulerBernoulliBeam) = :η_b
 # ── Single-variable weak forms: mass, damping, stiffness, rhs ──
 #    Only η_b terms — no coupling to ϕ or other fields
 
-function mass(s::EulerBernoulliBeam, dom::WeakFormDomains, x_tt, y)
+function mass(s::EulerBernoulliBeam, dom::IntegrationDomains, x_tt, y)
     sym = variable_symbol(s)
     ηₜₜ = x_tt[sym]
     v   = y[sym]
     ∫(s.mᵨ * v * ηₜₜ)dom[:dΓ_s]
 end
 
-function damping(s::EulerBernoulliBeam, dom::WeakFormDomains, x_t, y)
+function damping(s::EulerBernoulliBeam, dom::IntegrationDomains, x_t, y)
     sym = variable_symbol(s)
     ηₜ = x_t[sym]
     v  = y[sym]
@@ -66,7 +66,7 @@ function damping(s::EulerBernoulliBeam, dom::WeakFormDomains, x_t, y)
     return val
 end
 
-function stiffness(s::EulerBernoulliBeam, dom::WeakFormDomains, x, y)
+function stiffness(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
     sym = variable_symbol(s)
     η = x[sym]
     v = y[sym]
@@ -83,7 +83,7 @@ function stiffness(s::EulerBernoulliBeam, dom::WeakFormDomains, x, y)
     return val
 end
 
-function rhs(s::EulerBernoulliBeam, dom::WeakFormDomains, f, y)
+function rhs(s::EulerBernoulliBeam, dom::IntegrationDomains, f, y)
     sym = variable_symbol(s)
     v = y[sym]
     ∫(v * f[sym])dom[:dΓ_s]

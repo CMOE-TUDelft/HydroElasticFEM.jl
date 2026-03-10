@@ -16,7 +16,7 @@ module Entities
 using Parameters
 using Gridap
 using Printf
-using ..Domains
+using ...Geometry
 using ..FESpaces
 
 # ─────────────────────────────────────────────────────────────
@@ -146,7 +146,7 @@ Frequency-domain bilinear form composed from the linear `mass`,
 
     weakform = -ω² mass + (-iω) damping + stiffness
 """
-weakform(s, dom::WeakFormDomains, ω, x, y) =
+weakform(s, dom::IntegrationDomains, ω, x, y) =
     _require_nonempty(
         _sum_present(
             has_mass_form(s) ? (-ω^2) * mass(s, dom, x, y) : nothing,
@@ -157,7 +157,7 @@ weakform(s, dom::WeakFormDomains, ω, x, y) =
     )
 
 # Two-entity coupling variant
-weakform(a, b, dom::WeakFormDomains, ω, x, y) =
+weakform(a, b, dom::IntegrationDomains, ω, x, y) =
     _require_nonempty(
         _sum_present(
             has_mass_form(a, b) ? (-ω^2) * mass(a, b, dom, x, y) : nothing,
@@ -176,7 +176,7 @@ weakform(a, b, dom::WeakFormDomains, ω, x, y) =
 
 Nonlinear residual: `mass(x_tt, y) + damping(x_t, y) + stiffness(x, y) - rhs(f, y)`.
 """
-residual(s, dom::WeakFormDomains, x, x_t, x_tt, f, y) =
+residual(s, dom::IntegrationDomains, x, x_t, x_tt, f, y) =
     _require_nonempty(
         _sum_present(
             has_mass_form(s) ? mass(s, dom, x_tt, y) : nothing,
@@ -188,7 +188,7 @@ residual(s, dom::WeakFormDomains, x, x_t, x_tt, f, y) =
     )
 
 # Two-entity coupling variant
-residual(a, b, dom::WeakFormDomains, x, x_t, x_tt, f, y) =
+residual(a, b, dom::IntegrationDomains, x, x_t, x_tt, f, y) =
     _require_nonempty(
         _sum_present(
             has_mass_form(a, b) ? mass(a, b, dom, x_tt, y) : nothing,
@@ -204,14 +204,14 @@ residual(a, b, dom::WeakFormDomains, x, x_t, x_tt, f, y) =
 
 Jacobian w.r.t. displacement: `∂R/∂x · dx = stiffness(dx, y)`.
 """
-jacobian(s, dom::WeakFormDomains, dx, x_t, x_tt, y) =
+jacobian(s, dom::IntegrationDomains, dx, x_t, x_tt, y) =
     _require_nonempty(
         has_stiffness_form(s) ? stiffness(s, dom, dx, y) : nothing,
         "jacobian", s
     )
 
 # Two-entity coupling variant
-jacobian(a, b, dom::WeakFormDomains, dx, x_t, x_tt, y) =
+jacobian(a, b, dom::IntegrationDomains, dx, x_t, x_tt, y) =
     _require_nonempty(
         has_stiffness_form(a, b) ? stiffness(a, b, dom, dx, y) : nothing,
         "jacobian", (a, b)
@@ -222,14 +222,14 @@ jacobian(a, b, dom::WeakFormDomains, dx, x_t, x_tt, y) =
 
 Jacobian w.r.t. velocity: `∂R/∂x_t · dx_t = damping(dx_t, y)`.
 """
-jacobian_t(s, dom::WeakFormDomains, x, dx_t, x_tt, y) =
+jacobian_t(s, dom::IntegrationDomains, x, dx_t, x_tt, y) =
     _require_nonempty(
         has_damping_form(s) ? damping(s, dom, dx_t, y) : nothing,
         "jacobian_t", s
     )
 
 # Two-entity coupling variant
-jacobian_t(a, b, dom::WeakFormDomains, x, dx_t, x_tt, y) =
+jacobian_t(a, b, dom::IntegrationDomains, x, dx_t, x_tt, y) =
     _require_nonempty(
         has_damping_form(a, b) ? damping(a, b, dom, dx_t, y) : nothing,
         "jacobian_t", (a, b)
@@ -240,14 +240,14 @@ jacobian_t(a, b, dom::WeakFormDomains, x, dx_t, x_tt, y) =
 
 Jacobian w.r.t. acceleration: `∂R/∂x_tt · dx_tt = mass(dx_tt, y)`.
 """
-jacobian_tt(s, dom::WeakFormDomains, x, x_t, dx_tt, y) =
+jacobian_tt(s, dom::IntegrationDomains, x, x_t, dx_tt, y) =
     _require_nonempty(
         has_mass_form(s) ? mass(s, dom, dx_tt, y) : nothing,
         "jacobian_tt", s
     )
 
 # Two-entity coupling variant
-jacobian_tt(a, b, dom::WeakFormDomains, x, x_t, dx_tt, y) =
+jacobian_tt(a, b, dom::IntegrationDomains, x, x_t, dx_tt, y) =
     _require_nonempty(
         has_mass_form(a, b) ? mass(a, b, dom, dx_tt, y) : nothing,
         "jacobian_tt", (a, b)

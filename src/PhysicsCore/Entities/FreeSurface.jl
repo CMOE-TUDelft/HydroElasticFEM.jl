@@ -38,7 +38,7 @@ has_damping_form(::FreeSurface) = false
 has_stiffness_form(::FreeSurface) = true
 has_rhs_form(::FreeSurface) = false
 
-function stiffness(fs::FreeSurface, dom::WeakFormDomains, x, y)
+function stiffness(fs::FreeSurface, dom::IntegrationDomains, x, y)
     κ_sym = variable_symbol(fs)
     κ = x[κ_sym]
     u = y[κ_sym]

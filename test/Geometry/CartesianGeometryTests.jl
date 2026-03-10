@@ -134,7 +134,7 @@ end
   @test num_cells(tri.Γη)  == 0
 end
 
-@testset "get_weak_form_domains" begin
+@testset "get_integration_domains" begin
   s1 = G.StructureDomain1D(L=1.0, x₀=[1.5, 1.0])
   d1 = G.DampingZone1D(L=0.5, x₀=[0.0, 1.0])
   d2 = G.DampingZone1D(L=0.5, x₀=[3.5, 1.0])
@@ -143,9 +143,9 @@ end
   model = G.build_model(tank)
   trians   = G.build_triangulations(tank, model)
 
-  d = G.get_weak_form_domains(trians; degree=4)
+  d = G.get_integration_domains(trians; degree=4)
 
-  @test d isa Dict{Symbol, Any}
+  @test d isa G.IntegrationDomains
 
   # Core keys present
   @test haskey(d, :dΩ)
@@ -160,7 +160,7 @@ end
   @test haskey(d, :dΓ_d_2)
 
   # All values are Gridap Measures
-  for v in values(d)
+  for v in values(d.data)
     @test v isa Gridap.CellData.Measure
   end
 end
