@@ -19,6 +19,7 @@ normalised by fluid density ρw.
     EIᵨ::Float64
     τ::Float64     = 0.0
     g::Float64     = 9.81
+    symbol::Symbol = :η_b
 
     # Derived quantities
     ωn1::Float64   = 22.3733 * sqrt(EIᵨ / (mᵨ * L^4))
@@ -36,7 +37,7 @@ function print_parameters(beam::EulerBernoulliBeam)
     println()
 end
 
-variable_symbol(::EulerBernoulliBeam) = :η_b
+variable_symbol(s::EulerBernoulliBeam) = s.symbol
 
 # ── Single-variable weak forms: mass, damping, stiffness, rhs ──
 #    Only η_b terms — no coupling to ϕ or other fields

@@ -19,6 +19,7 @@ term `βₕ·g·u·κ`; coupling with the velocity potential `ϕ` (from
     g::Float64  = 9.81
     βₕ::Float64 = 0.5
     fe::FESpaceConfig = FESpaceConfig()
+    symbol::Symbol = :κ
 end
 
 function print_parameters(fs::FreeSurface)
@@ -29,7 +30,7 @@ function print_parameters(fs::FreeSurface)
     println()
 end
 
-variable_symbol(::FreeSurface) = :κ
+variable_symbol(s::FreeSurface) = s.symbol
 
 # κ has no standalone mass, damping or rhs; stiffness captures the
 # gravity restoring term βₕ·g·u·κ on Γ_fs.

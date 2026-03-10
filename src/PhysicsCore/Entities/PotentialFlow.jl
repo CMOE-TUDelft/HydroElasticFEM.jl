@@ -11,6 +11,7 @@ Parameters for the 2D fluid potential (Laplace equation).
     ρw::Float64 = 1025.0
     g::Float64  = 9.81
     fe::FESpaceConfig = FESpaceConfig()
+    symbol::Symbol = :ϕ
 end
 
 function print_parameters(f::PotentialFlow)
@@ -20,7 +21,7 @@ function print_parameters(f::PotentialFlow)
     println()
 end
 
-variable_symbol(::PotentialFlow) = :ϕ
+variable_symbol(s::PotentialFlow) = s.symbol
 
 # Potential-flow dynamics are elliptic: no standalone mass/damping forms.
 has_mass_form(::PotentialFlow) = false

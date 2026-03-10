@@ -18,7 +18,10 @@ Parameters for a single locally resonant mass-spring-damper.
     ρw::Float64    = 1025.0
     XZ::VectorValue{2,Float64} = VectorValue(0.0, 0.0)
     ωn1::Float64   = sqrt(K / M)
+    symbol::Symbol = :q
 end
+
+variable_symbol(s::ResonatorSingle) = s.symbol
 
 function print_parameters(resn::ResonatorSingle)
     @printf("\n[MSG] Resonator Properties:\n")
@@ -66,12 +69,12 @@ end
 
 function mass(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x_tt, y)
     δ_p = dom[:δ_p]
-    ξ1  = y[Symbol("q_1")]
-    q1  = x_tt[Symbol("q_1")]
+    ξ1  = y[variable_symbol(resn[1])]
+    q1  = x_tt[variable_symbol(resn[1])]
     val = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
     for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
-        qₜₜi = x_tt[Symbol("q_$i")]
-        ξi   = y[Symbol("q_$i")]
+        qₜₜi = x_tt[variable_symbol(ri)]
+        ξi   = y[variable_symbol(ri)]
         val += ri.M * δi(qₜₜi ⋅ ξi)
     end
     return val
@@ -79,12 +82,12 @@ end
 
 function damping(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x_t, y)
     δ_p = dom[:δ_p]
-    ξ1  = y[Symbol("q_1")]
-    q1  = x_t[Symbol("q_1")]
+    ξ1  = y[variable_symbol(resn[1])]
+    q1  = x_t[variable_symbol(resn[1])]
     val = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
     for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
-        qₜi = x_t[Symbol("q_$i")]
-        ξi  = y[Symbol("q_$i")]
+        qₜi = x_t[variable_symbol(ri)]
+        ξi  = y[variable_symbol(ri)]
         val += ri.C * δi(qₜi ⋅ ξi)
     end
     return val
@@ -92,12 +95,12 @@ end
 
 function stiffness(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x, y)
     δ_p = dom[:δ_p]
-    ξ1  = y[Symbol("q_1")]
-    q1  = x[Symbol("q_1")]
+    ξ1  = y[variable_symbol(resn[1])]
+    q1  = x[variable_symbol(resn[1])]
     val = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
     for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
-        qi = x[Symbol("q_$i")]
-        ξi = y[Symbol("q_$i")]
+        qi = x[variable_symbol(ri)]
+        ξi = y[variable_symbol(ri)]
         val += ri.K * δi(qi ⋅ ξi)
     end
     return val
@@ -105,12 +108,12 @@ end
 
 function rhs(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, f, y)
     δ_p = dom[:δ_p]
-    ξ1  = y[Symbol("q_1")]
-    q1  = f[Symbol("q_1")]
+    ξ1  = y[variable_symbol(resn[1])]
+    q1  = f[variable_symbol(resn[1])]
     val = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
     for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
-        fi = f[Symbol("q_$i")]
-        ξi = y[Symbol("q_$i")]
+        fi = f[variable_symbol(ri)]
+        ξi = y[variable_symbol(ri)]
         val += δi(fi ⋅ ξi)
     end
     return val

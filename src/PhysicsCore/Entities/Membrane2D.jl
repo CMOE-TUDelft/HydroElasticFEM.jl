@@ -18,6 +18,7 @@ Parameters for a 2D membrane model, normalised by fluid density ρw.
     Tᵨ::Float64
     τ::Float64     = 0.0
     g::Float64     = 9.81
+    symbol::Symbol = :η_m
 
     # Derived quantities
     ωn1::Float64    = (π / L) * sqrt(Tᵨ / mᵨ)
@@ -34,7 +35,7 @@ function print_parameters(memb::Membrane2D)
     println()
 end
 
-variable_symbol(::Membrane2D) = :η_m
+variable_symbol(s::Membrane2D) = s.symbol
 
 # ── Single-variable weak forms: mass, damping, stiffness, rhs ──
 #    Only η_m terms — no coupling to ϕ or other fields
