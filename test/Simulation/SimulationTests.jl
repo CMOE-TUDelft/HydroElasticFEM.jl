@@ -3,8 +3,10 @@ using Gridap.ODEs
 using Gridap.CellData
 
 import HydroElasticFEM.Simulation as SM
+import HydroElasticFEM.Simulation.FEOperators as FO
 import HydroElasticFEM.PhysicsCore.Entities as E
 import HydroElasticFEM.PhysicsCore.FESpaces as FES
+import HydroElasticFEM.PhysicsCore.FESpaceAssembly as FA
 import HydroElasticFEM.Geometry as G
 
 include("FEOperatorsTests.jl")
@@ -57,6 +59,63 @@ include("FEOperatorsTests.jl")
     # FreeSurface ↔ Membrane2D: no coupling defined
     @test !((fsurf, mem) in pairs)
     @test !((mem, fsurf) in pairs)
+  end
+
+  # =========================================================================
+  # build_fe_operator — frequency domain
+  # =========================================================================
+
+  @testset "build_fe_operator — frequency domain" begin
+    entities = [fluid, fsurf, mem]
+    coupling_pairs = SM.detect_couplings(entities)
+    ω = 2.0
+
+    X, Y, fmap = FA.build_fe_spaces(
+        fluid => tri.Ω, fsurf => tri.Γκ, mem => tri.Γη)
+
+    # With explicit rhs_fn
+    rhs_fn(y) = ∫(y[:ϕ] * 1.0)dΓin
+    op = SM.build_fe_operator(entities, coupling_pairs, dom, ω, fmap, X, Y;
+                              rhs_fn=rhs_fn)
+    @test op isa Gridap.FESpaces.AffineFEOperator
+
+    uh = solve(LUSolver(), op)
+    ϕₕ, κₕ, ηₕ = uh
+    ϕ_l2 = sqrt(abs(sum(∫(ϕₕ * conj(ϕₕ))dΩ)))
+    @test ϕ_l2 > 0.0
+    @test isfinite(ϕ_l2)
+
+    # With rhs_fn=nothing (zero RHS)
+    op0 = SM.build_fe_operator(entities, coupling_pairs, dom, ω, fmap, X, Y)
+    @test op0 isa Gridap.FESpaces.AffineFEOperator
+
+    uh0 = solve(LUSolver(), op0)
+    ϕ0, _, _ = uh0
+    ϕ0_l2 = sqrt(abs(sum(∫(ϕ0 * conj(ϕ0))dΩ)))
+    @test ϕ0_l2 ≈ 0.0 atol=1e-12
+  end
+
+  # =========================================================================
+  # build_fe_operator — time domain
+  # =========================================================================
+
+  @testset "build_fe_operator — time domain" begin
+    entities = [fluid, fsurf, mem]
+    coupling_pairs = SM.detect_couplings(entities)
+
+    X, Y, fmap = FA.build_fe_spaces(
+        fluid => tri.Ω, fsurf => tri.Γκ, mem => tri.Γη; transient=true)
+
+    # With explicit rhs_fn
+    ω_f = 2.0
+    rhs_fn(t, y) = ∫(y[:ϕ] * cos(ω_f * t))dΓin
+    op = SM.build_fe_operator(entities, coupling_pairs, dom, fmap, X, Y;
+                              rhs_fn=rhs_fn)
+    @test op isa Gridap.ODEs.TransientLinearFEOperator
+
+    # With rhs_fn=nothing (zero RHS)
+    op0 = SM.build_fe_operator(entities, coupling_pairs, dom, fmap, X, Y)
+    @test op0 isa Gridap.ODEs.TransientLinearFEOperator
   end
 
   # =========================================================================

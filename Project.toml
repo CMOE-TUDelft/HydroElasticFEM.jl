@@ -17,11 +17,12 @@ WaveSpec = "908d4cf6-a6c0-449c-92e4-852c8f288332"
 
 [extras]
 Gridap = "56d4f2e9-7ea1-5844-9cf6-b9c51ca7ce8e"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 WaveSpec = "908d4cf6-a6c0-449c-92e4-852c8f288332"
 
 [targets]
-test = ["Gridap", "Test", "WaveSpec"]
+test = ["Gridap", "SparseArrays", "Test", "WaveSpec"]
 
 [compat]
 DataFrames = "1.8.1"
