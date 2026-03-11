@@ -7,7 +7,6 @@ Provides:
 - `TankDomain2D`, `StructureDomain1D`, `DampingZone1D` — geometry specs
 - `build_model`, `build_triangulations` — mesh construction
 - `IntegrationDomains` — dict-based container for Gridap measures/normals
-- `FieldMap` — symbol-indexed wrapper around Gridap field tuples
 - `get_integration_domains` — build `IntegrationDomains` from triangulations
 """
 module Geometry
@@ -15,31 +14,6 @@ using Parameters
 using Gridap
 
 include("CartesianGeometry.jl")
-
-"""
-    FieldMap{T}
-
-Wraps a positional tuple of FE fields (from Gridap's multi-field
-decomposition) and maps `Symbol` keys to positional indices. It allows
-symbol-based access to fields, which is more intuitive when writing weak
-form contributions that involve multiple fields.
-
-# Usage
-```julia
-fmap = Dict(:ϕ => 1, :κ => 2, :η_m => 3)
-x = FieldMap((ϕ, κ, η), fmap)
-x[:ϕ]   # returns ϕ
-x[:η_m] # returns η
-```
-"""
-struct FieldMap{T}
-    _data::T
-    _map::Dict{Symbol, Int}
-end
-
-Base.getindex(fd::FieldMap, s::Symbol) = fd._data[fd._map[s]]
-Base.haskey(fd::FieldMap, s::Symbol)   = haskey(fd._map, s)
-Base.keys(fd::FieldMap)                = keys(fd._map)
 
 
 """
@@ -78,6 +52,5 @@ Base.keys(d::IntegrationDomains)                            = keys(d.data)
 
 
 export IntegrationDomains
-export FieldMap
 
 end # module Geometry

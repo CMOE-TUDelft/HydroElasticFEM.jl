@@ -5,7 +5,7 @@ Generic weak form assembler for HydroElasticFEM.
 
 Provides `assemble_*` functions that loop over a collection of physics
 terms and sum contributions.  Field tuples are wrapped in `FieldMap`
-(from `Geometry`) for symbol-based access.
+for symbol-based access.
 
 All concrete methods (`mass`, `damping`, `stiffness`, `rhs`,
 `weakform`, `residual`, `jacobian`, `jacobian_t`, `jacobian_tt`)
@@ -38,10 +38,36 @@ _has_weakform(term) =
 _has_residual(term) = _has_weakform(term) || E.has_rhs_form(term)
 
 # ─────────────────────────────────────────────────────────────
-# Internal: wrap raw tuples in FieldMap
+# FieldMap — symbol-indexed wrapper for FE field tuples
 # ─────────────────────────────────────────────────────────────
 
-_wrap(t, fmap::Dict{Symbol,Int}) = G.FieldMap(t, fmap)
+"""
+    FieldMap{T}
+
+Wraps a positional tuple of FE fields (from Gridap's multi-field
+decomposition) and maps `Symbol` keys to positional indices. It allows
+symbol-based access to fields, which is more intuitive when writing weak
+form contributions that involve multiple fields.
+
+# Usage
+```julia
+fmap = Dict(:ϕ => 1, :κ => 2, :η_m => 3)
+x = FieldMap((ϕ, κ, η), fmap)
+x[:ϕ]   # returns ϕ
+x[:η_m] # returns η
+```
+"""
+struct FieldMap{T}
+    _data::T
+    _map::Dict{Symbol, Int}
+end
+
+Base.getindex(fd::FieldMap, s::Symbol) = fd._data[fd._map[s]]
+Base.haskey(fd::FieldMap, s::Symbol)   = haskey(fd._map, s)
+Base.keys(fd::FieldMap)                = keys(fd._map)
+
+# Internal: wrap raw tuples in FieldMap
+_wrap(t, fmap::Dict{Symbol,Int}) = FieldMap(t, fmap)
 
 # ─────────────────────────────────────────────────────────────
 # Linear form assemblers
@@ -174,6 +200,7 @@ end
 # Exports
 # ─────────────────────────────────────────────────────────────
 
+export FieldMap
 export assemble_weakform
 export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
 export assemble_residual, assemble_jacobian, assemble_jacobian_t, assemble_jacobian_tt

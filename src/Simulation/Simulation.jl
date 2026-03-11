@@ -19,6 +19,7 @@ using Gridap.ODEs
 
 import ..Geometry as G
 import ..PhysicsCore.Entities as E
+import ..PhysicsCore.FEOperators as FO
 import ..PhysicsCore.FESpaceAssembly as FA
 
 include("SimConfig.jl")

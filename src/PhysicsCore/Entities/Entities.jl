@@ -6,7 +6,7 @@ Unified type hierarchy for all physical entities in HydroElasticFEM.
 Each entity file may define any subset of `mass`, `damping`,
 `stiffness`, and `rhs` methods that access FE fields by symbol
 (e.g. `x[:ϕ]`, `x[:η_m]`) via a `FieldMap` wrapper provided by
-`Geometry`.
+`FEOperators`.
 
 Generic composed forms (`weakform`, `residual`, `jacobian`, ...)
 are defined at module level and dispatch to the linear forms.

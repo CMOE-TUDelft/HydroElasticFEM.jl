@@ -88,7 +88,7 @@ import HydroElasticFEM.PhysicsCore.FEOperators as WF
   end
 
   @testset "FieldMap construction" begin
-    fd = Geometry.FieldMap((1, 2, 3), fmap)
+    fd = WF.FieldMap((1, 2, 3), fmap)
     @test fd[:ϕ] == 1
     @test fd[:κ] == 2
     @test fd[:η_m] == 3
@@ -112,16 +112,16 @@ import HydroElasticFEM.PhysicsCore.FEOperators as WF
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
     a_mass((ϕ,κ,η),(w,u,v)) = begin
-      xd = Geometry.FieldMap((ϕ,κ,η), fmap)
-      yd = Geometry.FieldMap((w,u,v), fmap)
+      xd = WF.FieldMap((ϕ,κ,η), fmap)
+      yd = WF.FieldMap((w,u,v), fmap)
       ∫(∇(w) ⋅ ∇(ϕ))dΩ + Entities.mass(mem, dom, xd, yd)
     end
     op_m = AffineFEOperator(a_mass, l, X, Y)
     @test nnz(get_matrix(op_m)) > 0
 
     a_stiff((ϕ,κ,η),(w,u,v)) = begin
-      xd = Geometry.FieldMap((ϕ,κ,η), fmap)
-      yd = Geometry.FieldMap((w,u,v), fmap)
+      xd = WF.FieldMap((ϕ,κ,η), fmap)
+      yd = WF.FieldMap((w,u,v), fmap)
       ∫(∇(w) ⋅ ∇(ϕ))dΩ + Entities.stiffness(mem, dom, xd, yd)
     end
     op_k = AffineFEOperator(a_stiff, l, X, Y)
@@ -136,8 +136,8 @@ import HydroElasticFEM.PhysicsCore.FEOperators as WF
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
     a_fluid((ϕ,κ,η),(w,u,v)) = begin
-      xd = Geometry.FieldMap((ϕ,κ,η), fmap)
-      yd = Geometry.FieldMap((w,u,v), fmap)
+      xd = WF.FieldMap((ϕ,κ,η), fmap)
+      yd = WF.FieldMap((w,u,v), fmap)
       Entities.stiffness(fluid, dom, xd, yd)
     end
     op = AffineFEOperator(a_fluid, l, X, Y)
@@ -152,8 +152,8 @@ import HydroElasticFEM.PhysicsCore.FEOperators as WF
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
     a_coupling((ϕ,κ,η),(w,u,v)) = begin
-      xd = Geometry.FieldMap((ϕ,κ,η), fmap)
-      yd = Geometry.FieldMap((w,u,v), fmap)
+      xd = WF.FieldMap((ϕ,κ,η), fmap)
+      yd = WF.FieldMap((w,u,v), fmap)
       ∫(∇(w) ⋅ ∇(ϕ))dΩ + Entities.damping(fluid, mem, dom, xd, yd)
     end
     op = AffineFEOperator(a_coupling, l, X, Y)
@@ -168,8 +168,8 @@ import HydroElasticFEM.PhysicsCore.FEOperators as WF
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
     a((ϕ,κ,η),(w,u,v)) = begin
-      xd = Geometry.FieldMap((ϕ,κ,η), fmap)
-      yd = Geometry.FieldMap((w,u,v), fmap)
+      xd = WF.FieldMap((ϕ,κ,η), fmap)
+      yd = WF.FieldMap((w,u,v), fmap)
       # single-variable
       Entities.weakform(fluid, dom, ω, xd, yd) +
       Entities.weakform(fsurf, dom, ω, xd, yd) +
@@ -195,7 +195,7 @@ import HydroElasticFEM.PhysicsCore.FEOperators as WF
     a((ϕ,κ,η),(w,u,v)) =
       WF.assemble_weakform(terms, dom, ω, fmap, (ϕ,κ,η), (w,u,v)) +
       Entities.weakform(fluid, fsurf, dom, ω,
-               Geometry.FieldMap((ϕ,κ,η), fmap), Geometry.FieldMap((w,u,v), fmap))
+               WF.FieldMap((ϕ,κ,η), fmap), WF.FieldMap((w,u,v), fmap))
 
     l((w,u,v)) = ∫(0.0 * w)dΓin
 

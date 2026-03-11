@@ -7,6 +7,7 @@ using Gridap.FESpaces
 
 import HydroElasticFEM.PhysicsCore.Entities as E
 import HydroElasticFEM.Geometry as D
+import HydroElasticFEM.PhysicsCore.FEOperators as FO
 import HydroElasticFEM.PhysicsCore.FESpaceAssembly as FEA
 import HydroElasticFEM.PhysicsCore.FESpaces as FES
 
@@ -65,11 +66,11 @@ import HydroElasticFEM.PhysicsCore.FESpaces as FES
     fmap = Dict(sym => 1)
 
     a((u,), (v,)) = E.stiffness(beam, prob.dom,
-                               D.FieldMap((u,), fmap), D.FieldMap((v,), fmap))
+                               FO.FieldMap((u,), fmap), FO.FieldMap((v,), fmap))
 
     src(x) = q
     l((v,)) = E.rhs(beam, prob.dom,
-                   D.FieldMap((src,), fmap), D.FieldMap((v,), fmap))
+                   FO.FieldMap((src,), fmap), FO.FieldMap((v,), fmap))
 
     op = AffineFEOperator(a, l, prob.X, prob.Y)
     uh = solve(LUSolver(), op)

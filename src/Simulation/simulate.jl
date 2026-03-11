@@ -34,8 +34,8 @@ _add(a, b) = isnothing(a) ? b : a + b
 
 """Sum single-entity + coupling contributions for a given form."""
 function _assemble_form(f, has_f, entities, coupling_pairs, dom, fmap, x, y)
-    xd = G.FieldMap(x, fmap)
-    yd = G.FieldMap(y, fmap)
+    xd = FO.FieldMap(x, fmap)
+    yd = FO.FieldMap(y, fmap)
     val = nothing
     for e in entities
         if has_f(e)
@@ -58,8 +58,8 @@ _has_weakform(a, b) =
 
 """Assemble frequency-domain bilinear form (single + coupling entities)."""
 function _assemble_bilinear(entities, coupling_pairs, dom, ω, fmap, x, y)
-    xd = G.FieldMap(x, fmap)
-    yd = G.FieldMap(y, fmap)
+    xd = FO.FieldMap(x, fmap)
+    yd = FO.FieldMap(y, fmap)
     val = nothing
     for e in entities
         if _has_weakform(e)
@@ -111,10 +111,10 @@ function simulate(config::SimConfig, entities_trians::Pair...;
     a(x, y) = _assemble_bilinear(entities, coupling_pairs, dom, ω, fmap, x, y)
 
     l = if rhs_fn !== nothing
-        y -> rhs_fn(G.FieldMap(y, fmap))
+        y -> rhs_fn(FO.FieldMap(y, fmap))
     else
         first_sym = first(keys(fmap))
-        y -> ∫(0 * G.FieldMap(y, fmap)[first_sym])dom[:dΩ]
+        y -> ∫(0 * FO.FieldMap(y, fmap)[first_sym])dom[:dΩ]
     end
 
     op = AffineFEOperator(a, l, X, Y)
@@ -167,10 +167,10 @@ function simulate(config::SimConfig, tconfig::TimeConfig,
                                     entities, coupling_pairs, dom, fmap, x_tt, y)
 
     l = if rhs_fn !== nothing
-        (t, y) -> rhs_fn(t, G.FieldMap(y, fmap))
+        (t, y) -> rhs_fn(t, FO.FieldMap(y, fmap))
     else
         first_sym = first(keys(fmap))
-        (t, y) -> ∫(0 * G.FieldMap(y, fmap)[first_sym])dom[:dΩ]
+        (t, y) -> ∫(0 * FO.FieldMap(y, fmap)[first_sym])dom[:dΩ]
     end
 
     op = TransientLinearFEOperator((a, c, m), l, X, Y;

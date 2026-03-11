@@ -6,6 +6,7 @@ using SparseArrays
 import HydroElasticFEM.PhysicsCore.FESpaceAssembly as FEA
 import HydroElasticFEM.PhysicsCore.FESpaces as FES
 import HydroElasticFEM.PhysicsCore.Entities as E
+import HydroElasticFEM.PhysicsCore.FEOperators as FO
 import HydroElasticFEM.Geometry as D
 
 # =========================================================================
@@ -183,8 +184,8 @@ import HydroElasticFEM.Geometry as D
     ω = 2.0
 
     a((ϕ,κ,η),(w,u,v)) = begin
-      xd = D.FieldMap((ϕ,κ,η), fmap)
-      yd = D.FieldMap((w,u,v), fmap)
+      xd = FO.FieldMap((ϕ,κ,η), fmap)
+      yd = FO.FieldMap((w,u,v), fmap)
       E.weakform(fluid, dom, ω, xd, yd) +
       E.weakform(fsurf, dom, ω, xd, yd) +
       E.weakform(mem, dom, ω, xd, yd) +
