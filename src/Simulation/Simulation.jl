@@ -33,7 +33,7 @@ include("simulate.jl")
 export SimConfig, TimeConfig, SimResult
 export simulate
 export FEOperators
-export FieldMap, detect_couplings
+export FieldMap, detect_couplings, build_fe_operator
 export assemble_weakform
 export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
 export assemble_residual, assemble_jacobian, assemble_jacobian_t, assemble_jacobian_tt

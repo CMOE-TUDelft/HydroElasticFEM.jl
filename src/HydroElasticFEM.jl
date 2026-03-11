@@ -45,7 +45,7 @@ module HydroElasticFEM
 
   # Re-export Simulation public API (includes FEOperators)
   export SimConfig, TimeConfig, SimResult
-  export simulate, detect_couplings
+  export simulate, detect_couplings, build_fe_operator
   export FieldMap
   export assemble_weakform
   export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs

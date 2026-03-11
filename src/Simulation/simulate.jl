@@ -31,16 +31,9 @@ function simulate(config::SimConfig, entities_trians::Pair...;
     coupling_pairs = isnothing(couplings) ? detect_couplings(entities) : couplings
     ω = config.ω
 
-    a(x, y) = FEOperators._assemble_bilinear(entities, coupling_pairs, dom, ω, fmap, x, y)
+    op = build_fe_operator(entities, coupling_pairs, dom, ω, fmap, X, Y;
+                           rhs_fn=rhs_fn)
 
-    l = if rhs_fn !== nothing
-        y -> rhs_fn(FieldMap(y, fmap))
-    else
-        first_sym = first(keys(fmap))
-        y -> ∫(0 * FieldMap(y, fmap)[first_sym])dom[:dΩ]
-    end
-
-    op = AffineFEOperator(a, l, X, Y)
     solver = isnothing(config.solver) ? LUSolver() : config.solver
     solution = solve(solver, op)
 
@@ -81,23 +74,8 @@ function simulate(config::SimConfig, tconfig::TimeConfig,
 
     coupling_pairs = isnothing(couplings) ? detect_couplings(entities) : couplings
 
-    # Time-domain decomposed forms: stiffness, damping, mass
-    a(t, x, y)    = FEOperators._assemble_form(E.stiffness, E.has_stiffness_form,
-                                    entities, coupling_pairs, dom, fmap, x, y)
-    c(t, x_t, y)  = FEOperators._assemble_form(E.damping, E.has_damping_form,
-                                    entities, coupling_pairs, dom, fmap, x_t, y)
-    m(t, x_tt, y) = FEOperators._assemble_form(E.mass, E.has_mass_form,
-                                    entities, coupling_pairs, dom, fmap, x_tt, y)
-
-    l = if rhs_fn !== nothing
-        (t, y) -> rhs_fn(t, FieldMap(y, fmap))
-    else
-        first_sym = first(keys(fmap))
-        (t, y) -> ∫(0 * FieldMap(y, fmap)[first_sym])dom[:dΩ]
-    end
-
-    op = TransientLinearFEOperator((a, c, m), l, X, Y;
-        constant_forms=(true, true, true))
+    op = build_fe_operator(entities, coupling_pairs, dom, fmap, X, Y;
+                           rhs_fn=rhs_fn)
 
     ls = isnothing(config.solver) ? LUSolver() : config.solver
     ode_solver = GeneralizedAlpha2(ls, tconfig.Δt, tconfig.ρ∞)

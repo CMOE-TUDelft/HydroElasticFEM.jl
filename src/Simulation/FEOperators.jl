@@ -20,6 +20,9 @@ module FEOperators
 import ...PhysicsCore.Entities as E
 import ...Geometry as G
 
+using Gridap
+using Gridap.ODEs
+
 # ─────────────────────────────────────────────────────────────
 # FieldMap — symbol-indexed wrapper for FE field tuples
 # ─────────────────────────────────────────────────────────────
@@ -274,11 +277,85 @@ function assemble_jacobian_tt(terms, dom::G.IntegrationDomains, fmap::Dict{Symbo
 end
 
 # ─────────────────────────────────────────────────────────────
+# FE operator construction
+# ─────────────────────────────────────────────────────────────
+
+"""
+    build_fe_operator(entities, coupling_pairs, dom, ω, fmap, X, Y; rhs_fn=nothing)
+
+Build a **frequency-domain** `AffineFEOperator`.
+
+# Arguments
+- `entities` — physics entities
+- `coupling_pairs` — coupling pairs (from `detect_couplings`)
+- `dom::IntegrationDomains` — integration measures/normals
+- `ω` — angular frequency
+- `fmap::Dict{Symbol,Int}` — field-symbol to positional-index map
+- `X` — trial multi-field FE space
+- `Y` — test multi-field FE space
+- `rhs_fn` — optional callable `rhs_fn(y::FieldMap) -> DomainContribution`;
+  if `nothing`, uses zero right-hand side (requires `:dΩ` in `dom`)
+"""
+function build_fe_operator(entities, coupling_pairs,
+                           dom::G.IntegrationDomains, ω,
+                           fmap::Dict{Symbol,Int}, X, Y;
+                           rhs_fn=nothing)
+    a(x, y) = _assemble_bilinear(entities, coupling_pairs, dom, ω, fmap, x, y)
+
+    l = if rhs_fn !== nothing
+        y -> rhs_fn(FieldMap(y, fmap))
+    else
+        first_sym = first(keys(fmap))
+        y -> ∫(0 * FieldMap(y, fmap)[first_sym])dom[:dΩ]
+    end
+
+    AffineFEOperator(a, l, X, Y)
+end
+
+"""
+    build_fe_operator(entities, coupling_pairs, dom, fmap, X, Y; rhs_fn=nothing)
+
+Build a **time-domain** `TransientLinearFEOperator`.
+
+# Arguments
+- `entities` — physics entities
+- `coupling_pairs` — coupling pairs (from `detect_couplings`)
+- `dom::IntegrationDomains` — integration measures/normals
+- `fmap::Dict{Symbol,Int}` — field-symbol to positional-index map
+- `X` — trial multi-field FE space (transient)
+- `Y` — test multi-field FE space
+- `rhs_fn` — optional callable `rhs_fn(t, y::FieldMap) -> DomainContribution`;
+  if `nothing`, uses zero right-hand side (requires `:dΩ` in `dom`)
+"""
+function build_fe_operator(entities, coupling_pairs,
+                           dom::G.IntegrationDomains,
+                           fmap::Dict{Symbol,Int}, X, Y;
+                           rhs_fn=nothing)
+    a(t, x, y)    = _assemble_form(E.stiffness, E.has_stiffness_form,
+                                    entities, coupling_pairs, dom, fmap, x, y)
+    c(t, x_t, y)  = _assemble_form(E.damping, E.has_damping_form,
+                                    entities, coupling_pairs, dom, fmap, x_t, y)
+    m(t, x_tt, y) = _assemble_form(E.mass, E.has_mass_form,
+                                    entities, coupling_pairs, dom, fmap, x_tt, y)
+
+    l = if rhs_fn !== nothing
+        (t, y) -> rhs_fn(t, FieldMap(y, fmap))
+    else
+        first_sym = first(keys(fmap))
+        (t, y) -> ∫(0 * FieldMap(y, fmap)[first_sym])dom[:dΩ]
+    end
+
+    TransientLinearFEOperator((a, c, m), l, X, Y;
+        constant_forms=(true, true, true))
+end
+
+# ─────────────────────────────────────────────────────────────
 # Exports
 # ─────────────────────────────────────────────────────────────
 
 export FieldMap
 export detect_couplings
+export build_fe_operator
 export assemble_weakform
 export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
 export assemble_residual, assemble_jacobian, assemble_jacobian_t, assemble_jacobian_tt
