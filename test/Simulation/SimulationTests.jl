@@ -7,6 +7,8 @@ import HydroElasticFEM.PhysicsCore.Entities as E
 import HydroElasticFEM.PhysicsCore.FESpaces as FES
 import HydroElasticFEM.Geometry as G
 
+include("FEOperatorsTests.jl")
+
 # =========================================================================
 # Shared mesh setup: 50m × 10m tank, membrane from x=15 to x=35
 # Uses CartesianGeometry functions from the Geometry module.

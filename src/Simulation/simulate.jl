@@ -1,81 +1,4 @@
 # ─────────────────────────────────────────────────────────────
-# Coupling detection
-# ─────────────────────────────────────────────────────────────
-
-"""
-    detect_couplings(entities) -> Vector{Tuple}
-
-Auto-detect active coupling pairs among `entities` by checking all
-ordered pairs `(a, b)` against the trait functions `has_mass_form`,
-`has_damping_form`, `has_stiffness_form`, and `has_rhs_form`.
-
-Returns a vector of `(entity_a, entity_b)` tuples that have at
-least one active coupling form.
-"""
-function detect_couplings(entities)
-    pairs = Tuple[]
-    for (i, ea) in enumerate(entities)
-        for (j, eb) in enumerate(entities)
-            i == j && continue
-            if (E.has_mass_form(ea, eb) || E.has_damping_form(ea, eb) ||
-                E.has_stiffness_form(ea, eb) || E.has_rhs_form(ea, eb))
-                push!(pairs, (ea, eb))
-            end
-        end
-    end
-    return pairs
-end
-
-# ─────────────────────────────────────────────────────────────
-# Internal assembly helpers
-# ─────────────────────────────────────────────────────────────
-
-_add(a, b) = isnothing(a) ? b : a + b
-
-"""Sum single-entity + coupling contributions for a given form."""
-function _assemble_form(f, has_f, entities, coupling_pairs, dom, fmap, x, y)
-    xd = FO.FieldMap(x, fmap)
-    yd = FO.FieldMap(y, fmap)
-    val = nothing
-    for e in entities
-        if has_f(e)
-            val = _add(val, f(e, dom, xd, yd))
-        end
-    end
-    for (ea, eb) in coupling_pairs
-        if has_f(ea, eb)
-            val = _add(val, f(ea, eb, dom, xd, yd))
-        end
-    end
-    isnothing(val) && error("No active $(nameof(f)) contributions found")
-    return val
-end
-
-_has_weakform(e) =
-    E.has_mass_form(e) || E.has_damping_form(e) || E.has_stiffness_form(e)
-_has_weakform(a, b) =
-    E.has_mass_form(a, b) || E.has_damping_form(a, b) || E.has_stiffness_form(a, b)
-
-"""Assemble frequency-domain bilinear form (single + coupling entities)."""
-function _assemble_bilinear(entities, coupling_pairs, dom, ω, fmap, x, y)
-    xd = FO.FieldMap(x, fmap)
-    yd = FO.FieldMap(y, fmap)
-    val = nothing
-    for e in entities
-        if _has_weakform(e)
-            val = _add(val, E.weakform(e, dom, ω, xd, yd))
-        end
-    end
-    for (ea, eb) in coupling_pairs
-        if _has_weakform(ea, eb)
-            val = _add(val, E.weakform(ea, eb, dom, ω, xd, yd))
-        end
-    end
-    isnothing(val) && error("No active weak form contributions found")
-    return val
-end
-
-# ─────────────────────────────────────────────────────────────
 # Frequency-domain simulate
 # ─────────────────────────────────────────────────────────────
 
@@ -108,13 +31,13 @@ function simulate(config::SimConfig, entities_trians::Pair...;
     coupling_pairs = isnothing(couplings) ? detect_couplings(entities) : couplings
     ω = config.ω
 
-    a(x, y) = _assemble_bilinear(entities, coupling_pairs, dom, ω, fmap, x, y)
+    a(x, y) = FEOperators._assemble_bilinear(entities, coupling_pairs, dom, ω, fmap, x, y)
 
     l = if rhs_fn !== nothing
-        y -> rhs_fn(FO.FieldMap(y, fmap))
+        y -> rhs_fn(FieldMap(y, fmap))
     else
         first_sym = first(keys(fmap))
-        y -> ∫(0 * FO.FieldMap(y, fmap)[first_sym])dom[:dΩ]
+        y -> ∫(0 * FieldMap(y, fmap)[first_sym])dom[:dΩ]
     end
 
     op = AffineFEOperator(a, l, X, Y)
@@ -159,18 +82,18 @@ function simulate(config::SimConfig, tconfig::TimeConfig,
     coupling_pairs = isnothing(couplings) ? detect_couplings(entities) : couplings
 
     # Time-domain decomposed forms: stiffness, damping, mass
-    a(t, x, y)    = _assemble_form(E.stiffness, E.has_stiffness_form,
+    a(t, x, y)    = FEOperators._assemble_form(E.stiffness, E.has_stiffness_form,
                                     entities, coupling_pairs, dom, fmap, x, y)
-    c(t, x_t, y)  = _assemble_form(E.damping, E.has_damping_form,
+    c(t, x_t, y)  = FEOperators._assemble_form(E.damping, E.has_damping_form,
                                     entities, coupling_pairs, dom, fmap, x_t, y)
-    m(t, x_tt, y) = _assemble_form(E.mass, E.has_mass_form,
+    m(t, x_tt, y) = FEOperators._assemble_form(E.mass, E.has_mass_form,
                                     entities, coupling_pairs, dom, fmap, x_tt, y)
 
     l = if rhs_fn !== nothing
-        (t, y) -> rhs_fn(t, FO.FieldMap(y, fmap))
+        (t, y) -> rhs_fn(t, FieldMap(y, fmap))
     else
         first_sym = first(keys(fmap))
-        (t, y) -> ∫(0 * FO.FieldMap(y, fmap)[first_sym])dom[:dΩ]
+        (t, y) -> ∫(0 * FieldMap(y, fmap)[first_sym])dom[:dΩ]
     end
 
     op = TransientLinearFEOperator((a, c, m), l, X, Y;

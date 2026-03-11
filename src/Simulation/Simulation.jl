@@ -19,8 +19,11 @@ using Gridap.ODEs
 
 import ..Geometry as G
 import ..PhysicsCore.Entities as E
-import ..PhysicsCore.FEOperators as FO
 import ..PhysicsCore.FESpaceAssembly as FA
+
+# FEOperators (FieldMap, assemble_*, detect_couplings)
+include("FEOperators.jl")
+using .FEOperators
 
 include("SimConfig.jl")
 include("TimeConfig.jl")
@@ -28,6 +31,11 @@ include("SimResult.jl")
 include("simulate.jl")
 
 export SimConfig, TimeConfig, SimResult
-export simulate, detect_couplings
+export simulate
+export FEOperators
+export FieldMap, detect_couplings
+export assemble_weakform
+export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
+export assemble_residual, assemble_jacobian, assemble_jacobian_t, assemble_jacobian_tt
 
 end # module Simulation

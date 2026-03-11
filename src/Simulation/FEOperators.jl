@@ -7,6 +7,9 @@ Provides `assemble_*` functions that loop over a collection of physics
 terms and sum contributions.  Field tuples are wrapped in `FieldMap`
 for symbol-based access.
 
+Also provides coupling-detection and multi-entity assembly helpers used
+by the `simulate` orchestrator.
+
 All concrete methods (`mass`, `damping`, `stiffness`, `rhs`,
 `weakform`, `residual`, `jacobian`, `jacobian_t`, `jacobian_tt`)
 are defined in Entities (inside each entity file);
@@ -14,28 +17,8 @@ this module only provides composition logic and the field mapping.
 """
 module FEOperators
 
-import ..Entities as E
+import ...PhysicsCore.Entities as E
 import ...Geometry as G
-
-# ─────────────────────────────────────────────────────────────
-# Helpers: sum only active form contributions
-# ─────────────────────────────────────────────────────────────
-
-function _assemble_active(f, has_form, terms, args...)
-    val = nothing
-    for term in terms
-        if has_form(term)
-            contrib = f(term, args...)
-            val = isnothing(val) ? contrib : (val + contrib)
-        end
-    end
-    isnothing(val) && error("No active $(nameof(f)) contributions in provided terms")
-    return val
-end
-
-_has_weakform(term) =
-    E.has_mass_form(term) || E.has_damping_form(term) || E.has_stiffness_form(term)
-_has_residual(term) = _has_weakform(term) || E.has_rhs_form(term)
 
 # ─────────────────────────────────────────────────────────────
 # FieldMap — symbol-indexed wrapper for FE field tuples
@@ -68,6 +51,100 @@ Base.keys(fd::FieldMap)                = keys(fd._map)
 
 # Internal: wrap raw tuples in FieldMap
 _wrap(t, fmap::Dict{Symbol,Int}) = FieldMap(t, fmap)
+
+# ─────────────────────────────────────────────────────────────
+# Helpers: sum only active form contributions (single-entity)
+# ─────────────────────────────────────────────────────────────
+
+function _assemble_active(f, has_form, terms, args...)
+    val = nothing
+    for term in terms
+        if has_form(term)
+            contrib = f(term, args...)
+            val = isnothing(val) ? contrib : (val + contrib)
+        end
+    end
+    isnothing(val) && error("No active $(nameof(f)) contributions in provided terms")
+    return val
+end
+
+_has_weakform(term) =
+    E.has_mass_form(term) || E.has_damping_form(term) || E.has_stiffness_form(term)
+_has_weakform(a, b) =
+    E.has_mass_form(a, b) || E.has_damping_form(a, b) || E.has_stiffness_form(a, b)
+_has_residual(term) = _has_weakform(term) || E.has_rhs_form(term)
+
+# ─────────────────────────────────────────────────────────────
+# Coupling detection
+# ─────────────────────────────────────────────────────────────
+
+"""
+    detect_couplings(entities) -> Vector{Tuple}
+
+Auto-detect active coupling pairs among `entities` by checking all
+ordered pairs `(a, b)` against the trait functions `has_mass_form`,
+`has_damping_form`, `has_stiffness_form`, and `has_rhs_form`.
+
+Returns a vector of `(entity_a, entity_b)` tuples that have at
+least one active coupling form.
+"""
+function detect_couplings(entities)
+    pairs = Tuple[]
+    for (i, ea) in enumerate(entities)
+        for (j, eb) in enumerate(entities)
+            i == j && continue
+            if (E.has_mass_form(ea, eb) || E.has_damping_form(ea, eb) ||
+                E.has_stiffness_form(ea, eb) || E.has_rhs_form(ea, eb))
+                push!(pairs, (ea, eb))
+            end
+        end
+    end
+    return pairs
+end
+
+# ─────────────────────────────────────────────────────────────
+# Multi-entity assembly helpers (single + coupling entities)
+# ─────────────────────────────────────────────────────────────
+
+_add(a, b) = isnothing(a) ? b : a + b
+
+"""Sum single-entity + coupling contributions for a given form."""
+function _assemble_form(f, has_f, entities, coupling_pairs, dom, fmap, x, y)
+    xd = FieldMap(x, fmap)
+    yd = FieldMap(y, fmap)
+    val = nothing
+    for e in entities
+        if has_f(e)
+            val = _add(val, f(e, dom, xd, yd))
+        end
+    end
+    for (ea, eb) in coupling_pairs
+        if has_f(ea, eb)
+            val = _add(val, f(ea, eb, dom, xd, yd))
+        end
+    end
+    isnothing(val) && error("No active $(nameof(f)) contributions found")
+    return val
+end
+
+"""Assemble frequency-domain bilinear form (single + coupling entities)."""
+function _assemble_bilinear(entities, coupling_pairs, dom, ω, fmap, x, y)
+    xd = FieldMap(x, fmap)
+    yd = FieldMap(y, fmap)
+    val = nothing
+    for e in entities
+        if _has_weakform(e)
+            val = _add(val, E.weakform(e, dom, ω, xd, yd))
+        end
+    end
+    for (ea, eb) in coupling_pairs
+        if _has_weakform(ea, eb)
+            val = _add(val, E.weakform(ea, eb, dom, ω, xd, yd))
+        end
+    end
+    isnothing(val) && error("No active weak form contributions found")
+    return val
+end
 
 # ─────────────────────────────────────────────────────────────
 # Linear form assemblers
@@ -201,6 +278,7 @@ end
 # ─────────────────────────────────────────────────────────────
 
 export FieldMap
+export detect_couplings
 export assemble_weakform
 export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
 export assemble_residual, assemble_jacobian, assemble_jacobian_t, assemble_jacobian_tt

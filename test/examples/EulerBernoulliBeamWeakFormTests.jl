@@ -7,7 +7,7 @@ using Gridap.FESpaces
 
 import HydroElasticFEM.PhysicsCore.Entities as E
 import HydroElasticFEM.Geometry as D
-import HydroElasticFEM.PhysicsCore.FEOperators as FO
+import HydroElasticFEM.Simulation.FEOperators as FO
 import HydroElasticFEM.PhysicsCore.FESpaceAssembly as FEA
 import HydroElasticFEM.PhysicsCore.FESpaces as FES
 

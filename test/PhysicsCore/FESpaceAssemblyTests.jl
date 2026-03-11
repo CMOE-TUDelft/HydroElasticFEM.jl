@@ -6,7 +6,7 @@ using SparseArrays
 import HydroElasticFEM.PhysicsCore.FESpaceAssembly as FEA
 import HydroElasticFEM.PhysicsCore.FESpaces as FES
 import HydroElasticFEM.PhysicsCore.Entities as E
-import HydroElasticFEM.PhysicsCore.FEOperators as FO
+import HydroElasticFEM.Simulation.FEOperators as FO
 import HydroElasticFEM.Geometry as D
 
 # =========================================================================

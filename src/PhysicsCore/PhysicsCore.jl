@@ -7,8 +7,10 @@ Loads submodules in dependency order:
 1. **Geometry** (parent) — `IntegrationDomains`
 2. **FESpaces** — `FESpaceConfig` (standalone)
 3. **Entities** — physics types, traits, composed weak forms (uses Geometry + FESpaces)
-4. **FEOperators** — `FieldMap`, `assemble_*` helpers (uses Entities + Geometry)
-5. **FESpaceAssembly** — `build_fe_spaces` (uses Entities)
+4. **FESpaceAssembly** — `build_fe_spaces` (uses Entities)
+
+Note: `FEOperators` (FieldMap, assemble_*, detect_couplings) lives in the
+`Simulation` sibling module.
 """
 module PhysicsCore
 
@@ -23,16 +25,11 @@ using .FESpaces
 include("Entities/Entities.jl")
 using .Entities
 
-# 4. WeakForm assembly (depends on Entities + Geometry)
-include("FEOperators.jl")
-using .FEOperators
-
-# 5. FESpace assembly (depends on Entities)
+# 4. FESpace assembly (depends on Entities)
 include("FESpaceAssembly.jl")
 using .FESpaceAssembly
 
 export Entities
-export FEOperators
 export FESpaces
 export FESpaceAssembly
 

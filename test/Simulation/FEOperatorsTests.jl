@@ -5,7 +5,7 @@ using SparseArrays
 
 import HydroElasticFEM.PhysicsCore.Entities as Entities
 import HydroElasticFEM.Geometry as Geometry
-import HydroElasticFEM.PhysicsCore.FEOperators as WF
+import HydroElasticFEM.Simulation.FEOperators as WF
 
 # =========================================================================
 # Mini mesh setup: 50m × 10m tank, membrane from x=15 to x=35
