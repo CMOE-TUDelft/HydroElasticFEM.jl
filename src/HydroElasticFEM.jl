@@ -41,9 +41,9 @@ module HydroElasticFEM
   export weakform, mass, damping, stiffness, rhs
   export residual, jacobian, jacobian_t, jacobian_tt
   export has_mass_form, has_damping_form, has_stiffness_form, has_rhs_form
-  export build_fe_spaces, build_test_fe_space, build_trial_fe_space
 
-  # Re-export Simulation public API (includes FEOperators)
+  # Re-export Simulation public API (includes FESpaceAssembly + FEOperators)
+  export build_fe_spaces, build_test_fe_space, build_trial_fe_space
   export SimConfig, TimeConfig, SimResult
   export simulate, detect_couplings, build_fe_operator
   export FieldMap

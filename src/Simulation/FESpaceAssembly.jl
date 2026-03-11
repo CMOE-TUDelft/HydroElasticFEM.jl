@@ -14,7 +14,7 @@ using Gridap
 using Gridap.FESpaces: ConstantFESpace, SingleFieldFESpace
 using Gridap.ODEs: TransientTrialFESpace, TransientMultiFieldFESpace
 
-import ..Entities as E 
+import ...PhysicsCore.Entities as E
 
 # ─────────────────────────────────────────────────────────────
 # Per-entity FE space construction (dispatched on entity type)

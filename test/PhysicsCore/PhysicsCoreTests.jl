@@ -4,5 +4,4 @@ using Test
 
   @testset "Entities module tests" include("Entities/EntitiesTests.jl")
 
-  include("FESpaceAssemblyTests.jl")
 end

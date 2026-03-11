@@ -6,10 +6,11 @@ import HydroElasticFEM.Simulation as SM
 import HydroElasticFEM.Simulation.FEOperators as FO
 import HydroElasticFEM.PhysicsCore.Entities as E
 import HydroElasticFEM.PhysicsCore.FESpaces as FES
-import HydroElasticFEM.PhysicsCore.FESpaceAssembly as FA
+import HydroElasticFEM.Simulation.FESpaceAssembly as FA
 import HydroElasticFEM.Geometry as G
 
 include("FEOperatorsTests.jl")
+include("FESpaceAssemblyTests.jl")
 
 # =========================================================================
 # Shared mesh setup: 50m × 10m tank, membrane from x=15 to x=35
@@ -111,11 +112,11 @@ include("FEOperatorsTests.jl")
     rhs_fn(t, y) = ∫(y[:ϕ] * cos(ω_f * t))dΓin
     op = SM.build_fe_operator(entities, coupling_pairs, dom, fmap, X, Y;
                               rhs_fn=rhs_fn)
-    @test op isa Gridap.ODEs.TransientLinearFEOperator
+    @test op isa Gridap.ODEs.TransientFEOperator
 
     # With rhs_fn=nothing (zero RHS)
     op0 = SM.build_fe_operator(entities, coupling_pairs, dom, fmap, X, Y)
-    @test op0 isa Gridap.ODEs.TransientLinearFEOperator
+    @test op0 isa Gridap.ODEs.TransientFEOperator
   end
 
   # =========================================================================

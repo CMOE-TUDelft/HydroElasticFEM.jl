@@ -305,8 +305,7 @@ function build_fe_operator(entities, coupling_pairs,
     l = if rhs_fn !== nothing
         y -> rhs_fn(FieldMap(y, fmap))
     else
-        first_sym = first(keys(fmap))
-        y -> ∫(0 * FieldMap(y, fmap)[first_sym])dom[:dΩ]
+        y -> ∫(0.0 * y[1])dom[:dΩ]
     end
 
     AffineFEOperator(a, l, X, Y)
@@ -341,8 +340,7 @@ function build_fe_operator(entities, coupling_pairs,
     l = if rhs_fn !== nothing
         (t, y) -> rhs_fn(t, FieldMap(y, fmap))
     else
-        first_sym = first(keys(fmap))
-        (t, y) -> ∫(0 * FieldMap(y, fmap)[first_sym])dom[:dΩ]
+        (t, y) -> ∫(0.0 * y[1])dom[:dΩ]
     end
 
     TransientLinearFEOperator((a, c, m), l, X, Y;
