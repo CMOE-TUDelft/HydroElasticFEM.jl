@@ -4,10 +4,10 @@ import HydroElasticFEM.Geometry as G
 
 @testset "TankDomain2D" begin
 
-  structure_a = G.StructureDomain1D(L=1.0, x₀=[0.5,1.0])
-  structure_b = G.StructureDomain1D(L=2.0, x₀=[0.5,1.0])
-  damping_a = G.DampingZone1D(L=0.5, x₀=[0.0,1.0])
-  damping_b = G.DampingZone1D(L=0.5, x₀=[3.5,1.0])
+  structure_a = G.StructureDomain1D(L=1.0, x₀=[0.5,1.0], domain_symbol=:Γ_s_a)
+  structure_b = G.StructureDomain1D(L=2.0, x₀=[0.5,1.0], domain_symbol=:Γ_s_b)
+  damping_a = G.DampingZone1D(L=0.5, x₀=[0.0,1.0], domain_symbol=:Γ_d_a)
+  damping_b = G.DampingZone1D(L=0.5, x₀=[3.5,1.0], domain_symbol=:Γ_d_b)
   tank = G.TankDomain2D(L=10.0, H=1.0, nx=20, ny=2, structure_domains=[structure_a, structure_b], damping_zones=[damping_a, damping_b])
 
   @test tank.L == 10.0
@@ -87,57 +87,57 @@ end
   # Damping inlet  x ∈ [0.0, 0.5]  on y = 1.0
   # Damping outlet x ∈ [3.5, 4.0]  on y = 1.0
   s1 = G.StructureDomain1D(L=1.0, x₀=[1.5, 1.0])
-  d1 = G.DampingZone1D(L=0.5, x₀=[0.0, 1.0])
-  d2 = G.DampingZone1D(L=0.5, x₀=[3.5, 1.0])
+  d1 = G.DampingZone1D(L=0.5, x₀=[0.0, 1.0], domain_symbol=:Γ_d_in)
+  d2 = G.DampingZone1D(L=0.5, x₀=[3.5, 1.0], domain_symbol=:Γ_d_out)
   tank = G.TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[s1], damping_zones=[d1, d2])
 
   model = G.build_model(tank)
-  tri   = G.build_triangulations(tank, model)
+  trian = G.build_triangulations(tank, model)
 
-  @test tri isa G.TankTriangulations
+  @test trian isa G.TankTriangulations
 
   # Number of per-zone triangulations matches input
-  @test length(tri.Γ_structures) == 1
-  @test length(tri.Γ_dampings)   == 2
+  @test length(trian[:Γ_structures]) == 1
+  @test length(trian[:Γ_dampings])   == 2
 
   # Surface partition: every surface cell is in exactly one of
   # Γ_structures[i], Γ_dampings[j], or Γfs.
   # Total surface cells = nx = 40
-  n_struct = sum(num_cells(t) for t in tri.Γ_structures)
-  n_damp   = sum(num_cells(t) for t in tri.Γ_dampings)
-  n_fs     = num_cells(tri.Γfs)
-  @test n_struct + n_damp + n_fs == num_cells(tri.Γ)
+  n_struct = sum(num_cells(t) for t in trian[:Γ_structures])
+  n_damp   = sum(num_cells(t) for t in trian[:Γ_dampings])
+  n_fs     = num_cells(trian[:Γfs])
+  @test n_struct + n_damp + n_fs == num_cells(trian[:Γ])
 
   # Γκ = non-structure = damping + free surface
-  @test num_cells(tri.Γκ) == n_damp + n_fs
+  @test num_cells(trian[:Γκ]) == n_damp + n_fs
   # Γη = all structures
-  @test num_cells(tri.Γη) == n_struct
+  @test num_cells(trian[:Γη]) == n_struct
 
   # Sanity: structure zone gets 10 cells (1.0 / 0.1 element size)
-  @test num_cells(tri.Γ_structures[1]) == 10
+  @test num_cells(trian[:Γ_structures][1]) == 10
   # Each damping zone gets 5 cells (0.5 / 0.1)
-  @test num_cells(tri.Γ_dampings[1]) == 5
-  @test num_cells(tri.Γ_dampings[2]) == 5
+  @test num_cells(trian[:Γ_dampings][1]) == 5
+  @test num_cells(trian[:Γ_dampings][2]) == 5
 end
 
 @testset "build_triangulations — no structures or damping" begin
   tank = G.TankDomain2D(L=4.0, H=1.0, nx=20, ny=2)
   model = G.build_model(tank)
-  tri   = G.build_triangulations(tank, model)
+  trian   = G.build_triangulations(tank, model)
 
-  @test length(tri.Γ_structures) == 0
-  @test length(tri.Γ_dampings)   == 0
+  @test length(trian[:Γ_structures]) == 0
+  @test length(trian[:Γ_dampings])   == 0
   # Entire surface is free surface
-  @test num_cells(tri.Γfs) == num_cells(tri.Γ)
-  @test num_cells(tri.Γκ)  == num_cells(tri.Γ)
-  @test num_cells(tri.Γη)  == 0
+  @test num_cells(trian[:Γfs]) == num_cells(trian[:Γ])
+  @test num_cells(trian[:Γκ])  == num_cells(trian[:Γ])
+  @test num_cells(trian[:Γη])  == 0
 end
 
 @testset "get_integration_domains" begin
   s1 = G.StructureDomain1D(L=1.0, x₀=[1.5, 1.0])
-  d1 = G.DampingZone1D(L=0.5, x₀=[0.0, 1.0])
-  d2 = G.DampingZone1D(L=0.5, x₀=[3.5, 1.0])
+  d1 = G.DampingZone1D(L=0.5, x₀=[0.0, 1.0], domain_symbol=:Γ_d_in)
+  d2 = G.DampingZone1D(L=0.5, x₀=[3.5, 1.0], domain_symbol=:Γ_d_out)
   tank = G.TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[s1], damping_zones=[d1, d2])
   model = G.build_model(tank)

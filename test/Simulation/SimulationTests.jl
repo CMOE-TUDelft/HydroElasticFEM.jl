@@ -26,12 +26,12 @@ include("FESpaceAssemblyTests.jl")
       structure_domains=[mem_domain])
 
   model = G.build_model(tank)
-  tri   = G.build_triangulations(tank, model)
-  dom   = G.get_integration_domains(tri; degree=2*order)
+  trian = G.build_triangulations(tank, model)
+  dom   = G.get_integration_domains(trian; degree=2*order)
 
   # Extra measure on the inlet for the RHS forcing
-  dΓin = Measure(tri.Γin, 2*order)
-  dΩ   = Measure(tri.Ω, 2*order)
+  dΓin = Measure(trian[:Γin], 2*order)
+  dΩ   = Measure(trian[:Ω], 2*order)
 
   fluid = P.PotentialFlow(ρw=1025.0, g=9.81,
       fe=FES.FESpaceConfig(order=order))
@@ -72,7 +72,7 @@ include("FESpaceAssemblyTests.jl")
     ω = 2.0
 
     X, Y, fmap = FA.build_fe_spaces(
-        fluid => tri.Ω, fsurf => tri.Γκ, mem => tri.Γη)
+        fluid => trian[:Ω], fsurf => trian[:Γκ], mem => trian[:Γη])
 
     # With explicit rhs_fn
     rhs_fn(y) = ∫(y[:ϕ] * 1.0)dΓin
@@ -105,7 +105,7 @@ include("FESpaceAssemblyTests.jl")
     coupling_pairs = SM.detect_couplings(entities)
 
     X, Y, fmap = FA.build_fe_spaces(
-        fluid => tri.Ω, fsurf => tri.Γκ, mem => tri.Γη; transient=true)
+        fluid => trian[:Ω], fsurf => trian[:Γκ], mem => trian[:Γη]; transient=true)
 
     # With explicit rhs_fn
     ω_f = 2.0
@@ -131,9 +131,9 @@ include("FESpaceAssemblyTests.jl")
     rhs_fn(y) = ∫(y[:ϕ] * 1.0)dΓin
 
     result = SM.simulate(config,
-        fluid => tri.Ω,
-        fsurf => tri.Γκ,
-        mem   => tri.Γη;
+        fluid => trian[:Ω],
+        fsurf => trian[:Γκ],
+        mem   => trian[:Γη];
         dom=dom,
         rhs_fn=rhs_fn)
 
@@ -207,9 +207,9 @@ include("FESpaceAssemblyTests.jl")
     rhs_fn(t, y) = ∫(y[:ϕ] * cos(ω_f * t))dΓin
 
     result = SM.simulate(config, tconfig,
-        fluid => tri.Ω,
-        fsurf => tri.Γκ,
-        mem   => tri.Γη;
+        fluid => trian[:Ω],
+        fsurf => trian[:Γκ],
+        mem   => trian[:Γη];
         dom=dom,
         rhs_fn=rhs_fn)
 
