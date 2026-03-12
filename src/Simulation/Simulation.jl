@@ -21,6 +21,8 @@ import ..Geometry as G
 import ..ParameterHandler as PH
 using ..ParameterHandler  # brings SimConfig, TimeConfig into scope
 import ..Physics as P
+
+
 # FESpaceAssembly (build_fe_spaces, build_test/trial_fe_space)
 include("FESpaceAssembly.jl")
 using .FESpaceAssembly
@@ -29,6 +31,53 @@ const FA = FESpaceAssembly
 # FEOperators (FieldMap, assemble_*, detect_couplings)
 include("FEOperators.jl")
 using .FEOperators
+
+"""
+    HEFEM_Problem
+
+Container for all built entities in a simulation.
+
+# Fields
+- `geometry` — model and domain configuration
+- `triangulations` — mesh/triangulation objects
+- `integration_domains` — integration domains (measures, normals, etc.)
+- `entities` — list of physics entities
+- `fe_spaces` — finite element spaces (test/trial, field map, etc.)
+- `fe_operator` — assembled FE operator
+- `solver` — solver object
+"""
+struct HEFEM_Problem
+    model::DiscreteModel
+    triangulations::G.TankTriangulations
+    integration_domains::G.IntegrationDomains
+    entities::Vector{P.PhysicsParameters}  # physics entities (e.g. Membrane2D, FreeSurface, etc.)
+    test_fe_space::MultiFieldFESpace
+    trial_fe_space::MultiFieldFESpace
+    fe_operator::FEOperator
+    solver::FESolver
+end
+
+"""
+    build_problem(config, entities_trians...; dom, ...)
+
+Given a `SimConfig` and tuples of physics entities + triangulations,
+constructs the `HEFEM_Problem` by building FE spaces, assembling the FE operator, and building the solver.
+"""
+function build_problem(domain, physics::Vector{P.PhysicsParameters}; tconfig=nothing)
+    
+    # Build discrete model and triangulations from geometry
+    model = G.build_model(domain)
+    trians = G.build_triangulations(domain, model)
+    measures = G.get_integration_domains(trians, degree=2)
+
+    # Build FE spaces
+
+    # Build FE Operator
+
+    # Build solver
+
+end
+
 
 include("SimResult.jl")
 include("simulate.jl")
