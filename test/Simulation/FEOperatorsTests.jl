@@ -73,17 +73,17 @@ import HydroElasticFEM.Simulation.FEOperators as WF
   # Field mapping
   fmap = Dict(:ϕ => 1, :κ => 2, :η_m => 3)
 
-  dom = Geometry.IntegrationDomains(dΩ=dΩ, dΓ_fs=dΓfs, dΓ_s=dΓm,
-                                dΓ_in=dΓin, dΓ_ot=dΓot)
+  dom = Geometry.IntegrationDomains(dΩ=dΩ, dΓκ=dΓfs, dΓη=dΓm,
+                                dΓin=dΓin, dΓout=dΓot)
 
   # =========================================================================
   # Test IntegrationDomains + FieldMap construction
   # =========================================================================
 
   @testset "IntegrationDomains construction" begin
-    d = Geometry.IntegrationDomains(dΩ=dΩ, dΓ_s=dΓm)
+    d = Geometry.IntegrationDomains(dΩ=dΩ, dΓη=dΓm)
     @test d[:dΩ] === dΩ
-    @test haskey(d, :dΓ_s)
+    @test haskey(d, :dΓη)
     @test !haskey(d, :dΓ_fs)
   end
 

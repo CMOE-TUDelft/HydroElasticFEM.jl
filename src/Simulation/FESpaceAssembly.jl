@@ -15,6 +15,7 @@ using Gridap.FESpaces: ConstantFESpace, SingleFieldFESpace
 using Gridap.ODEs: TransientTrialFESpace, TransientMultiFieldFESpace
 
 import ...Physics as P
+import ...Geometry as G
 
 # ─────────────────────────────────────────────────────────────
 # Per-entity FE space construction (dispatched on entity type)
@@ -95,17 +96,16 @@ end
 # Main manager function
 # ─────────────────────────────────────────────────────────────
 
-"""
-    build_fe_spaces(pairs::Pair...) -> (X, Y, fmap)
 
-Build multi-field test and trial FE spaces from entity => triangulation
-pairs.  Automatically constructs per-entity spaces using each entity's
-`FESpaceConfig`, bundles them into `MultiFieldFESpace`, and builds the
-`FieldMap`-compatible field-index mapping.
+"""
+    build_fe_spaces(entities::Vector{P.PhysicsParameters}, trians::G.TankTriangulations; transient=false) -> (X, Y, fmap)
+
+Build multi-field test and trial FE spaces from a list of entities and a TankTriangulations dictionary.
+Each entity uses the triangulation from trians[entity.domain_symbol].
 
 # Arguments
-- `pairs`: sequence of `entity => triangulation`.  Entity may be any
-  `P.PhysicsParameters` subtype or a `Vector{P.ResonatorSingle}`.
+- `entities`: Vector of `P.PhysicsParameters` (or Vector{P.ResonatorSingle})
+- `trians`: `G.TankTriangulations` (dictionary-like)
 
 # Returns
 - `X::MultiFieldFESpace` — trial space
@@ -114,21 +114,18 @@ pairs.  Automatically constructs per-entity spaces using each entity's
 
 # Example
 ```julia
-X, Y, fmap = build_fe_spaces(
-    fluid => Ω,
-    fsurf => Γκ,
-    mem   => Γη,
-)
+X, Y, fmap = build_fe_spaces([fluid, fsurf, mem], trians)
 # fmap == Dict(:ϕ => 1, :κ => 2, :η_m => 3)
 ```
 """
-function build_fe_spaces(pairs::Pair...; transient::Bool=false)
+function build_fe_spaces(entities::Vector{<:P.PhysicsParameters}, trians::G.TankTriangulations; transient::Bool=false)
     test_spaces  = SingleFieldFESpace[]
     trial_spaces = SingleFieldFESpace[]
     fmap = Dict{Symbol, Int}()
     idx  = 0
 
-    for (entity, trian) in pairs
+    for entity in entities
+        trian = trians[entity.space_domain_symbol]
         if entity isa Vector{P.ResonatorSingle}
             Vs = build_test_fe_space(entity, trian)
             Us = build_trial_fe_space(entity, Vs; transient=transient)

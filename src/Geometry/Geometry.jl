@@ -60,12 +60,12 @@ changing this type.
 
 # Standard key conventions (not enforced)
 - `:dΩ`     — fluid interior measure
-- `:dΓ_fs`  — free-surface measure (outside structure)
-- `:dΓ_s`   — structure surface measure
-- `:dΛ_s`, `:n_Λ_s`, `:h_s` — beam skeleton measures/normals + mesh size
-- `:dΛ_sb`, `:n_Λ_sb`  — structure boundary (fixed BC Neumann)
-- `:dΓ_in`, `:dΓ_out`  — inlet / outlet radiation boundaries
-- `:dΓ_d_1`, `:dΓ_d_2` — damping zone measures
+- `:dΓκ`    — free-surface measure (outside structure)
+- `:dΓη`    — structure surface measure
+- `:dΛη`, `:n_Λη`, `:h_η` — beam skeleton measures/normals + mesh size
+- `:dΛηb`, `:n_Ληb`  — structure boundary (fixed BC Neumann)
+- `:dΓin`, `:dΓout`  — inlet / outlet radiation boundaries
+- `:dΓd_1`, `:dΓd_2` — damping zone measures
 - `:δ_p`    — vector of DiracDelta functionals (resonator points)
 """
 struct IntegrationDomains

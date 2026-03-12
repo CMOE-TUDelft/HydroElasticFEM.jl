@@ -20,7 +20,7 @@ function damping(pf::PotentialFlow, s::Structure, dom::IntegrationDomains, x_t, 
     η_sym = variable_symbol(s)
     ϕₜ = x_t[ϕ_sym];  ηₜ = x_t[η_sym]
     w  = y[ϕ_sym];     v  = y[η_sym]
-    ∫(v * ϕₜ - w * ηₜ)dom[:dΓ_s]
+    ∫(v * ϕₜ - w * ηₜ)dom[:dΓη]
 end
 
 # =========================================================================
@@ -44,7 +44,7 @@ function mass(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, x_tt,
     w    = y[ϕ_sym]
     βₕ   = fs.βₕ
     g    = fs.g
-    ∫((1 - βₕ) / g * w * ϕₜₜ)dom[:dΓ_fs]
+    ∫((1 - βₕ) / g * w * ϕₜₜ)dom[:dΓκ]
 end
 
 function damping(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, x_t, y)
@@ -55,7 +55,7 @@ function damping(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, x_
     w  = y[ϕ_sym]
     u  = y[κ_sym]
     βₕ = fs.βₕ
-    ∫(βₕ * u * ϕₜ - βₕ * w * κₜ)dom[:dΓ_fs]
+    ∫(βₕ * u * ϕₜ - βₕ * w * κₜ)dom[:dΓκ]
 end
 
 

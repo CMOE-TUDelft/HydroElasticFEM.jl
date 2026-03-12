@@ -71,8 +71,7 @@ include("FESpaceAssemblyTests.jl")
     coupling_pairs = SM.detect_couplings(entities)
     ω = 2.0
 
-    X, Y, fmap = FA.build_fe_spaces(
-        fluid => trian[:Ω], fsurf => trian[:Γκ], mem => trian[:Γη])
+    X, Y, fmap = FA.build_fe_spaces(entities, trian)
 
     # With explicit rhs_fn
     rhs_fn(y) = ∫(y[:ϕ] * 1.0)dΓin
@@ -104,8 +103,7 @@ include("FESpaceAssemblyTests.jl")
     entities = [fluid, fsurf, mem]
     coupling_pairs = SM.detect_couplings(entities)
 
-    X, Y, fmap = FA.build_fe_spaces(
-        fluid => trian[:Ω], fsurf => trian[:Γκ], mem => trian[:Γη]; transient=true)
+    X, Y, fmap = FA.build_fe_spaces(entities, trian; transient=true)
 
     # With explicit rhs_fn
     ω_f = 2.0
@@ -130,10 +128,8 @@ include("FESpaceAssemblyTests.jl")
     # Simple RHS: unit forcing on inlet
     rhs_fn(y) = ∫(y[:ϕ] * 1.0)dΓin
 
-    result = SM.simulate(config,
-        fluid => trian[:Ω],
-        fsurf => trian[:Γκ],
-        mem   => trian[:Γη];
+    entities = [fluid, fsurf, mem]
+    result = SM.simulate(config, entities, trian;
         dom=dom,
         rhs_fn=rhs_fn)
 
@@ -206,10 +202,9 @@ include("FESpaceAssemblyTests.jl")
     ω_f = 2.0
     rhs_fn(t, y) = ∫(y[:ϕ] * cos(ω_f * t))dΓin
 
-    result = SM.simulate(config, tconfig,
-        fluid => trian[:Ω],
-        fsurf => trian[:Γκ],
-        mem   => trian[:Γη];
+    entities = [fluid, fsurf, mem]
+
+    result = SM.simulate(config, tconfig, entities, trian;
         dom=dom,
         rhs_fn=rhs_fn)
 

@@ -2,15 +2,17 @@
 # Frequency-domain simulate
 # ─────────────────────────────────────────────────────────────
 
+
 """
-    simulate(config::SimConfig, entities_trians::Pair...;
+    simulate(config::SimConfig, entities, trians;
              dom::IntegrationDomains, couplings=nothing, rhs_fn=nothing)
 
 Run a **frequency-domain** simulation.
 
 # Arguments
 - `config::SimConfig` — must have `domain == :frequency` and `ω` set
-- `entities_trians::Pair...` — sequence of `entity => triangulation`
+- `entities` — vector of entities (PhysicsParameters or Vector{ResonatorSingle})
+- `trians` — `G.TankTriangulations`
 - `dom::IntegrationDomains` — integration measures/normals
 - `couplings` — optional explicit coupling pairs; auto-detected if `nothing`
 - `rhs_fn` — optional callable `rhs_fn(y::FieldMap) -> DomainContribution`;
@@ -19,14 +21,15 @@ Run a **frequency-domain** simulation.
 # Returns
 `SimResult` containing FE spaces, operator, and solution.
 """
-function simulate(config::SimConfig, entities_trians::Pair...;
+function simulate(config::SimConfig, 
+                  entities::Vector{<:P.PhysicsParameters}, 
+                  trians::G.TankTriangulations;
                   dom::G.IntegrationDomains,
                   couplings=nothing, rhs_fn=nothing)
     config.domain == :frequency ||
         throw(ArgumentError("Use the (config, tconfig, ...) method for time-domain"))
 
-    entities = [first(p) for p in entities_trians]
-    X, Y, fmap = FA.build_fe_spaces(entities_trians...)
+    X, Y, fmap = FA.build_fe_spaces(entities, trians)
 
     coupling_pairs = isnothing(couplings) ? detect_couplings(entities) : couplings
     ω = config.ω
@@ -44,8 +47,9 @@ end
 # Time-domain simulate
 # ─────────────────────────────────────────────────────────────
 
+
 """
-    simulate(config::SimConfig, tconfig::TimeConfig, entities_trians::Pair...;
+    simulate(config::SimConfig, tconfig::TimeConfig, entities, trians;
              dom::IntegrationDomains, couplings=nothing, rhs_fn=nothing)
 
 Run a **time-domain** simulation.
@@ -53,7 +57,8 @@ Run a **time-domain** simulation.
 # Arguments
 - `config::SimConfig` — must have `domain == :time`
 - `tconfig::TimeConfig` — time-stepping and initial-condition parameters
-- `entities_trians::Pair...` — sequence of `entity => triangulation`
+- `entities` — vector of entities (PhysicsParameters or Vector{ResonatorSingle})
+- `trians` — `G.TankTriangulations`
 - `dom::IntegrationDomains` — integration measures/normals
 - `couplings` — optional explicit coupling pairs; auto-detected if `nothing`
 - `rhs_fn` — optional callable `rhs_fn(t, y::FieldMap) -> DomainContribution`;
@@ -63,14 +68,14 @@ Run a **time-domain** simulation.
 `SimResult` containing FE spaces, transient operator, and ODE solution.
 """
 function simulate(config::SimConfig, tconfig::TimeConfig,
-                  entities_trians::Pair...;
+                  entities::Vector{<:P.PhysicsParameters}, 
+                  trians::G.TankTriangulations;
                   dom::G.IntegrationDomains,
                   couplings=nothing, rhs_fn=nothing)
     config.domain == :time ||
         throw(ArgumentError("Use the (config, ...) method for frequency-domain"))
 
-    entities = [first(p) for p in entities_trians]
-    X, Y, fmap = FA.build_fe_spaces(entities_trians...; transient=true)
+    X, Y, fmap = FA.build_fe_spaces(entities, trians; transient=true)
 
     coupling_pairs = isnothing(couplings) ? detect_couplings(entities) : couplings
 

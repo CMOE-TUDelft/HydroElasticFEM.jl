@@ -313,24 +313,24 @@ function get_integration_domains(tri::TankTriangulations; degree::Int=4)
     d[:dΩ]     = Measure(tri[:Ω], degree)
 
     # Free surface (outside structures and damping)
-    d[:dΓ_fs]  = Measure(tri[:Γfs], degree)
+    d[:dΓκ]  = Measure(tri[:Γκ], degree)
 
     # All-structure surface
-    d[:dΓ_s]   = Measure(tri[:Γη], degree)
+    d[:dΓη]   = Measure(tri[:Γη], degree)
 
     # Per-structure measures
     for (i, Γs) in enumerate(tri[:Γ_structures])
-        d[Symbol("dΓ_s_$i")] = Measure(Γs, degree)
+        d[Symbol("dΓη_$i")] = Measure(Γs, degree)
     end
 
     # Walls
-    d[:dΓ_in]  = Measure(tri[:Γin], degree)
-    d[:dΓ_out] = Measure(tri[:Γout], degree)
-    d[:dΓ_bot] = Measure(tri[:Γbot], degree)
+    d[:dΓin]  = Measure(tri[:Γin], degree)
+    d[:dΓout] = Measure(tri[:Γout], degree)
+    d[:dΓbot] = Measure(tri[:Γbot], degree)
 
     # Per-damping-zone measures (:dΓ_d_1, :dΓ_d_2, …)
     for (i, Γd) in enumerate(tri[:Γ_dampings])
-        d[Symbol("dΓ_d_$i")] = Measure(Γd, degree)
+        d[Symbol("dΓd_$i")] = Measure(Γd, degree)
     end
 
     return IntegrationDomains(d)

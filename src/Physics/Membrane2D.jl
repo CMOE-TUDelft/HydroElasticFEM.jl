@@ -19,7 +19,7 @@ Parameters for a 2D membrane model, normalised by fluid density ρw.
     τ::Float64     = 0.0
     g::Float64     = 9.81
     symbol::Symbol = :η_m
-    space_domain_symbol::Symbol = :Γ_s
+    space_domain_symbol::Symbol = :Γη
 
     # Derived quantities
     ωn1::Float64    = (π / L) * sqrt(Tᵨ / mᵨ)
@@ -45,7 +45,7 @@ function mass(s::Membrane2D, dom::IntegrationDomains, x_tt, y)
     sym = variable_symbol(s)
     ηₜₜ = x_tt[sym]
     v   = y[sym]
-    ∫(s.mᵨ * v * ηₜₜ)dom[:dΓ_s]
+    ∫(s.mᵨ * v * ηₜₜ)dom[:dΓη]
 end
 
 function damping(s::Membrane2D, dom::IntegrationDomains, x_t, y)
@@ -54,7 +54,7 @@ function damping(s::Membrane2D, dom::IntegrationDomains, x_t, y)
     v  = y[sym]
     Tᵨ = s.Tᵨ
     τ  = s.τ
-    val = ∫(Tᵨ * τ * ∇(v) ⋅ ∇(ηₜ))dom[:dΓ_s]
+    val = ∫(Tᵨ * τ * ∇(v) ⋅ ∇(ηₜ))dom[:dΓη]
     return val
 end
 
@@ -63,12 +63,12 @@ function stiffness(s::Membrane2D, dom::IntegrationDomains, x, y)
     η = x[sym]
     v = y[sym]
     Tᵨ = s.Tᵨ
-    val = ∫(v * (s.g * η) + Tᵨ * ∇(v) ⋅ ∇(η))dom[:dΓ_s]
+    val = ∫(v * (s.g * η) + Tᵨ * ∇(v) ⋅ ∇(η))dom[:dΓη]
     return val
 end
 
 function rhs(s::Membrane2D, dom::IntegrationDomains, f, y)
     sym = variable_symbol(s)
     v = y[sym]
-    ∫(v * f[sym])dom[:dΓ_s]
+    ∫(v * f[sym])dom[:dΓη]
 end

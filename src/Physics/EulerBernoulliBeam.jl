@@ -20,7 +20,7 @@ normalised by fluid density ρw.
     τ::Float64     = 0.0
     g::Float64     = 9.81
     symbol::Symbol = :η_b
-    space_domain_symbol::Symbol = :Γ_s
+    space_domain_symbol::Symbol = :Γη
 
     # Derived quantities
     ωn1::Float64   = 22.3733 * sqrt(EIᵨ / (mᵨ * L^4))
@@ -47,7 +47,7 @@ function mass(s::EulerBernoulliBeam, dom::IntegrationDomains, x_tt, y)
     sym = variable_symbol(s)
     ηₜₜ = x_tt[sym]
     v   = y[sym]
-    ∫(s.mᵨ * v * ηₜₜ)dom[:dΓ_s]
+    ∫(s.mᵨ * v * ηₜₜ)dom[:dΓη]
 end
 
 function damping(s::EulerBernoulliBeam, dom::IntegrationDomains, x_t, y)
@@ -57,14 +57,14 @@ function damping(s::EulerBernoulliBeam, dom::IntegrationDomains, x_t, y)
     EIᵨ = s.EIᵨ
     τ   = s.τ
     γ   = s.fe.γ
-    h   = dom[:h_s]
-    n_Λ = dom[:n_Λ_s]
+    h   = dom[:h_η]
+    n_Λ = dom[:n_Λ_η]
 
-    val = ∫(EIᵨ * τ * Δ(v) * Δ(ηₜ))dom[:dΓ_s] +
+    val = ∫(EIᵨ * τ * Δ(v) * Δ(ηₜ))dom[:dΓη] +
           ∫(EIᵨ * τ * (
               -jump(∇(v) ⋅ n_Λ) * mean(Δ(ηₜ))
               - mean(Δ(v)) * jump(∇(ηₜ) ⋅ n_Λ)
-              + (γ / h) * jump(∇(v) ⋅ n_Λ) * jump(∇(ηₜ) ⋅ n_Λ)))dom[:dΛ_s]
+              + (γ / h) * jump(∇(v) ⋅ n_Λ) * jump(∇(ηₜ) ⋅ n_Λ)))dom[:dΛη]
     return val
 end
 
@@ -74,19 +74,19 @@ function stiffness(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
     v = y[sym]
     EIᵨ = s.EIᵨ
     γ   = s.fe.γ
-    h   = dom[:h_s]
-    n_Λ = dom[:n_Λ_s]
+    h   = dom[:h_η]
+    n_Λ = dom[:n_Λ_η]
 
-    val = ∫(v * (s.g * η) + EIᵨ * Δ(v) * Δ(η))dom[:dΓ_s] +
+    val = ∫(v * (s.g * η) + EIᵨ * Δ(v) * Δ(η))dom[:dΓη] +
           ∫(EIᵨ * (
               -jump(∇(v) ⋅ n_Λ) * mean(Δ(η))
               - mean(Δ(v)) * jump(∇(η) ⋅ n_Λ)
-              + (γ / h) * jump(∇(v) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ)))dom[:dΛ_s]
+              + (γ / h) * jump(∇(v) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ)))dom[:dΛη]
     return val
 end
 
 function rhs(s::EulerBernoulliBeam, dom::IntegrationDomains, f, y)
     sym = variable_symbol(s)
     v = y[sym]
-    ∫(v * f[sym])dom[:dΓ_s]
+    ∫(v * f[sym])dom[:dΓη]
 end

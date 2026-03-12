@@ -149,15 +149,15 @@ end
 
   # Core keys present
   @test haskey(d, :dΩ)
-  @test haskey(d, :dΓ_fs)
-  @test haskey(d, :dΓ_s)
-  @test haskey(d, :dΓ_in)
-  @test haskey(d, :dΓ_out)
-  @test haskey(d, :dΓ_bot)
+  @test haskey(d, :dΓκ)
+  @test haskey(d, :dΓη)
+  @test haskey(d, :dΓin)
+  @test haskey(d, :dΓout)
+  @test haskey(d, :dΓbot)
 
   # Per-damping-zone keys
-  @test haskey(d, :dΓ_d_1)
-  @test haskey(d, :dΓ_d_2)
+  @test haskey(d, :dΓd_1)
+  @test haskey(d, :dΓd_2)
 
   # All values are Gridap Measures
   for v in values(d.data)

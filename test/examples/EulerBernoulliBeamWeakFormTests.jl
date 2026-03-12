@@ -35,10 +35,10 @@ import HydroElasticFEM.ParameterHandler as FES
     h = L / nel
 
     dom = D.IntegrationDomains(
-      dΓ_s   = Measure(Ω, 2 * order + 2),
-      dΛ_s   = Measure(Λ, 2 * order + 2),
-      n_Λ_s  = get_normal_vector(Λ),
-      h_s    = h,
+      dΓη    = Measure(Ω, 2 * order + 2),
+      dΛη    = Measure(Λ, 2 * order + 2),
+      n_Λ_η  = get_normal_vector(Λ),
+      h_η    = h,
       dΛ_sb  = Measure(Λb, 2 * order + 2),
       n_Λ_sb = get_normal_vector(Λb),
     )

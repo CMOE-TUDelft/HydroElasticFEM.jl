@@ -7,7 +7,7 @@ import HydroElasticFEM.Simulation.FESpaceAssembly as FEA
 import HydroElasticFEM.ParameterHandler as FES
 import HydroElasticFEM.Physics as P
 import HydroElasticFEM.Simulation.FEOperators as FO
-import HydroElasticFEM.Geometry as D
+import HydroElasticFEM.Geometry as G
 
 # =========================================================================
 # FESpaceAssembly tests
@@ -92,14 +92,12 @@ import HydroElasticFEM.Geometry as D
     Γκ  = Triangulation(Γ, findall(!, Γm_mask))
 
     fluid = P.PotentialFlow(ρw=1025.0, g=9.81, fe=FES.FESpaceConfig(order=order))
-    fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FES.FESpaceConfig(order=order))
-    mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order))
+    fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γκ)
+    mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γη)
 
-    X, Y, fmap = FEA.build_fe_spaces(
-        fluid => Ω,
-        fsurf => Γκ,
-        mem   => Γη,
-    )
+    trians = G.TankTriangulations(Dict(:Ω => Ω, :Γκ => Γκ, :Γη => Γη))
+
+    X, Y, fmap = FEA.build_fe_spaces([fluid, fsurf, mem], trians)
 
     # Check fmap
     @test fmap[:ϕ] == 1
@@ -123,9 +121,12 @@ import HydroElasticFEM.Geometry as D
                                 fe=FES.FESpaceConfig(order=2,
                                                      vector_type=Vector{Float64},
                                                      dirichlet_tags="boundary",
-                                                     dirichlet_value=0.0))
+                                                     dirichlet_value=0.0),
+                                space_domain_symbol=:Ω)
 
-    X, Y, fmap = FEA.build_fe_spaces(beam => model)
+    
+    trians = G.TankTriangulations(Dict(:Ω => Interior(model)))
+    X, Y, fmap = FEA.build_fe_spaces([beam], trians)
 
     @test fmap[:η_b] == 1
     @test length(fmap) == 1
@@ -165,21 +166,18 @@ import HydroElasticFEM.Geometry as D
     degree = 2 * order
 
     fluid = P.PotentialFlow(ρw=1025.0, g=9.81, fe=FES.FESpaceConfig(order=order))
-    fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FES.FESpaceConfig(order=order))
-    mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order))
+    fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γκ)
+    mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γη)
 
-    X, Y, fmap = FEA.build_fe_spaces(
-        fluid => Ω,
-        fsurf => Γκ,
-        mem   => Γη,
-    )
+    trians = G.TankTriangulations(Dict(:Ω => Ω, :Γκ => Γκ, :Γη => Γη))
+    X, Y, fmap = FEA.build_fe_spaces([fluid, fsurf, mem], trians)
 
     dΩ   = Measure(Ω, degree)
     dΓm  = Measure(Γm, degree)
     dΓfs = Measure(Γfs, degree)
     dΓin = Measure(Γin, degree)
 
-    dom = D.IntegrationDomains(dΩ=dΩ, dΓ_fs=dΓfs, dΓ_s=dΓm, dΓ_in=dΓin)
+    dom = G.IntegrationDomains(dΩ=dΩ, dΓκ=dΓfs, dΓη=dΓm, dΓin=dΓin)
 
     ω = 2.0
 
