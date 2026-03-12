@@ -8,7 +8,7 @@ import HydroElasticFEM.Physics as P
     L=20.0, mᵨ=192.956/ρw, EIᵨ=EIᵨ, τ=0.0)
   @test beam.EIᵨ ≈ EIᵨ
   @test beam.ωn1 ≈ 22.3733 * sqrt(EIᵨ / ((192.956/ρw) * 20.0^4))
-  @test beam isa P.PhysicsParameters
+  @test beam isa P.Structure
 
   # Defaults: τ and bndType default, derived fields auto-computed
   beam_def = P.EulerBernoulliBeam(L=20.0, mᵨ=192.956/ρw, EIᵨ=EIᵨ)

@@ -10,7 +10,7 @@ import HydroElasticFEM.Physics as P
   @test mem.Tᵨ == 98.1
   @test mem.τ == 0.0
   @test mem.ωn1 ≈ (π / 20.0) * sqrt(98.1 / (922.5 / ρw))
-  @test mem isa P.PhysicsParameters
+  @test mem isa P.Structure
 
   # Defaults: τ and bndType default, derived fields auto-computed
   mem_def = P.Membrane2D(L=20.0, mᵨ=922.5/ρw, Tᵨ=98.1)

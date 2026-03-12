@@ -13,9 +13,9 @@
 # =========================================================================
 
 # Fluid-structure coupling only contributes through damping terms.
-has_damping_form(::PotentialFlow, ::PhysicsParameters) = true
+has_damping_form(::PotentialFlow, ::Structure) = true
 
-function damping(pf::PotentialFlow, s::PhysicsParameters, dom::IntegrationDomains, x_t, y)
+function damping(pf::PotentialFlow, s::Structure, dom::IntegrationDomains, x_t, y)
     ϕ_sym = variable_symbol(pf)
     η_sym = variable_symbol(s)
     ϕₜ = x_t[ϕ_sym];  ηₜ = x_t[η_sym]
@@ -67,10 +67,10 @@ end
 # =========================================================================
 
 # Resonator-structure coupling has damping and stiffness terms only.
-has_damping_form(::Vector{ResonatorSingle}, ::PhysicsParameters) = true
-has_stiffness_form(::Vector{ResonatorSingle}, ::PhysicsParameters) = true
+has_damping_form(::Vector{ResonatorSingle}, ::Structure) = true
+has_stiffness_form(::Vector{ResonatorSingle}, ::Structure) = true
 
-function damping(resn::Vector{ResonatorSingle}, s::PhysicsParameters,
+function damping(resn::Vector{ResonatorSingle}, s::Structure,
                  dom::IntegrationDomains, x_t, y)
     δ_p   = dom[:δ_p]
     η_sym = variable_symbol(s)
@@ -91,7 +91,7 @@ function damping(resn::Vector{ResonatorSingle}, s::PhysicsParameters,
     return val
 end
 
-function stiffness(resn::Vector{ResonatorSingle}, s::PhysicsParameters,
+function stiffness(resn::Vector{ResonatorSingle}, s::Structure,
                    dom::IntegrationDomains, x, y)
     δ_p   = dom[:δ_p]
     η_sym = variable_symbol(s)

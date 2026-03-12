@@ -30,6 +30,8 @@ Abstract base type for all physics parameter structures.
 """
 abstract type PhysicsParameters end
 
+abstract type Structure <:PhysicsParameters end
+
 """
     print_parameters(params::PhysicsParameters)
 
