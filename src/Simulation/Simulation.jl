@@ -71,10 +71,15 @@ function build_problem(domain, physics::Vector{P.PhysicsParameters}; tconfig=not
     measures = G.get_integration_domains(trians, degree=2)
 
     # Build FE spaces
+    X, Y, fmap = FA.build_fe_spaces(physics, trians; transient=!isnothing(tconfig))
 
     # Build FE Operator
+    op = build_fe_operator(physics, measures, fmap, X, Y)
 
     # Build solver
+    solver = LUSolver()
+
+    HEFEM_Problem(model, trians, measures, physics, Y, X, op, solver)
 
 end
 

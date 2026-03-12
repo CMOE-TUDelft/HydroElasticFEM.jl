@@ -317,8 +317,7 @@ end
 Build a **time-domain** `TransientLinearFEOperator`.
 
 # Arguments
-- `entities` — physics entities
-- `coupling_pairs` — coupling pairs (from `detect_couplings`)
+- `entities::Vector{<:P.PhysicsParameters}` — physics entities
 - `dom::IntegrationDomains` — integration measures/normals
 - `fmap::Dict{Symbol,Int}` — field-symbol to positional-index map
 - `X` — trial multi-field FE space (transient)
@@ -326,10 +325,13 @@ Build a **time-domain** `TransientLinearFEOperator`.
 - `rhs_fn` — optional callable `rhs_fn(t, y::FieldMap) -> DomainContribution`;
   if `nothing`, uses zero right-hand side (requires `:dΩ` in `dom`)
 """
-function build_fe_operator(entities, coupling_pairs,
+function build_fe_operator(entities::Vector{<:P.PhysicsParameters},
                            dom::G.IntegrationDomains,
                            fmap::Dict{Symbol,Int}, X, Y;
                            rhs_fn=nothing)
+
+    coupling_pairs = detect_couplings(entities)
+
     a(t, x, y)    = _assemble_form(P.stiffness, P.has_stiffness_form,
                                     entities, coupling_pairs, dom, fmap, x, y)
     c(t, x_t, y)  = _assemble_form(P.damping, P.has_damping_form,
