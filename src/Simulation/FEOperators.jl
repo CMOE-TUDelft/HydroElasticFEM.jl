@@ -12,12 +12,12 @@ by the `simulate` orchestrator.
 
 All concrete methods (`mass`, `damping`, `stiffness`, `rhs`,
 `weakform`, `residual`, `jacobian`, `jacobian_t`, `jacobian_tt`)
-are defined in Entities (inside each entity file);
+are defined in Physics (inside each entity file);
 this module only provides composition logic and the field mapping.
 """
 module FEOperators
 
-import ...PhysicsCore.Entities as E
+import ...Physics as P
 import ...Geometry as G
 
 using Gridap
@@ -72,10 +72,10 @@ function _assemble_active(f, has_form, terms, args...)
 end
 
 _has_weakform(term) =
-    E.has_mass_form(term) || E.has_damping_form(term) || E.has_stiffness_form(term)
+    P.has_mass_form(term) || P.has_damping_form(term) || P.has_stiffness_form(term)
 _has_weakform(a, b) =
-    E.has_mass_form(a, b) || E.has_damping_form(a, b) || E.has_stiffness_form(a, b)
-_has_residual(term) = _has_weakform(term) || E.has_rhs_form(term)
+    P.has_mass_form(a, b) || P.has_damping_form(a, b) || P.has_stiffness_form(a, b)
+_has_residual(term) = _has_weakform(term) || P.has_rhs_form(term)
 
 # ─────────────────────────────────────────────────────────────
 # Coupling detection
@@ -96,8 +96,8 @@ function detect_couplings(entities)
     for (i, ea) in enumerate(entities)
         for (j, eb) in enumerate(entities)
             i == j && continue
-            if (E.has_mass_form(ea, eb) || E.has_damping_form(ea, eb) ||
-                E.has_stiffness_form(ea, eb) || E.has_rhs_form(ea, eb))
+            if (P.has_mass_form(ea, eb) || P.has_damping_form(ea, eb) ||
+                P.has_stiffness_form(ea, eb) || P.has_rhs_form(ea, eb))
                 push!(pairs, (ea, eb))
             end
         end
@@ -137,12 +137,12 @@ function _assemble_bilinear(entities, coupling_pairs, dom, ω, fmap, x, y)
     val = nothing
     for e in entities
         if _has_weakform(e)
-            val = _add(val, E.weakform(e, dom, ω, xd, yd))
+            val = _add(val, P.weakform(e, dom, ω, xd, yd))
         end
     end
     for (ea, eb) in coupling_pairs
         if _has_weakform(ea, eb)
-            val = _add(val, E.weakform(ea, eb, dom, ω, xd, yd))
+            val = _add(val, P.weakform(ea, eb, dom, ω, xd, yd))
         end
     end
     isnothing(val) && error("No active weak form contributions found")
@@ -162,7 +162,7 @@ wrapping the raw tuples with `fmap`.
 function assemble_mass(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol,Int}, x_tt, y)
     xd = _wrap(x_tt, fmap)
     yd = _wrap(y, fmap)
-    _assemble_active(E.mass, E.has_mass_form, terms, dom, xd, yd)
+    _assemble_active(P.mass, P.has_mass_form, terms, dom, xd, yd)
 end
 
 """
@@ -173,7 +173,7 @@ Sum `damping(term, dom, x_t, y)` over all `terms`.
 function assemble_damping(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol,Int}, x_t, y)
     xd = _wrap(x_t, fmap)
     yd = _wrap(y, fmap)
-    _assemble_active(E.damping, E.has_damping_form, terms, dom, xd, yd)
+    _assemble_active(P.damping, P.has_damping_form, terms, dom, xd, yd)
 end
 
 """
@@ -184,7 +184,7 @@ Sum `stiffness(term, dom, x, y)` over all `terms`.
 function assemble_stiffness(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol,Int}, x, y)
     xd = _wrap(x, fmap)
     yd = _wrap(y, fmap)
-    _assemble_active(E.stiffness, E.has_stiffness_form, terms, dom, xd, yd)
+    _assemble_active(P.stiffness, P.has_stiffness_form, terms, dom, xd, yd)
 end
 
 """
@@ -195,7 +195,7 @@ Sum `rhs(term, dom, f, y)` over all `terms`.
 function assemble_rhs(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol,Int}, f, y)
     fd = _wrap(f, fmap)
     yd = _wrap(y, fmap)
-    _assemble_active(E.rhs, E.has_rhs_form, terms, dom, fd, yd)
+    _assemble_active(P.rhs, P.has_rhs_form, terms, dom, fd, yd)
 end
 
 # ─────────────────────────────────────────────────────────────
@@ -211,7 +211,7 @@ wrapping the raw tuples with `fmap`.
 function assemble_weakform(terms, dom::G.IntegrationDomains, ω, fmap::Dict{Symbol,Int}, x, y)
     xd = _wrap(x, fmap)
     yd = _wrap(y, fmap)
-    _assemble_active(E.weakform, _has_weakform, terms, dom, ω, xd, yd)
+    _assemble_active(P.weakform, _has_weakform, terms, dom, ω, xd, yd)
 end
 
 # ─────────────────────────────────────────────────────────────
@@ -330,11 +330,11 @@ function build_fe_operator(entities, coupling_pairs,
                            dom::G.IntegrationDomains,
                            fmap::Dict{Symbol,Int}, X, Y;
                            rhs_fn=nothing)
-    a(t, x, y)    = _assemble_form(E.stiffness, E.has_stiffness_form,
+    a(t, x, y)    = _assemble_form(P.stiffness, P.has_stiffness_form,
                                     entities, coupling_pairs, dom, fmap, x, y)
-    c(t, x_t, y)  = _assemble_form(E.damping, E.has_damping_form,
+    c(t, x_t, y)  = _assemble_form(P.damping, P.has_damping_form,
                                     entities, coupling_pairs, dom, fmap, x_t, y)
-    m(t, x_tt, y) = _assemble_form(E.mass, E.has_mass_form,
+    m(t, x_tt, y) = _assemble_form(P.mass, P.has_mass_form,
                                     entities, coupling_pairs, dom, fmap, x_tt, y)
 
     l = if rhs_fn !== nothing

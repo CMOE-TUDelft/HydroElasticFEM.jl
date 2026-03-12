@@ -3,9 +3,9 @@ using Gridap.Geometry
 using Gridap.CellData
 using SparseArrays
 
-import HydroElasticFEM.PhysicsCore.FESpaceAssembly as FEA
+import HydroElasticFEM.Physics.FESpaceAssembly as FEA
 import HydroElasticFEM.ParameterHandler as FES
-import HydroElasticFEM.PhysicsCore.Entities as E
+import HydroElasticFEM.Physics as P
 import HydroElasticFEM.Simulation.FEOperators as FO
 import HydroElasticFEM.Geometry as D
 
@@ -45,22 +45,22 @@ import HydroElasticFEM.Geometry as D
   # -----------------------------------------------------------------------
 
   @testset "Entity fe field defaults" begin
-    fluid = E.PotentialFlow(ρw=1025.0, g=9.81)
+    fluid = P.PotentialFlow(ρw=1025.0, g=9.81)
     @test fluid.fe.order == 1
 
-    fsurf = E.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5)
+    fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5)
     @test fsurf.fe.order == 1
 
-    mem = E.Membrane2D(L=20.0, mᵨ=1.0, Tᵨ=100.0)
+    mem = P.Membrane2D(L=20.0, mᵨ=1.0, Tᵨ=100.0)
     @test mem.fe.order == 1
 
-    beam = E.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0)
+    beam = P.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0)
     @test beam.fe.order == 1
     @test beam.fe.γ == 10.0
   end
 
   @testset "Entity fe field overrides" begin
-    beam = E.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0,
+    beam = P.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0,
                                 fe=FES.FESpaceConfig(order=2))
     @test beam.fe.order == 2
     @test beam.fe.γ == 40.0
@@ -91,9 +91,9 @@ import HydroElasticFEM.Geometry as D
     Γη  = Triangulation(Γ, findall(Γm_mask))
     Γκ  = Triangulation(Γ, findall(!, Γm_mask))
 
-    fluid = E.PotentialFlow(ρw=1025.0, g=9.81, fe=FES.FESpaceConfig(order=order))
-    fsurf = E.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FES.FESpaceConfig(order=order))
-    mem   = E.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order))
+    fluid = P.PotentialFlow(ρw=1025.0, g=9.81, fe=FES.FESpaceConfig(order=order))
+    fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FES.FESpaceConfig(order=order))
+    mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order))
 
     X, Y, fmap = FEA.build_fe_spaces(
         fluid => Ω,
@@ -119,7 +119,7 @@ import HydroElasticFEM.Geometry as D
   @testset "build_fe_spaces — beam with Dirichlet" begin
     model = CartesianDiscreteModel((0, 1.0), (20,))
 
-    beam = E.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0, g=0.0,
+    beam = P.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0, g=0.0,
                                 fe=FES.FESpaceConfig(order=2,
                                                      vector_type=Vector{Float64},
                                                      dirichlet_tags="boundary",
@@ -164,9 +164,9 @@ import HydroElasticFEM.Geometry as D
 
     degree = 2 * order
 
-    fluid = E.PotentialFlow(ρw=1025.0, g=9.81, fe=FES.FESpaceConfig(order=order))
-    fsurf = E.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FES.FESpaceConfig(order=order))
-    mem   = E.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order))
+    fluid = P.PotentialFlow(ρw=1025.0, g=9.81, fe=FES.FESpaceConfig(order=order))
+    fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FES.FESpaceConfig(order=order))
+    mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order))
 
     X, Y, fmap = FEA.build_fe_spaces(
         fluid => Ω,
@@ -186,11 +186,11 @@ import HydroElasticFEM.Geometry as D
     a((ϕ,κ,η),(w,u,v)) = begin
       xd = FO.FieldMap((ϕ,κ,η), fmap)
       yd = FO.FieldMap((w,u,v), fmap)
-      E.weakform(fluid, dom, ω, xd, yd) +
-      E.weakform(fsurf, dom, ω, xd, yd) +
-      E.weakform(mem, dom, ω, xd, yd) +
-      E.weakform(fluid, fsurf, dom, ω, xd, yd) +
-      E.weakform(fluid, mem, dom, ω, xd, yd)
+      P.weakform(fluid, dom, ω, xd, yd) +
+      P.weakform(fsurf, dom, ω, xd, yd) +
+      P.weakform(mem, dom, ω, xd, yd) +
+      P.weakform(fluid, fsurf, dom, ω, xd, yd) +
+      P.weakform(fluid, mem, dom, ω, xd, yd)
     end
 
     l((w,u,v)) = ∫(0.0 * w)dΓin

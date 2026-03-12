@@ -1,5 +1,5 @@
 """
-    module Entities
+     module Physics
 
 Unified type hierarchy for all physical entities in HydroElasticFEM.
 
@@ -11,13 +11,13 @@ Each entity file may define any subset of `mass`, `damping`,
 Generic composed forms (`weakform`, `residual`, `jacobian`, ...)
 are defined at module level and dispatch to the linear forms.
 """
-module Entities
+module Physics
 
 using Parameters
-using Gridap
 using Printf
-using ...Geometry
-using ...ParameterHandler
+using Gridap
+using ..Geometry
+using ..ParameterHandler
 
 # ─────────────────────────────────────────────────────────────
 # Abstract base
@@ -120,8 +120,6 @@ _require_nonempty(val, kind, obj) =
 # ─────────────────────────────────────────────────────────────
 # Structural entities
 # ─────────────────────────────────────────────────────────────
-
-abstract type AbstractStructure <: PhysicsParameters end
 
 # Entity files (struct definition + single-variable weak forms)
 include("PotentialFlow.jl")
@@ -257,10 +255,11 @@ jacobian_tt(a, b, dom::IntegrationDomains, x, x_t, dx_tt, y) =
 # Exports
 # ─────────────────────────────────────────────────────────────
 
-export PhysicsParameters, print_parameters
+export PhysicsParameters, print_parameters, variable_symbol
 export mass, damping, stiffness, rhs
-export weak_form, residual, jacobian, jacobian_t, jacobian_tt
-export AbstractStructure, PotentialFlow, FreeSurface, Membrane2D, EulerBernoulliBeam
-export ResonatorSingle, resonator_array
+export has_mass_form, has_damping_form, has_stiffness_form, has_rhs_form
+export weakform, residual, jacobian, jacobian_t, jacobian_tt
+export PotentialFlow, FreeSurface, Membrane2D, EulerBernoulliBeam, Resonator
+export CouplingTerms
 
-end # module Entities
+end # module Physics

@@ -20,7 +20,7 @@ using Gridap.ODEs
 import ..Geometry as G
 import ..ParameterHandler as PH
 using ..ParameterHandler  # brings SimConfig, TimeConfig into scope
-import ..PhysicsCore.Entities as E
+import ..Physics as P
 # FESpaceAssembly (build_fe_spaces, build_test/trial_fe_space)
 include("FESpaceAssembly.jl")
 using .FESpaceAssembly

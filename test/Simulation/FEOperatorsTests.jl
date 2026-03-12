@@ -3,7 +3,7 @@ using Gridap.Geometry
 using Gridap.CellData
 using SparseArrays
 
-import HydroElasticFEM.PhysicsCore.Entities as Entities
+import HydroElasticFEM.Physics as Physics
 import HydroElasticFEM.Geometry as Geometry
 import HydroElasticFEM.Simulation.FEOperators as WF
 
@@ -66,9 +66,9 @@ import HydroElasticFEM.Simulation.FEOperators as WF
   βₕ  = 0.5
 
   # Physics entities
-  fluid = Entities.PotentialFlow(ρw=ρw, g=g_)
-  fsurf = Entities.FreeSurface(ρw=ρw, g=g_, βₕ=βₕ)
-  mem   = Entities.Membrane2D(L=20.0, mᵨ=922.5/ρw, Tᵨ=98.1, g=g_)
+  fluid = Physics.PotentialFlow(ρw=ρw, g=g_)
+  fsurf = Physics.FreeSurface(ρw=ρw, g=g_, βₕ=βₕ)
+  mem   = Physics.Membrane2D(L=20.0, mᵨ=922.5/ρw, Tᵨ=98.1, g=g_)
 
   # Field mapping
   fmap = Dict(:ϕ => 1, :κ => 2, :η_m => 3)
@@ -97,11 +97,11 @@ import HydroElasticFEM.Simulation.FEOperators as WF
   end
 
   @testset "variable_symbol dispatch" begin
-    @test Entities.variable_symbol(fluid) == :ϕ
-    @test Entities.variable_symbol(fsurf) == :κ
-    @test Entities.variable_symbol(mem) == :η_m
-    beam = Entities.EulerBernoulliBeam(L=20.0, mᵨ=922.5/ρw, EIᵨ=1e9*1e-4/ρw)
-    @test Entities.variable_symbol(beam) == :η_b
+    @test Physics.variable_symbol(fluid) == :ϕ
+    @test Physics.variable_symbol(fsurf) == :κ
+    @test Physics.variable_symbol(mem) == :η_m
+    beam = Physics.EulerBernoulliBeam(L=20.0, mᵨ=922.5/ρw, EIᵨ=1e9*1e-4/ρw)
+    @test Physics.variable_symbol(beam) == :η_b
   end
 
   # =========================================================================
@@ -114,7 +114,7 @@ import HydroElasticFEM.Simulation.FEOperators as WF
     a_mass((ϕ,κ,η),(w,u,v)) = begin
       xd = WF.FieldMap((ϕ,κ,η), fmap)
       yd = WF.FieldMap((w,u,v), fmap)
-      ∫(∇(w) ⋅ ∇(ϕ))dΩ + Entities.mass(mem, dom, xd, yd)
+      ∫(∇(w) ⋅ ∇(ϕ))dΩ + Physics.mass(mem, dom, xd, yd)
     end
     op_m = AffineFEOperator(a_mass, l, X, Y)
     @test nnz(get_matrix(op_m)) > 0
@@ -122,7 +122,7 @@ import HydroElasticFEM.Simulation.FEOperators as WF
     a_stiff((ϕ,κ,η),(w,u,v)) = begin
       xd = WF.FieldMap((ϕ,κ,η), fmap)
       yd = WF.FieldMap((w,u,v), fmap)
-      ∫(∇(w) ⋅ ∇(ϕ))dΩ + Entities.stiffness(mem, dom, xd, yd)
+      ∫(∇(w) ⋅ ∇(ϕ))dΩ + Physics.stiffness(mem, dom, xd, yd)
     end
     op_k = AffineFEOperator(a_stiff, l, X, Y)
     @test nnz(get_matrix(op_k)) > 0
@@ -138,7 +138,7 @@ import HydroElasticFEM.Simulation.FEOperators as WF
     a_fluid((ϕ,κ,η),(w,u,v)) = begin
       xd = WF.FieldMap((ϕ,κ,η), fmap)
       yd = WF.FieldMap((w,u,v), fmap)
-      Entities.stiffness(fluid, dom, xd, yd)
+      Physics.stiffness(fluid, dom, xd, yd)
     end
     op = AffineFEOperator(a_fluid, l, X, Y)
     @test nnz(get_matrix(op)) > 0
@@ -154,7 +154,7 @@ import HydroElasticFEM.Simulation.FEOperators as WF
     a_coupling((ϕ,κ,η),(w,u,v)) = begin
       xd = WF.FieldMap((ϕ,κ,η), fmap)
       yd = WF.FieldMap((w,u,v), fmap)
-      ∫(∇(w) ⋅ ∇(ϕ))dΩ + Entities.damping(fluid, mem, dom, xd, yd)
+      ∫(∇(w) ⋅ ∇(ϕ))dΩ + Physics.damping(fluid, mem, dom, xd, yd)
     end
     op = AffineFEOperator(a_coupling, l, X, Y)
     @test nnz(get_matrix(op)) > 0
@@ -171,12 +171,12 @@ import HydroElasticFEM.Simulation.FEOperators as WF
       xd = WF.FieldMap((ϕ,κ,η), fmap)
       yd = WF.FieldMap((w,u,v), fmap)
       # single-variable
-      Entities.weakform(fluid, dom, ω, xd, yd) +
-      Entities.weakform(fsurf, dom, ω, xd, yd) +
-      Entities.weakform(mem, dom, ω, xd, yd) +
+      Physics.weakform(fluid, dom, ω, xd, yd) +
+      Physics.weakform(fsurf, dom, ω, xd, yd) +
+      Physics.weakform(mem, dom, ω, xd, yd) +
       # coupling
-      Entities.weakform(fluid, fsurf, dom, ω, xd, yd) +
-      Entities.weakform(fluid, mem, dom, ω, xd, yd)
+      Physics.weakform(fluid, fsurf, dom, ω, xd, yd) +
+      Physics.weakform(fluid, mem, dom, ω, xd, yd)
     end
 
     op = AffineFEOperator(a, l, X, Y)
@@ -194,7 +194,7 @@ import HydroElasticFEM.Simulation.FEOperators as WF
 
     a((ϕ,κ,η),(w,u,v)) =
       WF.assemble_weakform(terms, dom, ω, fmap, (ϕ,κ,η), (w,u,v)) +
-      Entities.weakform(fluid, fsurf, dom, ω,
+      Physics.weakform(fluid, fsurf, dom, ω,
                WF.FieldMap((ϕ,κ,η), fmap), WF.FieldMap((w,u,v), fmap))
 
     l((w,u,v)) = ∫(0.0 * w)dΓin

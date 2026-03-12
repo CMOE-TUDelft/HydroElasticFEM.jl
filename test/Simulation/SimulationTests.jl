@@ -4,7 +4,7 @@ using Gridap.CellData
 
 import HydroElasticFEM.Simulation as SM
 import HydroElasticFEM.Simulation.FEOperators as FO
-import HydroElasticFEM.PhysicsCore.Entities as E
+import HydroElasticFEM.Physics as P
 import HydroElasticFEM.ParameterHandler as FES
 import HydroElasticFEM.Simulation.FESpaceAssembly as FA
 import HydroElasticFEM.Geometry as G
@@ -33,11 +33,11 @@ include("FESpaceAssemblyTests.jl")
   dΓin = Measure(tri.Γin, 2*order)
   dΩ   = Measure(tri.Ω, 2*order)
 
-  fluid = E.PotentialFlow(ρw=1025.0, g=9.81,
+  fluid = P.PotentialFlow(ρw=1025.0, g=9.81,
       fe=FES.FESpaceConfig(order=order))
-  fsurf = E.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5,
+  fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5,
       fe=FES.FESpaceConfig(order=order))
-  mem   = E.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1,
+  mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1,
       fe=FES.FESpaceConfig(order=order))
 
   # =========================================================================
@@ -51,7 +51,7 @@ include("FESpaceAssemblyTests.jl")
     # PotentialFlow ↔ FreeSurface: has mass and damping coupling
     @test (fluid, fsurf) in pairs
 
-    # PotentialFlow ↔ Membrane2D (AbstractStructure): has damping coupling
+    # PotentialFlow ↔ Membrane2D (PhysicsParameters): has damping coupling
     @test (fluid, mem) in pairs
 
     # No self-coupling

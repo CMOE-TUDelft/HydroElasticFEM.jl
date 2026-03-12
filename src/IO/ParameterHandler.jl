@@ -12,7 +12,7 @@ consumed by other modules:
 - **`TimeConfig`** — time-domain integration parameters (time step, final time,
   initial conditions, spectral radius).
 
-Loaded early in the module dependency chain so that both `PhysicsCore`
+Loaded early in the module dependency chain so that both `Physics`
 (entities) and `Simulation` can depend on these types.
 """
 module ParameterHandler

@@ -10,9 +10,9 @@ module HydroElasticFEM
   include(joinpath(@__DIR__, "Geometry", "Geometry.jl"))
   using .Geometry
 
-  # PhysicsCore (new canonical types)
-  include(joinpath(@__DIR__, "PhysicsCore", "PhysicsCore.jl"))
-  using .PhysicsCore
+  # Physics (new canonical types)
+  include(joinpath(@__DIR__, "Physics", "Physics.jl"))
+  using .Physics
 
   # Simulation (simulation orchestrator)
   include(joinpath(@__DIR__, "Simulation", "Simulation.jl"))
@@ -35,10 +35,10 @@ module HydroElasticFEM
   # print_properties()
   # map_vertical_GP_for_const_dep()
 
-  # Re-export PhysicsCore public API
+  # Re-export Physics public API
   export PhysicsParameters, print_parameters
   export BoundaryCondition, FreeBoundary, FixedBoundary
-  export AbstractStructure, PotentialFlow, FreeSurface, Membrane2D, EulerBernoulliBeam
+  export PotentialFlow, FreeSurface, Membrane2D, EulerBernoulliBeam
   export ResonatorSingle, resonator_array
   export IntegrationDomains
 

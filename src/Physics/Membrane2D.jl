@@ -1,5 +1,5 @@
 """
-    Membrane2D <: AbstractStructure
+    Membrane2D <: PhysicsParameters
 
 Parameters for a 2D membrane model, normalised by fluid density ρw.
 
@@ -12,7 +12,7 @@ Parameters for a 2D membrane model, normalised by fluid density ρw.
 - `bndType::BoundaryCondition` — Boundary Type
 - `ωn1::Float64`  — Dry Analytical Natural frequency (derived: `(π/L) * √(Tᵨ/mᵨ)`)
 """
-@with_kw struct Membrane2D <: AbstractStructure
+@with_kw struct Membrane2D <: PhysicsParameters
     L::Float64
     mᵨ::Float64
     Tᵨ::Float64

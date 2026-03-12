@@ -20,10 +20,10 @@ using Test
   include("Geometry/GeometryTests.jl")
 
   # ==========================================================================
-  # PhysicsCore
+  # Physics
   # ==========================================================================
 
-  include("PhysicsCore/PhysicsCoreTests.jl")
+  include("Physics/PhysicsTests.jl")
 
   # ==========================================================================
   # Simulation

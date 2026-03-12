@@ -5,7 +5,7 @@ using Gridap.Geometry
 using Gridap.CellData
 using Gridap.FESpaces
 
-import HydroElasticFEM.PhysicsCore.Entities as E
+import HydroElasticFEM.Physics as P
 import HydroElasticFEM.Geometry as D
 import HydroElasticFEM.Simulation.FEOperators as FO
 import HydroElasticFEM.Simulation.FESpaceAssembly as FEA
@@ -62,14 +62,14 @@ import HydroElasticFEM.ParameterHandler as FES
 
   function solve_beam(beam, nel, order, q)
     prob = build_beam_problem(L=beam.L, nel=nel, order=order)
-    sym  = E.variable_symbol(beam)
+    sym  = P.variable_symbol(beam)
     fmap = Dict(sym => 1)
 
-    a((u,), (v,)) = E.stiffness(beam, prob.dom,
+    a((u,), (v,)) = P.stiffness(beam, prob.dom,
                                FO.FieldMap((u,), fmap), FO.FieldMap((v,), fmap))
 
     src(x) = q
-    l((v,)) = E.rhs(beam, prob.dom,
+    l((v,)) = P.rhs(beam, prob.dom,
                    FO.FieldMap((src,), fmap), FO.FieldMap((v,), fmap))
 
     op = AffineFEOperator(a, l, prob.X, prob.Y)
@@ -93,7 +93,7 @@ import HydroElasticFEM.ParameterHandler as FES
     EIᵨ = 100.0
     q   = 1.0
 
-    beam = E.EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
+    beam = P.EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
                               fe=FES.FESpaceConfig(order=2, vector_type=Vector{Float64}))
 
     w_exact_max = 5 * q * L^4 / (384 * EIᵨ)
@@ -126,7 +126,7 @@ import HydroElasticFEM.ParameterHandler as FES
     EIᵨ = 100.0
     q   = 1.0
 
-    beam = E.EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
+    beam = P.EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
                               fe=FES.FESpaceConfig(order=2, vector_type=Vector{Float64}))
 
     w_exact_max = q * L^4 / (384 * EIᵨ)
@@ -156,11 +156,11 @@ import HydroElasticFEM.ParameterHandler as FES
   @testset "Deflection scaling with L and EIᵨ" begin
     q = 1.0
 
-    beam1 = E.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0,
+    beam1 = P.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0,
                                fe=FES.FESpaceConfig(order=2, vector_type=Vector{Float64}))
-    beam2 = E.EulerBernoulliBeam(L=2.0, mᵨ=1.0, EIᵨ=100.0,
+    beam2 = P.EulerBernoulliBeam(L=2.0, mᵨ=1.0, EIᵨ=100.0,
                                fe=FES.FESpaceConfig(order=2, vector_type=Vector{Float64}))
-    beam3 = E.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=200.0,
+    beam3 = P.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=200.0,
                                fe=FES.FESpaceConfig(order=2, vector_type=Vector{Float64}))
 
     sol1 = solve_beam(beam1, 40, 2, q)
@@ -187,7 +187,7 @@ import HydroElasticFEM.ParameterHandler as FES
     EIᵨ = 100.0
     q   = 1.0
 
-    beam = E.EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
+    beam = P.EulerBernoulliBeam(L=L, mᵨ=1.0, EIᵨ=EIᵨ, g=0.0,
                               fe=FES.FESpaceConfig(order=2, vector_type=Vector{Float64}))
     w_exact = 5 * q * L^4 / (384 * EIᵨ)
 
@@ -213,7 +213,7 @@ import HydroElasticFEM.ParameterHandler as FES
   # -----------------------------------------------------------------------
 
   @testset "Zero load — zero deflection" begin
-    beam = E.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0, g=0.0,
+    beam = P.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0, g=0.0,
                               fe=FES.FESpaceConfig(order=2, vector_type=Vector{Float64}))
 
     sol = solve_beam(beam, 20, 2, 0.0)

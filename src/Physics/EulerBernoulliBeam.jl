@@ -1,5 +1,5 @@
 """
-    EulerBernoulliBeam <: AbstractStructure
+    EulerBernoulliBeam <: PhysicsParameters
 
 Parameters for a 2D Euler-Bernoulli beam model (no joints),
 normalised by fluid density ρw.
@@ -13,7 +13,7 @@ normalised by fluid density ρw.
 - `bndType::BoundaryCondition` — Boundary Type
 - `ωn1::Float64`   — Dry Analytical Natural frequency (derived)
 """
-@with_kw struct EulerBernoulliBeam <: AbstractStructure
+@with_kw struct EulerBernoulliBeam <: PhysicsParameters
     L::Float64
     mᵨ::Float64
     EIᵨ::Float64

@@ -7,7 +7,7 @@ domain rectangle → `CartesianDiscreteModel` → label entities → mask surfac
 into sub-triangulations → create measures → build `WeakFormDomains`.
 This plan captures a module that encapsulates those steps so that a user
 (or `SimManager`) only declares *what* is in the tank and gets back a
-fully-populated `WeakFormDomains` ready for `PhysicsCore`.
+fully-populated `WeakFormDomains` ready for `Physics`.
 
 ---
 
@@ -55,9 +55,9 @@ include("Geometry/Geometry.jl")
 using .Geometry
 ```
 
-`Geometry` depends only on `Gridap` and `PhysicsCore.Domains`
+`Geometry` depends only on `Gridap` and `Physics.Domains`
 (for `WeakFormDomains`). It does **not** depend on `Entities` or
-`FESpaces` — it sits beside `PhysicsCore`, not inside it.
+`FESpaces` — it sits beside `Physics`, not inside it.
 
 ---
 
@@ -172,7 +172,7 @@ tank  = TankDomain2D(H0=10, Ld_in=150, Ld_out=150,
 geom  = build_geometry(tank)           # → TankGeometry
 ```
 
-### 5.2 Produce `WeakFormDomains` for PhysicsCore
+### 5.2 Produce `WeakFormDomains` for Physics
 
 ```julia
 dom = to_weakform_domains(geom)        # → WeakFormDomains
@@ -245,7 +245,7 @@ Tests (Phase 1):
 - Grading: first and last vertical element sizes differ by `mesh_ry^ny`.
 - Skeleton normals exist and have unit length.
 
-### Phase 2 — PhysicsCore bridge + damping
+### Phase 2 — Physics bridge + damping
 
 Files: `GeometryToPhysics.jl`, `DampingZone.jl`
 
@@ -291,10 +291,10 @@ Tests (Phase 3):
 
 | Decision | Rationale |
 |---|---|
-| Module sits **outside** PhysicsCore | Geometry is a *pre-processing* concern; PhysicsCore should stay physics-only. Prevents circular deps. |
+| Module sits **outside** Physics | Geometry is a *pre-processing* concern; Physics should stay physics-only. Prevents circular deps. |
 | Struct-based config (`TankDomain2D`) instead of keyword args | Enables serialisation, testing, and re-use of identical geometry across frequency/time-domain runs. |
 | `TankGeometry` stores triangulations **and** measures | Measures are cheap and always needed; avoids a second construction step. |
-| Mapping to `WeakFormDomains` is a separate function | Keeps geometry independent of the PhysicsCore key conventions; easy to update if conventions change. |
+| Mapping to `WeakFormDomains` is a separate function | Keeps geometry independent of the Physics key conventions; easy to update if conventions change. |
 | `StructureZone` is physics-agnostic (just a label + length) | The actual entity type (Membrane2D vs EulerBernoulliBeam) is determined elsewhere; geometry only needs extent. |
 | `f_y` grading extracted into `MeshGrading.jl` | Allows future grading strategies (e.g., tanh, cosine, adaptive) without touching the rest. |
 

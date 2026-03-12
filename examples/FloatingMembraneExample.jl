@@ -2,7 +2,7 @@ module FloatingMembraneExample
 using Gridap
 using HydroElasticFEM: PKG_ROOT
 import HydroElasticFEM.Geometry as G
-import HydroElasticFEM.PhysicsCore.Entities as E
+import HydroElasticFEM.Physics as P
 
 # ── Domain setup ────────────────────────────────────────────
 # A 10 × 1 m tank with a 1 m floating membrane centred at x = 4.5–5.5 m
@@ -43,9 +43,9 @@ writevtk(tank_trians.Γκ, joinpath(filedir, "floating_membrane_kappa"))    # No
 measures = G.get_integration_domains(tank_trians, degree=2)
 
 # Physics properties
-membrane = E.Membrane2D(L=1.0, mᵨ=0.9, Tᵨ=98.1)
-freesurf = E.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5)
-potential = E.PotentialFlow(ρw=1025.0, g=9.81)
+membrane = P.Membrane2D(L=1.0, mᵨ=0.9, Tᵨ=98.1)
+freesurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5)
+potential = P.PotentialFlow(ρw=1025.0, g=9.81)
 
 
 end
