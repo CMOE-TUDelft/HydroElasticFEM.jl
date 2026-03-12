@@ -2,6 +2,10 @@ module HydroElasticFEM
 
   const PKG_ROOT = normpath(joinpath(@__DIR__, ".."))  # because @__DIR__ here is src/
 
+  # IO / ParameterHandler (config structs, loaded early)
+  include(joinpath(@__DIR__, "IO", "ParameterHandler.jl"))
+  using .ParameterHandler
+
   # Geometry
   include(joinpath(@__DIR__, "Geometry", "Geometry.jl"))
   using .Geometry
@@ -36,15 +40,19 @@ module HydroElasticFEM
   export BoundaryCondition, FreeBoundary, FixedBoundary
   export AbstractStructure, PotentialFlow, FreeSurface, Membrane2D, EulerBernoulliBeam
   export ResonatorSingle, resonator_array
-  export IntegrationDomains, FESpaceConfig
+  export IntegrationDomains
+
+  # Re-export ParameterHandler public API
+  export FESpaceConfig, SimConfig, TimeConfig
   export variable_symbol
   export weakform, mass, damping, stiffness, rhs
   export residual, jacobian, jacobian_t, jacobian_tt
   export has_mass_form, has_damping_form, has_stiffness_form, has_rhs_form
 
   # Re-export Simulation public API (includes FESpaceAssembly + FEOperators)
+  # Re-export Simulation public API (includes FESpaceAssembly + FEOperators)
   export build_fe_spaces, build_test_fe_space, build_trial_fe_space
-  export SimConfig, TimeConfig, SimResult
+  export SimResult
   export simulate, detect_couplings, build_fe_operator
   export FieldMap
   export assemble_weakform

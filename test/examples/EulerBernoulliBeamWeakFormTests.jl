@@ -9,7 +9,7 @@ import HydroElasticFEM.PhysicsCore.Entities as E
 import HydroElasticFEM.Geometry as D
 import HydroElasticFEM.Simulation.FEOperators as FO
 import HydroElasticFEM.Simulation.FESpaceAssembly as FEA
-import HydroElasticFEM.PhysicsCore.FESpaces as FES
+import HydroElasticFEM.ParameterHandler as FES
 
 # =========================================================================
 # EulerBernoulliBeam weak form integration tests

@@ -17,7 +17,7 @@ using Parameters
 using Gridap
 using Printf
 using ...Geometry
-using ..FESpaces
+using ...ParameterHandler
 
 # ─────────────────────────────────────────────────────────────
 # Abstract base

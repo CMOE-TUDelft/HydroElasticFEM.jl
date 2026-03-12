@@ -157,7 +157,6 @@ end
 # Exports
 # ─────────────────────────────────────────────────────────────
 
-export FESpaceConfig
 export build_fe_spaces, build_test_fe_space, build_trial_fe_space
 
 end # module FESpaceAssembly

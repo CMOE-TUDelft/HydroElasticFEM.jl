@@ -5,7 +5,7 @@ using Gridap.CellData
 import HydroElasticFEM.Simulation as SM
 import HydroElasticFEM.Simulation.FEOperators as FO
 import HydroElasticFEM.PhysicsCore.Entities as E
-import HydroElasticFEM.PhysicsCore.FESpaces as FES
+import HydroElasticFEM.ParameterHandler as FES
 import HydroElasticFEM.Simulation.FESpaceAssembly as FA
 import HydroElasticFEM.Geometry as G
 

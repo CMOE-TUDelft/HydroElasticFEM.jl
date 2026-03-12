@@ -3,7 +3,7 @@ using Gridap.Geometry
 using Gridap.CellData
 using SparseArrays
 
-import HydroElasticFEM.Simulation.FESpaceAssembly as FEA
+import HydroElasticFEM.PhysicsCore.FESpaceAssembly as FEA
 import HydroElasticFEM.ParameterHandler as FES
 import HydroElasticFEM.PhysicsCore.Entities as E
 import HydroElasticFEM.Simulation.FEOperators as FO

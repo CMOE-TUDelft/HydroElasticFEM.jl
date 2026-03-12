@@ -18,6 +18,8 @@ using Gridap
 using Gridap.ODEs
 
 import ..Geometry as G
+import ..ParameterHandler as PH
+using ..ParameterHandler  # brings SimConfig, TimeConfig into scope
 import ..PhysicsCore.Entities as E
 # FESpaceAssembly (build_fe_spaces, build_test/trial_fe_space)
 include("FESpaceAssembly.jl")
@@ -28,12 +30,10 @@ const FA = FESpaceAssembly
 include("FEOperators.jl")
 using .FEOperators
 
-include("SimConfig.jl")
-include("TimeConfig.jl")
 include("SimResult.jl")
 include("simulate.jl")
 
-export SimConfig, TimeConfig, SimResult
+export SimResult
 export simulate
 export FESpaceAssembly, FEOperators
 export build_fe_spaces, build_test_fe_space, build_trial_fe_space
