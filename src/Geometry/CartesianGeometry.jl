@@ -11,6 +11,7 @@ Variables:
 @with_kw struct StructureDomain1D
     L::Float64 = 1.0
     x₀::Vector{Float64} = [0.0, 1.0]
+    domain_symbol::Symbol = :Γ_s
 end
 
 """
@@ -28,6 +29,7 @@ Variables:
     L::Float64 = 0.5
     σ::Float64 = 1.0
     x₀::Vector{Float64} = [0.0, 1.0]
+    domain_symbol::Symbol = :Γ_d
 end
 
 """
@@ -140,36 +142,6 @@ end
 # ─────────────────────────────────────────────────────────────
 
 """
-    TankTriangulations
-
-Container for the triangulations produced by [`build_triangulations`](@ref).
-
-# Fields
-- `Ω`  — Interior (fluid domain)
-- `Γ`  — Full top-surface boundary
-- `Γbot` — Bottom boundary
-- `Γin` — Inlet (left wall) boundary
-- `Γout` — Outlet (right wall) boundary
-- `Γ_structures` — `Vector`: one triangulation per structure domain, ordered as in `TankDomain2D.structure_domains`
-- `Γ_dampings`   — `Vector`: one triangulation per damping zone, ordered as in `TankDomain2D.damping_zones`
-- `Γfs` — Free surface: surface cells that belong to no structure and no damping zone
-- `Γκ`  — Non-structure surface (free surface ∪ damping zones)
-- `Γη`  — All-structure surface (union of all structure triangulations)
-"""
-struct TankTriangulations
-    Ω::Gridap.Geometry.Triangulation
-    Γ::Gridap.Geometry.BoundaryTriangulation
-    Γbot::Gridap.Geometry.BoundaryTriangulation
-    Γin::Gridap.Geometry.BoundaryTriangulation
-    Γout::Gridap.Geometry.BoundaryTriangulation
-    Γ_structures::Vector
-    Γ_dampings::Vector
-    Γfs::Gridap.Geometry.Triangulation
-    Γκ::Gridap.Geometry.Triangulation
-    Γη::Gridap.Geometry.Triangulation
-end
-
-"""
     build_triangulations(domain::TankDomain2D, model) -> TankTriangulations
 
 Label the model, extract base triangulations (`Ω`, `Γ`, `Γin`, `Γot`),
@@ -209,9 +181,39 @@ function build_triangulations(domain::TankDomain2D, model)
     s_bits = [lazy_map(m, xΓ) for m in smasks]  # per-structure
     d_bits = [lazy_map(m, xΓ) for m in dmasks]  # per-damping
 
-    # — Per-zone sub-triangulations ——————————————————————
-    Γ_structures = [Triangulation(Γ, findall(b)) for b in s_bits]
-    Γ_dampings   = [Triangulation(Γ, findall(b)) for b in d_bits]
+    # Build structure triangulations and map to their domain_symbol
+    Γ_structures = Vector{Any}(undef, length(s_bits))
+    structure_syms = Symbol[]
+    structure_trians = Dict{Symbol, Any}()
+    seen_structure_syms = Set{Symbol}()
+    for (i, b) in enumerate(s_bits)
+        tri = Triangulation(Γ, findall(b))
+        Γ_structures[i] = tri
+        sym = domain.structure_domains[i].domain_symbol
+        if sym in seen_structure_syms
+            error("Duplicate domain_symbol :$sym found in structure_domains. Each structure must have a unique domain_symbol.")
+        end
+        push!(seen_structure_syms, sym)
+        structure_trians[sym] = tri
+        push!(structure_syms, sym)
+    end
+
+    # Damping triangulations and map to their domain_symbol
+    Γ_dampings = Vector{Any}(undef, length(d_bits))
+    damping_syms = Symbol[]
+    damping_trians = Dict{Symbol, Any}()
+    seen_damping_syms = Set{Symbol}()
+    for (i, b) in enumerate(d_bits)
+        tri = Triangulation(Γ, findall(b))
+        Γ_dampings[i] = tri
+        sym = domain.damping_zones[i].domain_symbol
+        if sym in seen_damping_syms
+            error("Duplicate domain_symbol :$sym found in damping_zones. Each damping zone must have a unique domain_symbol.")
+        end
+        push!(seen_damping_syms, sym)
+        damping_trians[sym] = tri
+        push!(damping_syms, sym)
+    end
 
     # — Composed masks ——————————————————————————————————
     n = length(xΓ)
@@ -226,9 +228,34 @@ function build_triangulations(domain::TankDomain2D, model)
     # η surface = all structures
     Γη  = Triangulation(Γ, findall(any_structure))
 
-    return TankTriangulations(Ω, Γ, Γbot, Γin, Γout,
-                              Γ_structures, Γ_dampings,
-                              Γfs, Γκ, Γη)
+    # Compose dictionary for TankTriangulations
+    trian_dict = Dict(
+        :Ω => Ω,
+        :Γ => Γ,
+        :Γbot => Γbot,
+        :Γin => Γin,
+        :Γout => Γout,
+        :Γ_structures => Γ_structures,
+        :Γ_dampings => Γ_dampings,
+        :Γfs => Γfs,
+        :Γκ => Γκ,
+        :Γη => Γη,
+    )
+    # Add each structure triangulation under its domain_symbol, error if duplicate
+    for sym in structure_syms
+        if haskey(trian_dict, sym)
+            error("domain_symbol :$sym for structure triangulation would overwrite an existing triangulation key in TankTriangulations. All keys must be unique.")
+        end
+        trian_dict[sym] = structure_trians[sym]
+    end
+    # Add each damping triangulation under its domain_symbol, error if duplicate
+    for sym in damping_syms
+        if haskey(trian_dict, sym)
+            error("domain_symbol :$sym for damping triangulation would overwrite an existing triangulation key in TankTriangulations. All keys must be unique.")
+        end
+        trian_dict[sym] = damping_trians[sym]
+    end
+    return TankTriangulations(trian_dict)
 end
 
 """
@@ -283,26 +310,26 @@ function get_integration_domains(tri::TankTriangulations; degree::Int=4)
     d = Dict{Symbol, Any}()
 
     # Fluid interior
-    d[:dΩ]     = Measure(tri.Ω, degree)
+    d[:dΩ]     = Measure(tri[:Ω], degree)
 
     # Free surface (outside structures and damping)
-    d[:dΓ_fs]  = Measure(tri.Γfs, degree)
+    d[:dΓ_fs]  = Measure(tri[:Γfs], degree)
 
     # All-structure surface
-    d[:dΓ_s]   = Measure(tri.Γη, degree)
+    d[:dΓ_s]   = Measure(tri[:Γη], degree)
 
     # Per-structure measures
-    for (i, Γs) in enumerate(tri.Γ_structures)
+    for (i, Γs) in enumerate(tri[:Γ_structures])
         d[Symbol("dΓ_s_$i")] = Measure(Γs, degree)
     end
 
     # Walls
-    d[:dΓ_in]  = Measure(tri.Γin, degree)
-    d[:dΓ_out] = Measure(tri.Γout, degree)
-    d[:dΓ_bot] = Measure(tri.Γbot, degree)
+    d[:dΓ_in]  = Measure(tri[:Γin], degree)
+    d[:dΓ_out] = Measure(tri[:Γout], degree)
+    d[:dΓ_bot] = Measure(tri[:Γbot], degree)
 
     # Per-damping-zone measures (:dΓ_d_1, :dΓ_d_2, …)
-    for (i, Γd) in enumerate(tri.Γ_dampings)
+    for (i, Γd) in enumerate(tri[:Γ_dampings])
         d[Symbol("dΓ_d_$i")] = Measure(Γd, degree)
     end
 

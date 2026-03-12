@@ -19,6 +19,7 @@ Parameters for a single locally resonant mass-spring-damper.
     XZ::VectorValue{2,Float64} = VectorValue(0.0, 0.0)
     ωn1::Float64   = sqrt(K / M)
     symbol::Symbol = :q
+    space_domain_symbol::Symbol = :Ω
 end
 
 variable_symbol(s::ResonatorSingle) = s.symbol

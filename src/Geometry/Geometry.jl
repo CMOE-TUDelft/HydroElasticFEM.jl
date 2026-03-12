@@ -13,7 +13,38 @@ module Geometry
 using Parameters
 using Gridap
 
-include("CartesianGeometry.jl")
+
+"""
+    TankTriangulations(; key=value, ...)
+    TankTriangulations(dict::Dict{Symbol,Any})
+
+Dict-based container for triangulations.
+Allows flexible access to triangulations by symbol keys.
+
+# Standard key conventions (not enforced)
+- `:Ω`  — Interior (fluid domain)
+- `:Γ`  — Full top-surface boundary
+- `:Γbot` — Bottom boundary
+- `:Γin` — Inlet (left wall) boundary
+- `:Γout` — Outlet (right wall) boundary
+- `:Γ_structures` — `Vector`: one triangulation per structure domain, ordered as in `TankDomain2D.structure_domains`
+- `:Γ_dampings`   — `Vector`: one triangulation per damping zone, ordered as in `TankDomain2D.damping_zones`
+- `:Γfs` — Free surface: surface cells that belong to no structure and no damping zone
+- `:Γκ`  — Non-structure surface (free surface ∪ damping zones)
+- `:Γη`  — All-structure surface (union of all structure triangulations)
+"""
+struct TankTriangulations
+    data::Dict{Symbol, Any}
+end
+
+TankTriangulations(; kwargs...) =
+    TankTriangulations(Dict{Symbol, Any}(k => v for (k, v) in pairs(kwargs)))
+
+Base.getindex(t::TankTriangulations, k::Symbol)            = t.data[k]
+Base.haskey(t::TankTriangulations, k::Symbol)              = haskey(t.data, k)
+Base.get(t::TankTriangulations, k::Symbol, default)        = get(t.data, k, default)
+Base.setindex!(t::TankTriangulations, val, k::Symbol)      = (t.data[k] = val)
+Base.keys(t::TankTriangulations)                           = keys(t.data)
 
 
 """
@@ -50,7 +81,9 @@ Base.get(d::IntegrationDomains, k::Symbol, default)         = get(d.data, k, def
 Base.setindex!(d::IntegrationDomains, val, k::Symbol)       = (d.data[k] = val)
 Base.keys(d::IntegrationDomains)                            = keys(d.data)
 
+include("CartesianGeometry.jl")
 
+export TankTriangulations
 export IntegrationDomains
 
 end # module Geometry

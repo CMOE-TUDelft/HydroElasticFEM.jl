@@ -12,6 +12,7 @@ Parameters for the 2D fluid potential (Laplace equation).
     g::Float64  = 9.81
     fe::FESpaceConfig = FESpaceConfig()
     symbol::Symbol = :ϕ
+    space_domain_symbol::Symbol = :Ω
 end
 
 function print_parameters(f::PotentialFlow)

@@ -20,6 +20,7 @@ term `βₕ·g·u·κ`; coupling with the velocity potential `ϕ` (from
     βₕ::Float64 = 0.5
     fe::FESpaceConfig = FESpaceConfig()
     symbol::Symbol = :κ
+    space_domain_symbol::Symbol = :Γ_fs
 end
 
 function print_parameters(fs::FreeSurface)

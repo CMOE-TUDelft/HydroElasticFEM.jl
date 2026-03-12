@@ -19,6 +19,7 @@ Parameters for a 2D membrane model, normalised by fluid density ρw.
     τ::Float64     = 0.0
     g::Float64     = 9.81
     symbol::Symbol = :η_m
+    space_domain_symbol::Symbol = :Γ_s
 
     # Derived quantities
     ωn1::Float64    = (π / L) * sqrt(Tᵨ / mᵨ)
