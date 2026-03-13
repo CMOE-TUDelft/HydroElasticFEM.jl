@@ -44,15 +44,18 @@ Container for all built entities in a simulation.
 - `entities` — list of physics entities
 - `fe_spaces` — finite element spaces (test/trial, field map, etc.)
 - `fe_operator` — assembled FE operator
+- `sim_config` — simulation configuration (`FreqDomainConfig` or `TimeDomainConfig`)
 """
-struct HEFEM_Problem
+struct HEFEM_Problem{T<:PH.SimulationConfig}
     model::DiscreteModel
     triangulations::G.TankTriangulations
     integration_domains::G.IntegrationDomains
     entities::Vector{P.PhysicsParameters}  # physics entities (e.g. Membrane2D, FreeSurface, etc.)
+    field_map::Dict{Symbol,Int}  # maps physics entity symbols to FE space indices
     test_fe_space::MultiFieldFESpace
     trial_fe_space::MultiFieldFESpace
     fe_operator::Union{FEOperator,TransientFEOperator}
+    sim_config::T
 end
 
 # Getter functions for HEFEM_Problem fields
@@ -60,9 +63,11 @@ get_model(prob::HEFEM_Problem) = prob.model
 get_triangulations(prob::HEFEM_Problem) = prob.triangulations
 get_integration_domains(prob::HEFEM_Problem) = prob.integration_domains
 get_entities(prob::HEFEM_Problem) = prob.entities
+get_field_map(prob::HEFEM_Problem) = prob.field_map
 get_test_fe_space(prob::HEFEM_Problem) = prob.test_fe_space
 get_trial_fe_space(prob::HEFEM_Problem) = prob.trial_fe_space
 get_fe_operator(prob::HEFEM_Problem) = prob.fe_operator
+get_sim_config(prob::HEFEM_Problem) = prob.sim_config
 
 """
     build_problem(config, entities_trians...; dom, ...)
@@ -70,7 +75,7 @@ get_fe_operator(prob::HEFEM_Problem) = prob.fe_operator
 Given a `SimConfig` and tuples of physics entities + triangulations,
 constructs the `HEFEM_Problem` by building FE spaces, assembling the FE operator, and building the solver.
 """
-function build_problem(domain, physics::Vector{P.PhysicsParameters}; tconfig=nothing)
+function build_problem(domain, physics::Vector{P.PhysicsParameters}, config::PH.SimulationConfig; tconfig=nothing)
     
     # Build discrete model and triangulations from geometry
     model = G.build_model(domain)
@@ -82,9 +87,13 @@ function build_problem(domain, physics::Vector{P.PhysicsParameters}; tconfig=not
     X, Y, fmap = FA.build_fe_spaces(physics, trians; transient=!isnothing(tconfig))
 
     # Build FE Operator
-    op = build_fe_operator(physics, measures, fmap, X, Y)
+    if isa(config, PH.FreqDomainConfig)
+        op = build_fe_operator(physics, measures, config.ω, fmap, X, Y)
+    elseif isa(config, PH.TimeDomainConfig)
+        op = build_fe_operator(physics, measures, fmap, X, Y)
+    end
 
-    HEFEM_Problem(model, trians, measures, physics, Y, X, op)
+    HEFEM_Problem(model, trians, measures, physics, fmap, Y, X, op, config)
 
 end
 

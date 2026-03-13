@@ -76,29 +76,42 @@ Time-domain integration parameters.
     @assert tf > t₀ "tf must be greater than t₀"
 end
 
-"""
-    SimConfig
+abstract type SimulationConfig end
 
-Configuration for a simulation run.
+"""
+    FreqDomainConfig
+
+Configuration for a frequency-domain simulation run.
 
 # Fields
-- `domain::Symbol` — `:frequency` or `:time`
 - `ω` — angular frequency (required when `domain == :frequency`)
-- `degree::Int` — quadrature degree (default 4)
 - `solver` — optional solver override (e.g. `LUSolver()`)
 """
-@with_kw struct SimConfig
-    domain::Symbol
+@with_kw struct FreqDomainConfig <: SimulationConfig
     ω::Union{Float64, Nothing} = nothing
-    degree::Int = 4
     solver = nothing
+end
 
-    @assert domain in (:frequency, :time) "domain must be :frequency or :time"
-    @assert domain == :time || ω !== nothing "ω is required for frequency-domain"
+"""
+    TimeDomainConfig
+
+Configuration for a time-domain simulation run.
+
+# Fields
+- `t₀` — start time (default 0.0)
+- `tf` — final time (default 1.0)
+- `solver` — optional solver override (e.g. `LUSolver()`)
+"""
+@with_kw struct TimeDomainConfig <: SimulationConfig
+    t₀::Float64 = 0.0
+    tf::Float64 = 1.0
+    solver = nothing
 end
 
 export FESpaceConfig
 export TimeConfig
-export SimConfig
+export FreqDomainConfig
+export TimeDomainConfig
+export SimulationConfig
 
 end # module ParameterHandler
