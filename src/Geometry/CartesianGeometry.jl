@@ -306,31 +306,37 @@ add `:dΛ_s`, `:n_Λ_s`, and `:h_s` manually after calling this function.
 dom = G.get_integration_domains(tank_trians; degree=4)
 ```
 """
-function get_integration_domains(tri::TankTriangulations; degree::Int=4)
+function get_integration_domains(tri::TankTriangulations; degree::Union{Int, Dict{Symbol, Int}}=4)
+
     d = Dict{Symbol, Any}()
 
+    # Helper to get degree for a key
+    get_deg(key) = isa(degree, Dict) ? get(degree, key, 4) : degree
+
     # Fluid interior
-    d[:dΩ]     = Measure(tri[:Ω], degree)
+    d[:dΩ]     = Measure(tri[:Ω], get_deg(:dΩ))
 
     # Free surface (outside structures and damping)
-    d[:dΓκ]  = Measure(tri[:Γκ], degree)
+    d[:dΓκ]  = Measure(tri[:Γκ], get_deg(:dΓκ))
 
     # All-structure surface
-    d[:dΓη]   = Measure(tri[:Γη], degree)
+    d[:dΓη]   = Measure(tri[:Γη], get_deg(:dΓη))
 
     # Per-structure measures
     for (i, Γs) in enumerate(tri[:Γ_structures])
-        d[Symbol("dΓη_$i")] = Measure(Γs, degree)
+        key = Symbol("dΓη_$i")
+        d[key] = Measure(Γs, get_deg(key))
     end
 
     # Walls
-    d[:dΓin]  = Measure(tri[:Γin], degree)
-    d[:dΓout] = Measure(tri[:Γout], degree)
-    d[:dΓbot] = Measure(tri[:Γbot], degree)
+    d[:dΓin]  = Measure(tri[:Γin], get_deg(:dΓin))
+    d[:dΓout] = Measure(tri[:Γout], get_deg(:dΓout))
+    d[:dΓbot] = Measure(tri[:Γbot], get_deg(:dΓbot))
 
-    # Per-damping-zone measures (:dΓ_d_1, :dΓ_d_2, …)
+    # Per-damping-zone measures (:dΓd_1, :dΓd_2, …)
     for (i, Γd) in enumerate(tri[:Γ_dampings])
-        d[Symbol("dΓd_$i")] = Measure(Γd, degree)
+        key = Symbol("dΓd_$i")
+        d[key] = Measure(Γd, get_deg(key))
     end
 
     return IntegrationDomains(d)

@@ -44,7 +44,6 @@ Container for all built entities in a simulation.
 - `entities` — list of physics entities
 - `fe_spaces` — finite element spaces (test/trial, field map, etc.)
 - `fe_operator` — assembled FE operator
-- `solver` — solver object
 """
 struct HEFEM_Problem
     model::DiscreteModel
@@ -53,8 +52,7 @@ struct HEFEM_Problem
     entities::Vector{P.PhysicsParameters}  # physics entities (e.g. Membrane2D, FreeSurface, etc.)
     test_fe_space::MultiFieldFESpace
     trial_fe_space::MultiFieldFESpace
-    fe_operator::FEOperator
-    solver::FESolver
+    fe_operator::Union{FEOperator,TransientFEOperator}
 end
 
 # Getter functions for HEFEM_Problem fields
@@ -65,7 +63,6 @@ get_entities(prob::HEFEM_Problem) = prob.entities
 get_test_fe_space(prob::HEFEM_Problem) = prob.test_fe_space
 get_trial_fe_space(prob::HEFEM_Problem) = prob.trial_fe_space
 get_fe_operator(prob::HEFEM_Problem) = prob.fe_operator
-get_solver(prob::HEFEM_Problem) = prob.solver
 
 """
     build_problem(config, entities_trians...; dom, ...)
@@ -78,7 +75,8 @@ function build_problem(domain, physics::Vector{P.PhysicsParameters}; tconfig=not
     # Build discrete model and triangulations from geometry
     model = G.build_model(domain)
     trians = G.build_triangulations(domain, model)
-    measures = G.get_integration_domains(trians, degree=2)
+    degrees = get_integration_degrees(trians, physics)
+    measures = G.get_integration_domains(trians, degree=degrees)
 
     # Build FE spaces
     X, Y, fmap = FA.build_fe_spaces(physics, trians; transient=!isnothing(tconfig))
@@ -86,11 +84,46 @@ function build_problem(domain, physics::Vector{P.PhysicsParameters}; tconfig=not
     # Build FE Operator
     op = build_fe_operator(physics, measures, fmap, X, Y)
 
-    # Build solver
-    solver = LUSolver()
+    HEFEM_Problem(model, trians, measures, physics, Y, X, op)
 
-    HEFEM_Problem(model, trians, measures, physics, Y, X, op, solver)
+end
 
+
+"""
+    get_integration_degrees(trians::G.TankTriangulations, physics::Vector{P.PhysicsParameters})
+
+Determines the required integration degree for each domain based on the FE order of the physics entities 
+defined on that domain. Returns a dictionary mapping domain symbols to integration degrees.
+
+# Arguments
+- `trians` — triangulations for each domain (used to get domain symbols)
+- `physics` — vector of physics entities, each with an optional `fe` field containing
+"""
+function get_integration_degrees(trians::G.TankTriangulations, physics::Vector{P.PhysicsParameters})
+    
+    # Get max FE order across all entities for each domain
+    degrees = Dict{Symbol, Int}()
+    for p in physics
+        fe = p.fe
+        if fe !== nothing
+            domain_symbol = p.space_domain_symbol
+            if haskey(degrees, domain_symbol)
+                degrees[domain_symbol] = max(degrees[domain_symbol], fe.order)
+            else
+                degrees[domain_symbol] = 2*fe.order
+            end
+        end
+    end
+
+    # Add default degree for any domains not covered by physics entities
+    for (name, trian) in pairs(trians.data)
+        if !haskey(degrees, name)
+            degrees[name] = 2  # default degree
+        end
+    end
+
+    return degrees
+    
 end
 
 
