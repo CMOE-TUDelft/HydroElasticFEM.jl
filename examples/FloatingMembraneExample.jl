@@ -21,8 +21,11 @@ membrane = P.Membrane2D(L=1.0, mᵨ=0.9, Tᵨ=98.1, space_domain_symbol=:Γs)
 freesurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, space_domain_symbol=:Γκ)
 potential = P.PotentialFlow(ρw=1025.0, g=9.81, space_domain_symbol=:Ω)
 
+# Simulation configuration
+sim_configuration = S.FreqDomainConfig(ω=2.0)
+
 # build the problem (discrete model, triangulations, integration domains, etc.)
-problem = S.build_problem(tank_domain, [membrane, freesurf, potential])
+problem = S.build_problem(tank_domain, [membrane, freesurf, potential], sim_configuration)
 
 # ── VTK output ──────────────────────────────────────────────
 # Write each triangulation to VTK for visualisation in ParaView.
@@ -43,5 +46,6 @@ writevtk(tank_trians[:Γfs], joinpath(filedir, "floating_membrane_free_surface")
 writevtk(tank_trians[:Γη], joinpath(filedir, "floating_membrane_eta"))      # All-structure surface (η)
 writevtk(tank_trians[:Γκ], joinpath(filedir, "floating_membrane_kappa"))    # Non-structure surface (κ)
 
+sim_result = S.simulate(problem)
 
 end
