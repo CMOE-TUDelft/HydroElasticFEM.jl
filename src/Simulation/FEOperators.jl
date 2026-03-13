@@ -287,7 +287,6 @@ Build a **frequency-domain** `AffineFEOperator`.
 
 # Arguments
 - `entities` — physics entities
-- `coupling_pairs` — coupling pairs (from `detect_couplings`)
 - `dom::IntegrationDomains` — integration measures/normals
 - `ω` — angular frequency
 - `fmap::Dict{Symbol,Int}` — field-symbol to positional-index map
@@ -296,10 +295,13 @@ Build a **frequency-domain** `AffineFEOperator`.
 - `rhs_fn` — optional callable `rhs_fn(y::FieldMap) -> DomainContribution`;
   if `nothing`, uses zero right-hand side (requires `:dΩ` in `dom`)
 """
-function build_fe_operator(entities, coupling_pairs,
+function build_fe_operator(entities, 
                            dom::G.IntegrationDomains, ω,
                            fmap::Dict{Symbol,Int}, X, Y;
                            rhs_fn=nothing)
+
+    coupling_pairs = detect_couplings(entities)
+
     a(x, y) = _assemble_bilinear(entities, coupling_pairs, dom, ω, fmap, x, y)
 
     l = if rhs_fn !== nothing

@@ -57,6 +57,16 @@ struct HEFEM_Problem
     solver::FESolver
 end
 
+# Getter functions for HEFEM_Problem fields
+get_model(prob::HEFEM_Problem) = prob.model
+get_triangulations(prob::HEFEM_Problem) = prob.triangulations
+get_integration_domains(prob::HEFEM_Problem) = prob.integration_domains
+get_entities(prob::HEFEM_Problem) = prob.entities
+get_test_fe_space(prob::HEFEM_Problem) = prob.test_fe_space
+get_trial_fe_space(prob::HEFEM_Problem) = prob.trial_fe_space
+get_fe_operator(prob::HEFEM_Problem) = prob.fe_operator
+get_solver(prob::HEFEM_Problem) = prob.solver
+
 """
     build_problem(config, entities_trians...; dom, ...)
 
@@ -89,6 +99,8 @@ include("simulate.jl")
 
 export SimResult
 export simulate
+export build_problem
+export HEFEM_Problem
 export FESpaceAssembly, FEOperators
 export build_fe_spaces, build_test_fe_space, build_trial_fe_space
 export FieldMap, detect_couplings, build_fe_operator

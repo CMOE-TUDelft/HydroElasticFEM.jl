@@ -31,10 +31,9 @@ function simulate(config::SimConfig,
 
     X, Y, fmap = FA.build_fe_spaces(entities, trians)
 
-    coupling_pairs = isnothing(couplings) ? detect_couplings(entities) : couplings
     ω = config.ω
 
-    op = build_fe_operator(entities, coupling_pairs, dom, ω, fmap, X, Y;
+    op = build_fe_operator(entities, dom, ω, fmap, X, Y;
                            rhs_fn=rhs_fn)
 
     solver = isnothing(config.solver) ? LUSolver() : config.solver
@@ -77,9 +76,7 @@ function simulate(config::SimConfig, tconfig::TimeConfig,
 
     X, Y, fmap = FA.build_fe_spaces(entities, trians; transient=true)
 
-    coupling_pairs = isnothing(couplings) ? detect_couplings(entities) : couplings
-
-    op = build_fe_operator(entities, coupling_pairs, dom, fmap, X, Y;
+    op = build_fe_operator(entities, dom, fmap, X, Y;
                            rhs_fn=rhs_fn)
 
     ls = isnothing(config.solver) ? LUSolver() : config.solver

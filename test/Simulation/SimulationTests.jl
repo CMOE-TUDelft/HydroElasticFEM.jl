@@ -68,14 +68,13 @@ include("FESpaceAssemblyTests.jl")
 
   @testset "build_fe_operator — frequency domain" begin
     entities = [fluid, fsurf, mem]
-    coupling_pairs = SM.detect_couplings(entities)
     ω = 2.0
 
     X, Y, fmap = FA.build_fe_spaces(entities, trian)
 
     # With explicit rhs_fn
     rhs_fn(y) = ∫(y[:ϕ] * 1.0)dΓin
-    op = SM.build_fe_operator(entities, coupling_pairs, dom, ω, fmap, X, Y;
+    op = SM.build_fe_operator(entities, dom, ω, fmap, X, Y;
                               rhs_fn=rhs_fn)
     @test op isa Gridap.FESpaces.AffineFEOperator
 
@@ -86,7 +85,7 @@ include("FESpaceAssemblyTests.jl")
     @test isfinite(ϕ_l2)
 
     # With rhs_fn=nothing (zero RHS)
-    op0 = SM.build_fe_operator(entities, coupling_pairs, dom, ω, fmap, X, Y)
+    op0 = SM.build_fe_operator(entities, dom, ω, fmap, X, Y)
     @test op0 isa Gridap.FESpaces.AffineFEOperator
 
     uh0 = solve(LUSolver(), op0)
@@ -101,19 +100,18 @@ include("FESpaceAssemblyTests.jl")
 
   @testset "build_fe_operator — time domain" begin
     entities = [fluid, fsurf, mem]
-    coupling_pairs = SM.detect_couplings(entities)
 
     X, Y, fmap = FA.build_fe_spaces(entities, trian; transient=true)
 
     # With explicit rhs_fn
     ω_f = 2.0
     rhs_fn(t, y) = ∫(y[:ϕ] * cos(ω_f * t))dΓin
-    op = SM.build_fe_operator(entities, coupling_pairs, dom, fmap, X, Y;
+    op = SM.build_fe_operator(entities, dom, fmap, X, Y;
                               rhs_fn=rhs_fn)
     @test op isa Gridap.ODEs.TransientFEOperator
 
     # With rhs_fn=nothing (zero RHS)
-    op0 = SM.build_fe_operator(entities, coupling_pairs, dom, fmap, X, Y)
+    op0 = SM.build_fe_operator(entities, dom, fmap, X, Y)
     @test op0 isa Gridap.ODEs.TransientFEOperator
   end
 
