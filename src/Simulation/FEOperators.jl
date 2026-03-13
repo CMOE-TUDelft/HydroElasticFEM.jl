@@ -307,7 +307,7 @@ function build_fe_operator(entities,
     l = if rhs_fn !== nothing
         y -> rhs_fn(FieldMap(y, fmap))
     else
-        y -> ∫(0.0 * y[1])dom[:dΩ]
+        y -> ∫(0.0 * y[fmap[:ϕ]])dom[:dΩ]
     end
 
     AffineFEOperator(a, l, X, Y)
