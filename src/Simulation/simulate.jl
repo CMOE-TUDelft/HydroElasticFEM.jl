@@ -22,19 +22,14 @@ Run a **frequency-domain** simulation.
 `SimResult` containing FE spaces, operator, and solution.
 """
 function simulate(config::SimConfig, 
-                  entities::Vector{<:P.PhysicsParameters}, 
-                  trians::G.TankTriangulations;
-                  dom::G.IntegrationDomains,
-                  couplings=nothing, rhs_fn=nothing)
+                  problem::HEFEM_Problem)
     config.domain == :frequency ||
         throw(ArgumentError("Use the (config, tconfig, ...) method for time-domain"))
 
-    X, Y, fmap = FA.build_fe_spaces(entities, trians)
-
-    ω = config.ω
-
-    op = build_fe_operator(entities, dom, ω, fmap, X, Y;
-                           rhs_fn=rhs_fn)
+    X = get_test_fe_space(problem)
+    Y = get_trial_fe_space(problem)
+    fmap = get_field_map(problem)
+    op = get_fe_operator(problem)
 
     solver = isnothing(config.solver) ? LUSolver() : config.solver
     solution = solve(solver, op)
@@ -48,36 +43,27 @@ end
 
 
 """
-    simulate(config::SimConfig, tconfig::TimeConfig, entities, trians;
-             dom::IntegrationDomains, couplings=nothing, rhs_fn=nothing)
+    simulate(config::SimConfig, tconfig::TimeConfig, problem::HEFEM_Problem)
 
 Run a **time-domain** simulation.
 
 # Arguments
 - `config::SimConfig` — must have `domain == :time`
 - `tconfig::TimeConfig` — time-stepping and initial-condition parameters
-- `entities` — vector of entities (PhysicsParameters or Vector{ResonatorSingle})
-- `trians` — `G.TankTriangulations`
-- `dom::IntegrationDomains` — integration measures/normals
-- `couplings` — optional explicit coupling pairs; auto-detected if `nothing`
-- `rhs_fn` — optional callable `rhs_fn(t, y::FieldMap) -> DomainContribution`;
-  if `nothing`, uses zero right-hand side (requires `:dΩ` in `dom`)
+- `problem::HEFEM_Problem` — problem container with FE spaces, operator, and other entities
 
 # Returns
 `SimResult` containing FE spaces, transient operator, and ODE solution.
 """
 function simulate(config::SimConfig, tconfig::TimeConfig,
-                  entities::Vector{<:P.PhysicsParameters}, 
-                  trians::G.TankTriangulations;
-                  dom::G.IntegrationDomains,
-                  couplings=nothing, rhs_fn=nothing)
+                  problem::HEFEM_Problem)
     config.domain == :time ||
         throw(ArgumentError("Use the (config, ...) method for frequency-domain"))
 
-    X, Y, fmap = FA.build_fe_spaces(entities, trians; transient=true)
-
-    op = build_fe_operator(entities, dom, fmap, X, Y;
-                           rhs_fn=rhs_fn)
+    X = get_test_fe_space(problem)
+    Y = get_trial_fe_space(problem)
+    fmap = get_field_map(problem)
+    op = get_fe_operator(problem)
 
     ls = isnothing(config.solver) ? LUSolver() : config.solver
     ode_solver = GeneralizedAlpha2(ls, tconfig.Δt, tconfig.ρ∞)

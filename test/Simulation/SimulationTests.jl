@@ -224,4 +224,35 @@ include("FESpaceAssemblyTests.jl")
     @test step_count == expected_steps
   end
 
+  # =========================================================================
+  # Custom degree dictionary for integration domains
+  # =========================================================================
+  @testset "integration domains with custom degree dict" begin
+    degree_dict = Dict(:dΩ => 3, :dΓκ => 2, :dΓη => 5, :dΓin => 1, :dΓout => 1, :dΓbot => 1)
+    dom_custom = G.get_integration_domains(trian; degree=degree_dict)
+    # Check that the measures were created with the correct degrees
+    @test dom_custom[:dΩ].degree == 3
+    @test dom_custom[:dΓκ].degree == 2
+    @test dom_custom[:dΓη].degree == 5
+    @test dom_custom[:dΓin].degree == 1
+    @test dom_custom[:dΓout].degree == 1
+    @test dom_custom[:dΓbot].degree == 1
+
+    # Run a simple frequency-domain simulation with the custom dom
+    ω = 2.0
+    config = SM.SimConfig(domain=:frequency, ω=ω)
+    rhs_fn(y) = ∫(y[:ϕ] * 1.0)dΓin
+    entities = [fluid, fsurf, mem]
+    result = SM.simulate(config, entities, trian;
+        dom=dom_custom,
+        rhs_fn=rhs_fn)
+    @test result isa SM.SimResult
+    @test result.op isa Gridap.FESpaces.AffineFEOperator
+    uh = result.solution
+    ϕₕ, κₕ, ηₕ = uh
+    ϕ_l2 = sqrt(abs(sum(∫(ϕₕ * conj(ϕₕ))dΩ)))
+    @test ϕ_l2 > 0.0
+    @test isfinite(ϕ_l2)
+  end
+
 end
