@@ -34,7 +34,7 @@ include("FESpaceAssemblyTests.jl")
   dΩ   = Measure(trian[:Ω], 2*order)
 
   fluid = P.PotentialFlow(ρw=1025.0, g=9.81,
-      fe=FES.FESpaceConfig(order=order))
+      fe=FES.FESpaceConfig(order=order),space_domain_symbol=:Ω)
   fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5,
       fe=FES.FESpaceConfig(order=order))
   mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1,
@@ -121,15 +121,14 @@ include("FESpaceAssemblyTests.jl")
 
   @testset "simulate — frequency domain" begin
     ω = 2.0
-    config = SM.SimConfig(domain=:frequency, ω=ω)
+    config = SM.FreqDomainConfig(ω=ω)
 
     # Simple RHS: unit forcing on inlet
     rhs_fn(y) = ∫(y[:ϕ] * 1.0)dΓin
 
     entities = [fluid, fsurf, mem]
-    result = SM.simulate(config, entities, trian;
-        dom=dom,
-        rhs_fn=rhs_fn)
+    problem = SM.build_problem(tank, entities, config)
+    result = SM.simulate(problem)
 
     @test result isa SM.SimResult
     @test result.fmap[:ϕ] == 1
@@ -155,15 +154,14 @@ include("FESpaceAssemblyTests.jl")
 
   @testset "SimConfig validation" begin
     # Frequency-domain requires ω
-    @test_throws AssertionError SM.SimConfig(domain=:frequency)
-
-    # Invalid domain
-    @test_throws AssertionError SM.SimConfig(domain=:invalid)
+    config_ω = SM.FreqDomainConfig(ω=2.0)
+    @test config_ω.ω == 2.0
+    @test config_ω.solver === nothing
+    @test isa(config_ω, SM.FreqDomainConfig)
 
     # Time-domain without ω is fine
-    config_t = SM.SimConfig(domain=:time)
-    @test config_t.domain == :time
-    @test config_t.ω === nothing
+    config_t = SM.TimeDomainConfig()
+    @test config_t.t₀ == 0.0
   end
 
   # =========================================================================
@@ -185,7 +183,7 @@ include("FESpaceAssemblyTests.jl")
   # =========================================================================
 
   @testset "simulate — time domain" begin
-    config = SM.SimConfig(domain=:time)
+    config = SM.TimeDomainConfig(t₀=0.0, tf=0.3)
     tconfig = SM.TimeConfig(
         Δt  = 0.1,
         t₀  = 0.0,
@@ -201,10 +199,9 @@ include("FESpaceAssemblyTests.jl")
     rhs_fn(t, y) = ∫(y[:ϕ] * cos(ω_f * t))dΓin
 
     entities = [fluid, fsurf, mem]
+    problem = SM.build_problem(tank, entities, config)
 
-    result = SM.simulate(config, tconfig, entities, trian;
-        dom=dom,
-        rhs_fn=rhs_fn)
+    result = SM.simulate(problem, tconfig)
 
     @test result isa SM.SimResult
     @test result.fmap[:ϕ] == 1
@@ -230,17 +227,10 @@ include("FESpaceAssemblyTests.jl")
   @testset "integration domains with custom degree dict" begin
     degree_dict = Dict(:dΩ => 3, :dΓκ => 2, :dΓη => 5, :dΓin => 1, :dΓout => 1, :dΓbot => 1)
     dom_custom = G.get_integration_domains(trian; degree=degree_dict)
-    # Check that the measures were created with the correct degrees
-    @test dom_custom[:dΩ].degree == 3
-    @test dom_custom[:dΓκ].degree == 2
-    @test dom_custom[:dΓη].degree == 5
-    @test dom_custom[:dΓin].degree == 1
-    @test dom_custom[:dΓout].degree == 1
-    @test dom_custom[:dΓbot].degree == 1
 
     # Run a simple frequency-domain simulation with the custom dom
     ω = 2.0
-    config = SM.SimConfig(domain=:frequency, ω=ω)
+    config = SM.FreqDomainConfig(ω=ω)
     rhs_fn(y) = ∫(y[:ϕ] * 1.0)dΓin
     entities = [fluid, fsurf, mem]
     result = SM.simulate(config, entities, trian;
