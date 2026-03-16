@@ -75,7 +75,7 @@ get_sim_config(prob::HEFEM_Problem) = prob.sim_config
 Given a `SimConfig` and tuples of physics entities + triangulations,
 constructs the `HEFEM_Problem` by building FE spaces, assembling the FE operator, and building the solver.
 """
-function build_problem(domain, physics::Vector{P.PhysicsParameters}, config::PH.SimulationConfig; tconfig=nothing)
+function build_problem(domain, physics::Vector{P.PhysicsParameters}, config::PH.SimulationConfig; tconfig=nothing, rhs_fn=nothing)
     
     # Build discrete model and triangulations from geometry
     model = G.build_model(domain)
@@ -88,9 +88,9 @@ function build_problem(domain, physics::Vector{P.PhysicsParameters}, config::PH.
 
     # Build FE Operator
     if isa(config, PH.FreqDomainConfig)
-        op = build_fe_operator(physics, measures, config.ω, fmap, X, Y)
+        op = build_fe_operator(physics, measures, config.ω, fmap, X, Y; rhs_fn=rhs_fn)
     elseif isa(config, PH.TimeDomainConfig)
-        op = build_fe_operator(physics, measures, fmap, X, Y)
+        op = build_fe_operator(physics, measures, fmap, X, Y; rhs_fn=rhs_fn)
     end
 
     HEFEM_Problem(model, trians, measures, physics, fmap, Y, X, op, config)

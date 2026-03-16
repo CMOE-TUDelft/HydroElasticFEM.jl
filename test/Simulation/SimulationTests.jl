@@ -73,7 +73,7 @@ include("FESpaceAssemblyTests.jl")
     X, Y, fmap = FA.build_fe_spaces(entities, trian)
 
     # With explicit rhs_fn
-    rhs_fn(y) = ∫(y[:ϕ] * 1.0)dΓin
+    rhs_fn(y) = [1.0, 0.0, 0.0]  # corresponds to ϕ, κ, η order in fmap
     op = SM.build_fe_operator(entities, dom, ω, fmap, X, Y;
                               rhs_fn=rhs_fn)
     @test op isa Gridap.FESpaces.AffineFEOperator
@@ -105,7 +105,7 @@ include("FESpaceAssemblyTests.jl")
 
     # With explicit rhs_fn
     ω_f = 2.0
-    rhs_fn(t, y) = ∫(y[:ϕ] * cos(ω_f * t))dΓin
+    rhs_fn(t, y) = [cos(ω_f * t), 0.0, 0.0]  # corresponds to ϕ, κ, η order in fmap
     op = SM.build_fe_operator(entities, dom, fmap, X, Y;
                               rhs_fn=rhs_fn)
     @test op isa Gridap.ODEs.TransientFEOperator
@@ -124,10 +124,10 @@ include("FESpaceAssemblyTests.jl")
     config = SM.FreqDomainConfig(ω=ω)
 
     # Simple RHS: unit forcing on inlet
-    rhs_fn(y) = ∫(y[:ϕ] * 1.0)dΓin
+    rhs_fn(y) = [1.0, 0.0, 0.0]  # corresponds to ϕ, κ, η order in fmap
 
     entities = [fluid, fsurf, mem]
-    problem = SM.build_problem(tank, entities, config)
+    problem = SM.build_problem(tank, entities, config; rhs_fn=rhs_fn)
     result = SM.simulate(problem)
 
     @test result isa SM.SimResult
@@ -142,8 +142,11 @@ include("FESpaceAssemblyTests.jl")
     uh = result.solution
     ϕₕ, κₕ, ηₕ = uh
 
+    measures = SM.get_integration_domains(problem)
+    dΩ_ = measures[:dΩ]
+
     # Non-trivial solution (forcing is non-zero)
-    ϕ_l2 = sqrt(abs(sum(∫(ϕₕ * conj(ϕₕ))dΩ)))
+    ϕ_l2 = sqrt(abs(sum(∫(ϕₕ * conj(ϕₕ))dΩ_)))
     @test ϕ_l2 > 0.0
     @test isfinite(ϕ_l2)
   end
@@ -196,10 +199,10 @@ include("FESpaceAssemblyTests.jl")
 
     # Time-dependent rhs: simple harmonic forcing on inlet
     ω_f = 2.0
-    rhs_fn(t, y) = ∫(y[:ϕ] * cos(ω_f * t))dΓin
+    rhs_fn(t, y) = [1.0 * t, 0.0, 0.0]  # corresponds to ϕ, κ, η order in fmap
 
     entities = [fluid, fsurf, mem]
-    problem = SM.build_problem(tank, entities, config)
+    problem = SM.build_problem(tank, entities, config; rhs_fn=rhs_fn)
 
     result = SM.simulate(problem, tconfig)
 
@@ -231,16 +234,17 @@ include("FESpaceAssemblyTests.jl")
     # Run a simple frequency-domain simulation with the custom dom
     ω = 2.0
     config = SM.FreqDomainConfig(ω=ω)
-    rhs_fn(y) = ∫(y[:ϕ] * 1.0)dΓin
+    rhs_fn(y) = [1.0, 0.0, 0.0]  # corresponds to ϕ, κ, η order in fmap
     entities = [fluid, fsurf, mem]
-    result = SM.simulate(config, entities, trian;
-        dom=dom_custom,
-        rhs_fn=rhs_fn)
+    problem = SM.build_problem(tank, entities, config; rhs_fn=rhs_fn)
+    result = SM.simulate(problem)
+    measures = SM.get_integration_domains(problem)
+    dΩ_ = measures[:dΩ]
     @test result isa SM.SimResult
     @test result.op isa Gridap.FESpaces.AffineFEOperator
     uh = result.solution
     ϕₕ, κₕ, ηₕ = uh
-    ϕ_l2 = sqrt(abs(sum(∫(ϕₕ * conj(ϕₕ))dΩ)))
+    ϕ_l2 = sqrt(abs(sum(∫(ϕₕ * conj(ϕₕ))dΩ_)))
     @test ϕ_l2 > 0.0
     @test isfinite(ϕ_l2)
   end
