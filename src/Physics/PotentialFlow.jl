@@ -41,5 +41,5 @@ end
 function rhs(pf::PotentialFlow, dom::IntegrationDomains, f, y)
     sym = variable_symbol(pf)
     w = y[sym]
-    ∫(w * f[sym])dom[:dΩ]
+    ∫(w * f[sym])dom[:dΓin]
 end
