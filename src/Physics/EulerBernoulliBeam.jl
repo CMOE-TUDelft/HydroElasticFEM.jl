@@ -21,10 +21,10 @@ normalised by fluid density ρw.
     g::Float64     = 9.81
     symbol::Symbol = :η_b
     space_domain_symbol::Symbol = :Γη
+    fe::FESpaceConfig = FESpaceConfig()
 
     # Derived quantities
     ωn1::Float64   = 22.3733 * sqrt(EIᵨ / (mᵨ * L^4))
-    fe::FESpaceConfig = FESpaceConfig()
 end
 
 function print_parameters(beam::EulerBernoulliBeam)

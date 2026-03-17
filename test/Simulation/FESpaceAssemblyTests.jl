@@ -4,10 +4,11 @@ using Gridap.CellData
 using SparseArrays
 
 import HydroElasticFEM.Simulation.FESpaceAssembly as FEA
-import HydroElasticFEM.ParameterHandler as FES
+import HydroElasticFEM.ParameterHandler as PH
 import HydroElasticFEM.Physics as P
 import HydroElasticFEM.Simulation.FEOperators as FO
 import HydroElasticFEM.Geometry as G
+
 
 # =========================================================================
 # FESpaceAssembly tests
@@ -20,7 +21,7 @@ import HydroElasticFEM.Geometry as G
   # -----------------------------------------------------------------------
 
   @testset "FESpaceConfig defaults and overrides" begin
-    fe = FES.FESpaceConfig()
+    fe = PH.FESpaceConfig()
     @test fe.reffe_type == lagrangian
     @test fe.space_type == Float64
     @test fe.order == 1
@@ -30,11 +31,11 @@ import HydroElasticFEM.Geometry as G
     @test fe.dirichlet_tags === nothing
     @test fe.dirichlet_value === nothing
 
-    fe2 = FES.FESpaceConfig(order=2)
+    fe2 = PH.FESpaceConfig(order=2)
     @test fe2.order == 2
     @test fe2.γ == 40.0   # 10.0 * 2^2
 
-    fe3 = FES.FESpaceConfig(order=3, γ=100.0, dirichlet_tags="boundary")
+    fe3 = PH.FESpaceConfig(order=3, γ=100.0, dirichlet_tags="boundary")
     @test fe3.order == 3
     @test fe3.γ == 100.0
     @test fe3.dirichlet_tags == "boundary"
@@ -61,7 +62,7 @@ import HydroElasticFEM.Geometry as G
 
   @testset "Entity fe field overrides" begin
     beam = P.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0,
-                                fe=FES.FESpaceConfig(order=2))
+                                fe=PH.FESpaceConfig(order=2))
     @test beam.fe.order == 2
     @test beam.fe.γ == 40.0
   end
@@ -91,13 +92,13 @@ import HydroElasticFEM.Geometry as G
     Γη  = Triangulation(Γ, findall(Γm_mask))
     Γκ  = Triangulation(Γ, findall(!, Γm_mask))
 
-    fluid = P.PotentialFlow(ρw=1025.0, g=9.81, fe=FES.FESpaceConfig(order=order))
-    fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γκ)
-    mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γη)
+    fluid = P.PotentialFlow(ρw=1025.0, g=9.81, fe=PH.FESpaceConfig(order=order))
+    fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=PH.FESpaceConfig(order=order), space_domain_symbol=:Γκ)
+    mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=PH.FESpaceConfig(order=order), space_domain_symbol=:Γη)
 
     trians = G.TankTriangulations(Dict(:Ω => Ω, :Γκ => Γκ, :Γη => Γη))
 
-    X, Y, fmap = FEA.build_fe_spaces([fluid, fsurf, mem], trians)
+    X, Y, fmap = FEA.build_fe_spaces([fluid, fsurf, mem], trians, PH.FreqDomainConfig(ω=2.0))
 
     # Check fmap
     @test fmap[:ϕ] == 1
@@ -118,15 +119,15 @@ import HydroElasticFEM.Geometry as G
     model = CartesianDiscreteModel((0, 1.0), (20,))
 
     beam = P.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0, g=0.0,
-                                fe=FES.FESpaceConfig(order=2,
-                                                     vector_type=Vector{Float64},
+                                fe=PH.FESpaceConfig(order=2,
+                                                     vector_type=Vector{ComplexF64},
                                                      dirichlet_tags="boundary",
                                                      dirichlet_value=0.0),
                                 space_domain_symbol=:Ω)
 
     
     trians = G.TankTriangulations(Dict(:Ω => Interior(model)))
-    X, Y, fmap = FEA.build_fe_spaces([beam], trians)
+    X, Y, fmap = FEA.build_fe_spaces([beam], trians, PH.FreqDomainConfig())
 
     @test fmap[:η_b] == 1
     @test length(fmap) == 1
@@ -165,12 +166,12 @@ import HydroElasticFEM.Geometry as G
 
     degree = 2 * order
 
-    fluid = P.PotentialFlow(ρw=1025.0, g=9.81, fe=FES.FESpaceConfig(order=order))
-    fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γκ)
-    mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γη)
+    fluid = P.PotentialFlow(ρw=1025.0, g=9.81, fe=PH.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Ω)
+    fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=PH.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Γκ)
+    mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=PH.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Γη)
 
     trians = G.TankTriangulations(Dict(:Ω => Ω, :Γκ => Γκ, :Γη => Γη))
-    X, Y, fmap = FEA.build_fe_spaces([fluid, fsurf, mem], trians)
+    X, Y, fmap = FEA.build_fe_spaces([fluid, fsurf, mem], trians, PH.FreqDomainConfig())
 
     dΩ   = Measure(Ω, degree)
     dΓm  = Measure(Γm, degree)

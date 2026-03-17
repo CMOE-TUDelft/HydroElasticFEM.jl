@@ -20,6 +20,7 @@ Parameters for a single locally resonant mass-spring-damper.
     ωn1::Float64   = sqrt(K / M)
     symbol::Symbol = :q
     space_domain_symbol::Symbol = :Ω
+    fe::FESpaceConfig = FESpaceConfig()
 end
 
 variable_symbol(s::ResonatorSingle) = s.symbol

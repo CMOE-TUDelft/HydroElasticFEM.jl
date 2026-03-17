@@ -34,11 +34,11 @@ include("FESpaceAssemblyTests.jl")
   dΩ   = Measure(trian[:Ω], 2*order)
 
   fluid = P.PotentialFlow(ρw=1025.0, g=9.81,
-      fe=FES.FESpaceConfig(order=order),space_domain_symbol=:Ω)
+      fe=FES.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Ω)
   fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5,
-      fe=FES.FESpaceConfig(order=order))
+      fe=FES.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Γκ)
   mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1,
-      fe=FES.FESpaceConfig(order=order))
+      fe=FES.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Γη)
 
   # =========================================================================
   # detect_couplings
@@ -70,7 +70,7 @@ include("FESpaceAssemblyTests.jl")
     entities = [fluid, fsurf, mem]
     ω = 2.0
 
-    X, Y, fmap = FA.build_fe_spaces(entities, trian)
+    X, Y, fmap = FA.build_fe_spaces(entities, trian, PH.FreqDomainConfig(ω=ω))
 
     # With explicit rhs_fn
     rhs_fn(y) = [1.0, 0.0, 0.0]  # corresponds to ϕ, κ, η order in fmap
@@ -99,9 +99,17 @@ include("FESpaceAssemblyTests.jl")
   # =========================================================================
 
   @testset "build_fe_operator — time domain" begin
-    entities = [fluid, fsurf, mem]
 
-    X, Y, fmap = FA.build_fe_spaces(entities, trian; transient=true)
+    fluid_real = P.PotentialFlow(ρw=1025.0, g=9.81,
+      fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Ω)
+    fsurf_real = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5,
+      fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γκ)
+    mem_real   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1,
+      fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γη)
+
+    entities = [fluid_real, fsurf_real, mem_real]
+
+    X, Y, fmap = FA.build_fe_spaces(entities, trian, PH.TimeDomainConfig())
 
     # With explicit rhs_fn
     ω_f = 2.0
@@ -201,7 +209,14 @@ include("FESpaceAssemblyTests.jl")
     ω_f = 2.0
     rhs_fn(t, y) = [1.0 * t, 0.0, 0.0]  # corresponds to ϕ, κ, η order in fmap
 
-    entities = [fluid, fsurf, mem]
+    fluid_real = P.PotentialFlow(ρw=1025.0, g=9.81,
+      fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Ω)
+    fsurf_real = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5,
+      fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γκ)
+    mem_real   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1,
+      fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γη)
+
+    entities = [fluid_real, fsurf_real, mem_real]
     problem = SM.build_problem(tank, entities, config; rhs_fn=rhs_fn)
 
     result = SM.simulate(problem, tconfig)

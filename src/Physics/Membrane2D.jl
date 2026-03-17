@@ -20,10 +20,10 @@ Parameters for a 2D membrane model, normalised by fluid density ρw.
     g::Float64     = 9.81
     symbol::Symbol = :η_m
     space_domain_symbol::Symbol = :Γη
+    fe::FESpaceConfig = FESpaceConfig()
 
     # Derived quantities
     ωn1::Float64    = (π / L) * sqrt(Tᵨ / mᵨ)
-    fe::FESpaceConfig = FESpaceConfig()
 end
 
 function print_parameters(memb::Membrane2D)

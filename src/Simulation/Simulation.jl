@@ -84,7 +84,7 @@ function build_problem(domain, physics::Vector{P.PhysicsParameters}, config::PH.
     measures = G.get_integration_domains(trians, degree=degrees)
 
     # Build FE spaces
-    X, Y, fmap = FA.build_fe_spaces(physics, trians; transient=!isnothing(tconfig))
+    X, Y, fmap = FA.build_fe_spaces(physics, trians, config)
 
     # Build FE Operator
     if isa(config, PH.FreqDomainConfig)

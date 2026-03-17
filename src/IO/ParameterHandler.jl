@@ -40,7 +40,7 @@ Controls how `build_fe_spaces` constructs the entity's FE space.
 """
 @with_kw struct FESpaceConfig
     reffe_type             = lagrangian
-    space_type::DataType  = Float64
+    space_type::DataType   = Float64
     order::Int             = 1
     conformity::Symbol     = :H1
     vector_type::DataType  = Vector{ComplexF64}

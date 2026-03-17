@@ -16,20 +16,24 @@ using Gridap.ODEs: TransientTrialFESpace, TransientMultiFieldFESpace
 
 import ...Physics as P
 import ...Geometry as G
+import ...ParameterHandler as PH
 
 # ─────────────────────────────────────────────────────────────
 # Per-entity FE space construction (dispatched on entity type)
 # ─────────────────────────────────────────────────────────────
 
 """
-    build_test_fe_space(entity::PhysicsParameters, trian)
+    build_test_fe_space(entity::PhysicsParameters, trian, config::SimulationConfig)
 
 Build a Gridap `TestFESpace` for `entity` on triangulation `trian`,
 using the numerical parameters from `entity.fe`.
 """
-function build_test_fe_space(entity::P.PhysicsParameters, trian)
+function build_test_fe_space(entity::P.PhysicsParameters, trian, config::PH.SimulationConfig)
     fe = entity.fe
     reffe = ReferenceFE(fe.reffe_type, fe.space_type, fe.order)
+    if config isa PH.FreqDomainConfig
+        @assert fe.vector_type == Vector{ComplexF64} "Frequency-domain simulations require complex-valued FE spaces."    
+    end
     if fe.dirichlet_tags !== nothing
         TestFESpace(trian, reffe;
             conformity   = fe.conformity,
@@ -43,28 +47,31 @@ function build_test_fe_space(entity::P.PhysicsParameters, trian)
 end
 
 """
-    build_test_fe_space(resn::Vector{P.ResonatorSingle}, trian)
+    build_test_fe_space(resn::Vector{P.ResonatorSingle}, trian, config::PH.SimulationConfig)
 
 Build one `ConstantFESpace` per resonator on triangulation `trian`.
 Returns a `Vector` of test spaces.
 """
-function build_test_fe_space(resn::Vector{P.ResonatorSingle}, trian)
+function build_test_fe_space(resn::Vector{P.ResonatorSingle}, trian, config::PH.SimulationConfig)
+     if config isa PH.FreqDomainConfig
+        @assert all(r -> r.fe.vector_type == Vector{ComplexF64}, resn) "Frequency-domain simulations require complex-valued FE spaces."    
+    end
     [ConstantFESpace(trian;
-        vector_type = Vector{ComplexF64},
-        field_type  = VectorValue{1, ComplexF64})
-     for _ in resn]
+        vector_type = iresn.fe.vector_type,
+        field_type  = iresn.fe.space_type) 
+     for iresn in resn]
 end
 
 """
-    build_trial_fe_space(entity::P.PhysicsParameters, V_test; transient=false)
+    build_trial_fe_space(entity::P.PhysicsParameters, V_test, config::PH.SimulationConfig)
 
-Build a `TrialFESpace` (or `TransientTrialFESpace` when `transient=true`)
+Build a `TrialFESpace` (or `TransientTrialFESpace` when `config` is `TimeDomainConfig`)
 from the test space `V_test`, applying Dirichlet values from `entity.fe`
 if present.
 """
-function build_trial_fe_space(entity::P.PhysicsParameters, V_test; transient::Bool=false)
+function build_trial_fe_space(entity::P.PhysicsParameters, V_test, config::PH.SimulationConfig)
     fe = entity.fe
-    if transient
+    if config isa PH.TimeDomainConfig
         if fe.dirichlet_value !== nothing
             TransientTrialFESpace(V_test, fe.dirichlet_value)
         else
@@ -80,12 +87,12 @@ function build_trial_fe_space(entity::P.PhysicsParameters, V_test; transient::Bo
 end
 
 """
-    build_trial_fe_space(resn::Vector{P.ResonatorSingle}, Vs::Vector; transient=false)
+    build_trial_fe_space(resn::Vector{P.ResonatorSingle}, Vs::Vector, config::PH.SimulationConfig)
 
 Build trial spaces for each resonator's test space.
 """
-function build_trial_fe_space(resn::Vector{P.ResonatorSingle}, Vs::Vector; transient::Bool=false)
-    if transient
+function build_trial_fe_space(resn::Vector{P.ResonatorSingle}, Vs::Vector, config::PH.SimulationConfig)
+    if config isa PH.TimeDomainConfig
         [TransientTrialFESpace(V) for V in Vs]
     else
         [TrialFESpace(V) for V in Vs]
@@ -98,7 +105,7 @@ end
 
 
 """
-    build_fe_spaces(entities::Vector{P.PhysicsParameters}, trians::G.TankTriangulations; transient=false) -> (X, Y, fmap)
+    build_fe_spaces(entities::Vector{P.PhysicsParameters}, trians::G.TankTriangulations, config::PH.SimulationConfig) -> (X, Y, fmap)
 
 Build multi-field test and trial FE spaces from a list of entities and a TankTriangulations dictionary.
 Each entity uses the triangulation from trians[entity.domain_symbol].
@@ -106,6 +113,7 @@ Each entity uses the triangulation from trians[entity.domain_symbol].
 # Arguments
 - `entities`: Vector of `P.PhysicsParameters` (or Vector{P.ResonatorSingle})
 - `trians`: `G.TankTriangulations` (dictionary-like)
+- `config`: `PH.SimulationConfig` (frequency or time-domain)
 
 # Returns
 - `X::MultiFieldFESpace` — trial space
@@ -118,7 +126,9 @@ X, Y, fmap = build_fe_spaces([fluid, fsurf, mem], trians)
 # fmap == Dict(:ϕ => 1, :κ => 2, :η_m => 3)
 ```
 """
-function build_fe_spaces(entities::Vector{<:P.PhysicsParameters}, trians::G.TankTriangulations; transient::Bool=false)
+function build_fe_spaces(entities::Vector{<:P.PhysicsParameters}, 
+                         trians::G.TankTriangulations, 
+                         config::PH.SimulationConfig)
     test_spaces  = SingleFieldFESpace[]
     trial_spaces = SingleFieldFESpace[]
     fmap = Dict{Symbol, Int}()
@@ -127,8 +137,8 @@ function build_fe_spaces(entities::Vector{<:P.PhysicsParameters}, trians::G.Tank
     for entity in entities
         trian = trians[entity.space_domain_symbol]
         if entity isa Vector{P.ResonatorSingle}
-            Vs = build_test_fe_space(entity, trian)
-            Us = build_trial_fe_space(entity, Vs; transient=transient)
+            Vs = build_test_fe_space(entity, trian, config)
+            Us = build_trial_fe_space(entity, Vs, config)
             for (i, (Vi, Ui)) in enumerate(zip(Vs, Us))
                 idx += 1
                 push!(test_spaces, Vi)
@@ -136,8 +146,8 @@ function build_fe_spaces(entities::Vector{<:P.PhysicsParameters}, trians::G.Tank
                 fmap[Symbol("q_$i")] = idx
             end
         else
-            V = build_test_fe_space(entity, trian)
-            U = build_trial_fe_space(entity, V; transient=transient)
+            V = build_test_fe_space(entity, trian, config)
+            U = build_trial_fe_space(entity, V, config)
             idx += 1
             push!(test_spaces, V)
             push!(trial_spaces, U)
