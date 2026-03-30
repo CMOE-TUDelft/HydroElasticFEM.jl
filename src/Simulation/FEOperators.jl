@@ -109,8 +109,6 @@ end
 # Multi-entity assembly helpers (single + coupling entities)
 # ─────────────────────────────────────────────────────────────
 
-_add(a, b) = isnothing(a) ? b : a + b
-
 """Sum single-entity + coupling contributions for a given form."""
 function _assemble_form(f, has_f, entities, coupling_pairs, dom, fmap, x, y)
     xd = FieldMap(x, fmap)
@@ -118,12 +116,12 @@ function _assemble_form(f, has_f, entities, coupling_pairs, dom, fmap, x, y)
     val = nothing
     for e in entities
         if has_f(e)
-            val = _add(val, f(e, dom, xd, yd))
+            val = P._add_contribution(val, f(e, dom, xd, yd))
         end
     end
     for (ea, eb) in coupling_pairs
         if has_f(ea, eb)
-            val = _add(val, f(ea, eb, dom, xd, yd))
+            val = P._add_contribution(val, f(ea, eb, dom, xd, yd))
         end
     end
     isnothing(val) && error("No active $(nameof(f)) contributions found")
@@ -137,12 +135,12 @@ function _assemble_bilinear(entities, coupling_pairs, dom, ω, fmap, x, y)
     val = nothing
     for e in entities
         if _has_weakform(e)
-            val = _add(val, P.weakform(e, dom, ω, xd, yd))
+            val = P._add_contribution(val, P.weakform(e, dom, ω, xd, yd))
         end
     end
     for (ea, eb) in coupling_pairs
         if _has_weakform(ea, eb)
-            val = _add(val, P.weakform(ea, eb, dom, ω, xd, yd))
+            val = P._add_contribution(val, P.weakform(ea, eb, dom, ω, xd, yd))
         end
     end
     isnothing(val) && error("No active weak form contributions found")

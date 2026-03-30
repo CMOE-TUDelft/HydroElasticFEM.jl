@@ -20,6 +20,12 @@ using WaveSpec
 using ..Geometry
 using ..ParameterHandler
 
+# -----────────────────────────────────────────────────────────
+# Helper functions
+# ─────────────────────────────────────────────────────────
+
+include("Helpers.jl")
+
 # ─────────────────────────────────────────────────────────────
 # Abstract base
 # ─────────────────────────────────────────────────────────────
@@ -263,6 +269,7 @@ export mass, damping, stiffness, rhs
 export has_mass_form, has_damping_form, has_stiffness_form, has_rhs_form
 export weakform, residual, jacobian, jacobian_t, jacobian_tt
 export PotentialFlow, FreeSurface, Membrane2D, EulerBernoulliBeam, Resonator
+export AbstractPotentialFlowBC, RadiationBC, PrescribedInletPotentialBC, DampingZoneBC
 export CouplingTerms
 
 end # module Physics

@@ -1,6 +1,7 @@
 using Gridap
 using Gridap.ODEs
 using Gridap.CellData
+using WaveSpec
 
 import HydroElasticFEM.Simulation as SM
 import HydroElasticFEM.Simulation.FEOperators as FO
@@ -11,6 +12,16 @@ import HydroElasticFEM.Geometry as G
 
 include("FEOperatorsTests.jl")
 include("FESpaceAssemblyTests.jl")
+
+function _single_frequency_state(; H=0.2, T=5.0, h=10.0, θ=0.0)
+  spec = WaveSpec.ContinuousSpectrums.RegularWave(H, T)
+  ds = WaveSpec.SpectralSpreading.DiscreteSpectralSpreading(spec; mess=false)
+  spread = WaveSpec.AngularSpreading.DiscreteAngularSpreading(θ)
+  ω = [2π / T]
+  k = [WaveSpec.AiryWaves.solve_wavenumber(ω[1], h)]
+  θ_vec = [θ]
+  WaveSpec.AiryWaves.AiryState(ds, spread, 1, 1, ω, k, θ_vec, h, 1)
+end
 
 # =========================================================================
 # Shared mesh setup: 50m × 10m tank, membrane from x=15 to x=35
@@ -157,6 +168,52 @@ include("FESpaceAssemblyTests.jl")
     ϕ_l2 = sqrt(abs(sum(∫(ϕₕ * conj(ϕₕ))dΩ_)))
     @test ϕ_l2 > 0.0
     @test isfinite(ϕ_l2)
+  end
+
+  @testset "simulate — potential flow boundary conditions" begin
+    state = _single_frequency_state(h=10.0)
+    ω = state.ω[1]
+    config = SM.FreqDomainConfig(ω=ω)
+
+    fluid_bc_only = P.PotentialFlow(
+      ρw=1025.0,
+      g=9.81,
+      sea_state=state,
+      boundary_conditions=[
+        P.PrescribedInletPotentialBC(domain=:dΓin, forcing=(x -> 1.0 + 0.0im), quantity=:traction),
+      ],
+      fe=FES.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}),
+      space_domain_symbol=:Ω,
+    )
+
+    problem_bc_only = SM.build_problem(tank, P.PhysicsParameters[fluid_bc_only], config)
+    result_bc_only = SM.simulate(problem_bc_only)
+    ϕ_bc_only = result_bc_only.solution[1]
+    dΩ_bc_only = SM.get_integration_domains(problem_bc_only)[:dΩ]
+    ϕ_l2_bc_only = sqrt(abs(sum(∫(ϕ_bc_only * conj(ϕ_bc_only))dΩ_bc_only)))
+    @test ϕ_l2_bc_only > 0.0
+    @test isfinite(ϕ_l2_bc_only)
+
+    fluid_mixed = P.PotentialFlow(
+      ρw=1025.0,
+      g=9.81,
+      sea_state=state,
+      boundary_conditions=[
+        P.RadiationBC(domain=:dΓin),
+        P.RadiationBC(domain=:dΓout),
+        P.PrescribedInletPotentialBC(domain=:dΓin, forcing=(x -> 1.0 + 0.0im), quantity=:potential),
+      ],
+      fe=FES.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}),
+      space_domain_symbol=:Ω,
+    )
+
+    problem_mixed = SM.build_problem(tank, P.PhysicsParameters[fluid_mixed], config)
+    result_mixed = SM.simulate(problem_mixed)
+    ϕ_mixed = result_mixed.solution[1]
+    dΩ_mixed = SM.get_integration_domains(problem_mixed)[:dΩ]
+    ϕ_l2_mixed = sqrt(abs(sum(∫(ϕ_mixed * conj(ϕ_mixed))dΩ_mixed)))
+    @test ϕ_l2_mixed > 0.0
+    @test isfinite(ϕ_l2_mixed)
   end
 
   # =========================================================================
