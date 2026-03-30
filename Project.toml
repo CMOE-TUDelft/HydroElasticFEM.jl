@@ -1,7 +1,7 @@
 name = "HydroElasticFEM"
 uuid = "e85360b2-c40c-44d1-92ad-66f8d48f49a1"
-version = "0.1.0"
 authors = ["Shagun Agarwal <shagun.1994@gmail.com>", "Oriol Colomes <J.O.ColomesGene@tudelft.nl>"]
+version = "0.1.0"
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
@@ -15,6 +15,12 @@ Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 TickTock = "9ff05d80-102d-5586-aa04-3a8bd1a90d20"
 WaveSpec = "908d4cf6-a6c0-449c-92e4-852c8f288332"
 
+[compat]
+DataFrames = "1.8.1"
+Printf = "1.11.0"
+Revise = "3.13.2"
+WaveSpec = "0.3.0"
+
 [extras]
 Gridap = "56d4f2e9-7ea1-5844-9cf6-b9c51ca7ce8e"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
@@ -23,8 +29,3 @@ WaveSpec = "908d4cf6-a6c0-449c-92e4-852c8f288332"
 
 [targets]
 test = ["Gridap", "SparseArrays", "Test", "WaveSpec"]
-
-[compat]
-DataFrames = "1.8.1"
-Printf = "1.11.0"
-Revise = "3.13.2"

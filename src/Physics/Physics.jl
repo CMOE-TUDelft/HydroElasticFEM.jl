@@ -16,6 +16,7 @@ module Physics
 using Parameters
 using Printf
 using Gridap
+using WaveSpec
 using ..Geometry
 using ..ParameterHandler
 

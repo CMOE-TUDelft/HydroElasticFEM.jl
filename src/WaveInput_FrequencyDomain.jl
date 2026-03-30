@@ -9,7 +9,7 @@ Stokes waves, and other wave types.
 module WaveInput_FrequencyDomain
 
 using WaveSpec
-using .Constants
+# using .Constants
 using Gridap
 
 export AbstractWave, AiryWave, StokesWave
@@ -58,7 +58,7 @@ struct AiryWaveXZ <: AbstractWave
 
   
   function AiryWaveXZ(h, ω, η0, α=0.0)        
-    k = dispersionRelAng(h, ω; msg=false)
+    k = WaveSpec.AiryWaves.solve_wavenumber(ω, h)
     λ = 2π/k   
     T = 2π/ω
     kh = k * h
@@ -96,7 +96,7 @@ struct StokesWave <: AbstractWave
     g::Real
     
     function StokesWave(η₀, ω, H₀, α=0.0; g=9.81)
-        k = dispersionRelAng(H₀, ω; msg=false)
+        k = WaveSpec.AiryWaves.solve_wavenumber(ω, H₀)
         new(η₀, ω, k, H₀, α, g)
     end
 end
