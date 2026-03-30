@@ -20,6 +20,7 @@ DataFrames = "1.8.1"
 Printf = "1.11.0"
 Revise = "3.13.2"
 WaveSpec = "0.3.0"
+Gridap = "0.20"
 
 [extras]
 Gridap = "56d4f2e9-7ea1-5844-9cf6-b9c51ca7ce8e"
