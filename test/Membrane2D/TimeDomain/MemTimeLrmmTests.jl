@@ -1,6 +1,6 @@
 using Gridap.ODEs
 using Gridap.CellData
-using WaveSpec.Constants: g, dispersionRelAng
+using WaveSpec
 
 @testset "Time-domain membrane+LRMM" begin
 
@@ -10,6 +10,7 @@ using WaveSpec.Constants: g, dispersionRelAng
 
   order = 2
   ρw = 1025.0
+  g = 9.81
 
   # Depth
   H0 = 10.0
@@ -27,7 +28,7 @@ using WaveSpec.Constants: g, dispersionRelAng
   # Wave
   ω = 2.4
   η₀ = 0.10
-  k = dispersionRelAng(H0, ω; msg=false)
+  k = WaveSpec.AiryWaves.solve_wavenumber(ω, H0)
   λ = 2π / k
   T_wave = 2π / ω
   ph0 = π/2
