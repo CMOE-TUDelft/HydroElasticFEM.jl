@@ -59,6 +59,7 @@ Time-domain integration parameters.
 - `t₀::Float64` — start time (default 0.0)
 - `tf::Float64` — final time
 - `ρ∞::Float64` — spectral radius for Generalized-α (default 1.0)
+- `αₕ` — optional stabilized free-surface parameter, depends on time integrator
 - `u0` — initial condition(s); tuple/vector of interpolatable objects per field
 - `u0t` — initial velocity (optional)
 - `u0tt` — initial acceleration (optional)
@@ -68,6 +69,7 @@ Time-domain integration parameters.
     t₀::Float64 = 0.0
     tf::Float64
     ρ∞::Float64 = 1.0
+    αₕ::Union{Nothing, Float64} = nothing
     u0 = nothing
     u0t = nothing
     u0tt = nothing
