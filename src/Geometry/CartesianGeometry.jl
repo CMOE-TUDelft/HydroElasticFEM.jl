@@ -288,7 +288,7 @@ from `tri`.
 | Key | Source | Used by |
 |-----|--------|---------|
 | `:dΩ` | `tri.Ω` | PotentialFlow, Resonator |
-| `:dΓ_fs` | `tri.Γfs` | FreeSurface, PF↔FS coupling |
+| `:dΓfs` | `tri.Γfs` | Free surface without structures or damping zones |
 | `:dΓ_s` | `tri.Γη` (all structures) | Membrane2D, Beam, PF↔struct coupling |
 | `:dΓ_in` | `tri.Γin` | Inlet boundary terms |
 | `:dΓ_out` | `tri.Γout` | Outlet boundary terms |
@@ -316,7 +316,11 @@ function get_integration_domains(tri::TankTriangulations; degree::Union{Int, Dic
     # Fluid interior
     d[:dΩ]     = Measure(tri[:Ω], get_deg(:dΩ))
 
-    # Free surface (outside structures and damping)
+    # Free surface without structures or damping zones
+    d[:dΓfs] = Measure(tri[:Γfs], get_deg(:dΓfs))
+    d[:nΓfs] = get_normal_vector(tri[:Γfs])
+
+    # Free surface including damping zones, but excluding structures
     d[:dΓκ]  = Measure(tri[:Γκ], get_deg(:dΓκ))
 
     # All-structure surface
@@ -337,8 +341,8 @@ function get_integration_domains(tri::TankTriangulations; degree::Union{Int, Dic
     for (i, Γd) in enumerate(tri[:Γ_dampings])
         key = Symbol("dΓd_$i")
         d[key] = Measure(Γd, get_deg(key))
+        d[Symbol("nΓd_$i")] = get_normal_vector(Γd)
     end
 
     return IntegrationDomains(d)
 end
-
