@@ -33,6 +33,21 @@ end
 
 variable_symbol(s::FreeSurface) = s.symbol
 
+_simulation_domain(dom::IntegrationDomains) = get(dom, :simulation_domain, :generic)
+
+function stabilization_parameter(fs::FreeSurface, dom::IntegrationDomains)
+    mode = _simulation_domain(dom)
+    if mode == :frequency
+        haskey(dom, :αₕ) || error("Frequency-domain free-surface stabilization requires `:αₕ` in IntegrationDomains.")
+        return dom[:αₕ]
+    elseif mode == :time
+        haskey(dom, :αₕ) || error("Time-domain damping-zone stabilization requires `TimeConfig.αₕ`.")
+        return dom[:αₕ]
+    else
+        return zero(fs.g)
+    end
+end
+
 # κ has no standalone mass, damping or rhs; stiffness captures the
 # gravity restoring term βₕ·g·u·κ on Γκ.
 has_mass_form(::FreeSurface) = false

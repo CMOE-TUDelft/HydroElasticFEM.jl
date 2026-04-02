@@ -19,3 +19,41 @@ This allows for flexible specification of parameters that can be either constant
 or spatially varying functions.
 """
 _as_space_function(v) = v isa Function ? v : (x -> v)
+
+"""
+    _resolve_space_function(v, dom)
+
+Resolve a user input into a pure space function using any transient metadata
+present in `dom`.
+
+Supported input shapes:
+- constant values
+- space functions: `x -> ...`
+- time-indexed space functions: `t -> (x -> ...)`
+- space-time functions: `(x, t) -> ...`
+"""
+function _resolve_space_function(v, dom)
+    !(v isa Function) && return (x -> v)
+
+    if isnothing(dom) || !haskey(dom, :t)
+        return _as_space_function(v)
+    end
+
+    t = dom[:t]
+
+    try
+        vt = v(t)
+        if vt isa Function
+            return vt
+        end
+    catch
+    end
+
+    return x -> begin
+        try
+            v(x, t)
+        catch
+            v(x)
+        end
+    end
+end

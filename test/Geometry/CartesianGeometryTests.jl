@@ -149,6 +149,7 @@ end
 
   # Core keys present
   @test haskey(d, :dΩ)
+  @test haskey(d, :dΓfs)
   @test haskey(d, :dΓκ)
   @test haskey(d, :dΓη)
   @test haskey(d, :dΓin)
@@ -158,9 +159,15 @@ end
   # Per-damping-zone keys
   @test haskey(d, :dΓd_1)
   @test haskey(d, :dΓd_2)
+  @test haskey(d, :nΓd_1)
+  @test haskey(d, :nΓd_2)
 
-  # All values are Gridap Measures
-  for v in values(d.data)
-    @test v isa Gridap.CellData.Measure
+  # Measures and normals are both stored in the integration-domain dictionary
+  for (k, v) in pairs(d.data)
+    if startswith(String(k), "nΓ")
+      @test v isa Gridap.CellData.GenericCellField
+    else
+      @test v isa Gridap.CellData.Measure
+    end
   end
 end

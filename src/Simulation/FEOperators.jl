@@ -196,6 +196,24 @@ function assemble_rhs(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol,Int}, 
     _assemble_active(P.rhs, P.has_rhs_form, terms, dom, fd, yd)
 end
 
+function _assemble_rhs_total(entities, coupling_pairs, dom, fmap, f, y)
+    fd = _wrap(f, fmap)
+    yd = _wrap(y, fmap)
+    val = nothing
+    for e in entities
+        if P.has_rhs_form(e)
+            val = P._add_contribution(val, P.rhs(e, dom, fd, yd))
+        end
+    end
+    for (ea, eb) in coupling_pairs
+        if P.has_rhs_form(ea, eb)
+            val = P._add_contribution(val, P.rhs(ea, eb, dom, fd, yd))
+        end
+    end
+    isnothing(val) && error("No active rhs contributions found")
+    return val
+end
+
 # ─────────────────────────────────────────────────────────────
 # Frequency-domain assembler
 # ─────────────────────────────────────────────────────────────
@@ -299,13 +317,15 @@ function build_fe_operator(entities,
                            rhs_fn=nothing)
 
     coupling_pairs = detect_couplings(entities)
+    dom[:simulation_domain] = :frequency
+    dom[:ω] = ω
 
     a(x, y) = _assemble_bilinear(entities, coupling_pairs, dom, ω, fmap, x, y)
 
     l = if rhs_fn !== nothing
-        y -> assemble_rhs(entities, dom, fmap, rhs_fn(FieldMap(y, fmap)), y)
+        y -> _assemble_rhs_total(entities, coupling_pairs, dom, fmap, rhs_fn(FieldMap(y, fmap)), y)
     else
-        y -> assemble_rhs(entities, dom, fmap, zeros(length(fmap)), y)
+        y -> _assemble_rhs_total(entities, coupling_pairs, dom, fmap, zeros(length(fmap)), y)
     end
 
     AffineFEOperator(a, l, X, Y)
@@ -331,18 +351,26 @@ function build_fe_operator(entities::Vector{<:P.PhysicsParameters},
                            rhs_fn=nothing)
 
     coupling_pairs = detect_couplings(entities)
+    dom[:simulation_domain] = :time
+    dom[:t] = 0.0
 
-    a(t, x, y)    = _assemble_form(P.stiffness, P.has_stiffness_form,
-                                    entities, coupling_pairs, dom, fmap, x, y)
-    c(t, x_t, y)  = _assemble_form(P.damping, P.has_damping_form,
-                                    entities, coupling_pairs, dom, fmap, x_t, y)
-    m(t, x_tt, y) = _assemble_form(P.mass, P.has_mass_form,
-                                    entities, coupling_pairs, dom, fmap, x_tt, y)
+    a(t, x, y)    = (dom[:t] = t; _assemble_form(P.stiffness, P.has_stiffness_form,
+                                    entities, coupling_pairs, dom, fmap, x, y))
+    c(t, x_t, y)  = (dom[:t] = t; _assemble_form(P.damping, P.has_damping_form,
+                                    entities, coupling_pairs, dom, fmap, x_t, y))
+    m(t, x_tt, y) = (dom[:t] = t; _assemble_form(P.mass, P.has_mass_form,
+                                    entities, coupling_pairs, dom, fmap, x_tt, y))
 
     l = if rhs_fn !== nothing
-        (t, y) -> assemble_rhs(entities, dom, fmap, rhs_fn(t, FieldMap(y, fmap)), y)
+        (t, y) -> begin
+            dom[:t] = t
+            _assemble_rhs_total(entities, coupling_pairs, dom, fmap, rhs_fn(t, FieldMap(y, fmap)), y)
+        end
     else
-        (t, y) -> assemble_rhs(entities, dom, fmap, zeros(length(fmap)), y)
+        (t, y) -> begin
+            dom[:t] = t
+            _assemble_rhs_total(entities, coupling_pairs, dom, fmap, zeros(length(fmap)), y)
+        end
     end
 
     TransientLinearFEOperator((a, c, m), l, X, Y;

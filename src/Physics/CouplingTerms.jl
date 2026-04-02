@@ -37,8 +37,13 @@ end
 # Free-surface coupling has mass and damping terms only.
 has_mass_form(::PotentialFlow, ::FreeSurface) = true
 has_damping_form(::PotentialFlow, ::FreeSurface) = true
+has_stiffness_form(::PotentialFlow, ::FreeSurface) = true
+has_rhs_form(::PotentialFlow, ::FreeSurface) = true
 
 function mass(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, x_tt, y)
+    if _simulation_domain(dom) == :time && haskey(dom, :αₕ)
+        return ∫(0.0 * y[variable_symbol(pf)] * x_tt[variable_symbol(pf)])dom[:dΓκ]
+    end
     ϕ_sym = variable_symbol(pf)
     ϕₜₜ = x_tt[ϕ_sym]
     w    = y[ϕ_sym]
@@ -55,7 +60,55 @@ function damping(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, x_
     w  = y[ϕ_sym]
     u  = y[κ_sym]
     βₕ = fs.βₕ
+    if _simulation_domain(dom) == :time && haskey(dom, :αₕ)
+        αₕ = stabilization_parameter(fs, dom)
+        return ∫(βₕ * (u + αₕ * w) * ϕₜ - w * κₜ)dom[:dΓκ]
+    end
     ∫(βₕ * u * ϕₜ - βₕ * w * κₜ)dom[:dΓκ]
+end
+
+function stiffness(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, x, y)
+    ϕ_sym = variable_symbol(pf)
+    κ_sym = variable_symbol(fs)
+    ϕ = x[ϕ_sym]
+    κ = x[κ_sym]
+    w = y[ϕ_sym]
+    u = y[κ_sym]
+
+    val = nothing
+    if _simulation_domain(dom) == :time && haskey(dom, :αₕ)
+        αₕ = stabilization_parameter(fs, dom)
+        val = ∫(fs.βₕ * fs.g * αₕ * w * κ)dom[:dΓκ]
+    end
+
+    for bc in _active_damping_zone_bcs(pf)
+        dΓ = dom[bc.domain]
+        nΓ = _boundary_normal(dom, bc.domain)
+        μ₁ = _as_space_function(bc.μ₁)
+        μ₂ = _as_space_function(bc.μ₂)
+        ∇ₙϕ = ∇(ϕ) ⋅ nΓ
+        zone_val = ∫(μ₁ * ∇ₙϕ * u - (μ₂ * κ * w))dΓ
+        val = _add_contribution(val, zone_val)
+    end
+
+    isnothing(val) && return ∫(0.0 * w * κ)dom[:dΓκ]
+    return val
+end
+
+function rhs(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, f, y)
+    κ_sym = variable_symbol(fs)
+    u = y[κ_sym]
+
+    val = nothing
+    for bc in _active_damping_zone_bcs(pf)
+        dΓ = dom[bc.domain]
+        ∇ₙϕd = _normal_damped(bc, dom)
+        zone_val = ∫(∇ₙϕd * u)dΓ
+        val = _add_contribution(val, zone_val)
+    end
+
+    isnothing(val) && return ∫(0.0 * u)dom[:dΓκ]
+    return val
 end
 
 

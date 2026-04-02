@@ -216,6 +216,93 @@ end
     @test isfinite(ϕ_l2_mixed)
   end
 
+  @testset "simulate — damping-zone frequency domain" begin
+    state = _single_frequency_state(h=10.0)
+    ω = state.ω[1]
+    config = SM.FreqDomainConfig(ω=ω)
+
+    tank_damp = G.TankDomain2D(
+      L=50.0,
+      H=10.0,
+      nx=20,
+      ny=4,
+      damping_zones=[
+        G.DampingZone1D(L=5.0, x₀=[0.0, 10.0], domain_symbol=:Γ_d_in),
+        G.DampingZone1D(L=5.0, x₀=[45.0, 10.0], domain_symbol=:Γ_d_out),
+      ],
+    )
+
+    fluid_active = P.PotentialFlow(
+      ρw=1025.0,
+      g=9.81,
+      sea_state=state,
+      boundary_conditions=[
+        P.RadiationBC(domain=:dΓin),
+        P.RadiationBC(domain=:dΓout),
+        P.DampingZoneBC(
+          domain=:dΓd_1,
+          μ₁=(x -> 1.5 + 0.0im),
+          μ₂=(x -> 0.8 + 0.0im),
+          η_in=(x -> 0.1 + 0.0im),
+          vz_in=(x -> 0.05 + 0.0im),
+        ),
+      ],
+      fe=FES.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}),
+      space_domain_symbol=:Ω,
+    )
+
+    fsurf_active = P.FreeSurface(
+      ρw=1025.0,
+      g=9.81,
+      βₕ=0.5,
+      fe=FES.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}),
+      space_domain_symbol=:Γκ,
+    )
+
+    problem_active = SM.build_problem(tank_damp, P.PhysicsParameters[fluid_active, fsurf_active], config)
+    dom_active = SM.get_integration_domains(problem_active)
+    @test haskey(dom_active, :dΓfs)
+    @test haskey(dom_active, :nΓd_1)
+    @test haskey(dom_active, :nΓd_2)
+
+    result_active = SM.simulate(problem_active)
+    ϕ_active, κ_active = result_active.solution
+    dΩ_active = dom_active[:dΩ]
+    ϕ_l2_active = sqrt(abs(sum(∫(ϕ_active * conj(ϕ_active))dΩ_active)))
+    κ_l2_active = sqrt(abs(sum(∫(κ_active * conj(κ_active))dom_active[:dΓκ])))
+    @test ϕ_l2_active > 0.0
+    @test κ_l2_active > 0.0
+    @test isfinite(ϕ_l2_active)
+    @test isfinite(κ_l2_active)
+
+    fluid_disabled = P.PotentialFlow(
+      ρw=1025.0,
+      g=9.81,
+      sea_state=state,
+      boundary_conditions=[
+        P.RadiationBC(domain=:dΓin),
+        P.RadiationBC(domain=:dΓout),
+        P.DampingZoneBC(
+          domain=:dΓd_1,
+          μ₁=(x -> 1.5 + 0.0im),
+          μ₂=(x -> 0.8 + 0.0im),
+          η_in=(x -> 0.1 + 0.0im),
+          vz_in=(x -> 0.05 + 0.0im),
+          enabled=false,
+        ),
+      ],
+      fe=FES.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}),
+      space_domain_symbol=:Ω,
+    )
+
+    problem_disabled = SM.build_problem(tank_damp, P.PhysicsParameters[fluid_disabled, fsurf_active], config)
+    result_disabled = SM.simulate(problem_disabled)
+    ϕ_disabled = result_disabled.solution[1]
+    dΩ_disabled = SM.get_integration_domains(problem_disabled)[:dΩ]
+    ϕ_l2_disabled = sqrt(abs(sum(∫(ϕ_disabled * conj(ϕ_disabled))dΩ_disabled)))
+    @test abs(ϕ_l2_active - ϕ_l2_disabled) > 1e-8
+  end
+
   # =========================================================================
   # SimConfig validation
   # =========================================================================

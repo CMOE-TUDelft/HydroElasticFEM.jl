@@ -36,17 +36,22 @@ end
 
 """
     DampingZoneBC <: AbstractPotentialFlowBC
-Damping zone boundary condition for potential flow, used to model wave absorption in
-specific regions (e.g., near boundaries) to minimize reflections. The `σ` field can be a 
-constant damping coefficient or a function that defines spatially varying damping. 
-The `rhs_forcing` field allows for additional forcing terms to be included in the weak 
-form, which can be useful for modeling active wave absorption or other effects within 
-the damping zone.
+
+Wave-damping boundary condition on a top-surface damping zone.
+
+Users provide the incident free-surface elevation `η_in` and vertical velocity
+`vz_in`, while the package derives the weak-form RHS terms internally via
+
+- `ηd = μ₂ * η_in`
+- `∇ₙϕd = μ₁ * vz_in`
 """
 @with_kw struct DampingZoneBC <: AbstractPotentialFlowBC
     domain::Symbol
-    σ::Any = 0.0
-    rhs_forcing::Any = nothing
+    μ₁::Any = 0.0
+    μ₂::Any = 0.0
+    η_in::Any = 0.0
+    vz_in::Any = 0.0
+    enabled::Bool = true
 end
 
 # ─────────────────────────────────────────────────────────────
@@ -145,9 +150,14 @@ function _stiffness_bc_contribution(pf::PotentialFlow, bc::RadiationBC, dom::Int
 end
 
 function _stiffness_bc_contribution(::PotentialFlow, bc::DampingZoneBC, dom::IntegrationDomains, ϕ, w)
-    σ = _as_space_function(bc.σ)
+    bc.enabled || return nothing
     dΓ = dom[bc.domain]
-    return ∫(-σ * w * ϕ)dΓ
+    nΓ = _boundary_normal(dom, bc.domain)
+    μ₁ = _as_space_function(bc.μ₁)
+    αₕ = _stabilization_parameter(dom)
+    ∇ₙϕ = ∇(ϕ) ⋅ nΓ
+    μ₁αₕ(x) = μ₁(x) * αₕ
+    return ∫(μ₁αₕ * w * ∇ₙϕ)dΓ
 end
 
 # -----────────────────────────────────────────────────────────────
@@ -181,14 +191,18 @@ over the relevant domains specified in the BC and added to the overall rhs form.
 _rhs_bc_contribution(::PotentialFlow, ::AbstractPotentialFlowBC, ::IntegrationDomains, w) = nothing
 
 function _rhs_bc_contribution(pf::PotentialFlow, bc::PrescribedInletPotentialBC, dom::IntegrationDomains, w)
-    forcing = _as_space_function(bc.forcing)
+    forcing = _resolve_space_function(bc.forcing, dom)
     return _prescribed_rhs_contribution(Val(bc.quantity), pf, forcing, dom[bc.domain], w)
 end
 
 function _rhs_bc_contribution(::PotentialFlow, bc::DampingZoneBC, dom::IntegrationDomains, w)
-    isnothing(bc.rhs_forcing) && return nothing
-    forcing = _as_space_function(bc.rhs_forcing)
-    return ∫(w * forcing)dom[bc.domain]
+    bc.enabled || return nothing
+    dΓ = dom[bc.domain]
+    αₕ = _stabilization_parameter(dom)
+    ηd = _ηd(bc, dom)
+    ∇ₙϕd = _normal_damped(bc, dom)
+    f(x) = -ηd(x) + αₕ * ∇ₙϕd(x)
+    return ∫(f * w)dΓ
 end
 
 _prescribed_rhs_contribution(::Val{:traction}, ::PotentialFlow, forcing, dΓ, w) = ∫(w * forcing)dΓ
@@ -214,3 +228,32 @@ end
 
 _radiation_wavenumber(pf::PotentialFlow) = _single_frequency_wave(pf).k[1]
 _radiation_frequency(pf::PotentialFlow) = _single_frequency_wave(pf).ω[1]
+
+_active_damping_zone_bcs(pf::PotentialFlow) = [bc for bc in pf.boundary_conditions if bc isa DampingZoneBC && bc.enabled]
+
+function _damping_zone_enabled(pf::PotentialFlow)
+    !isempty(_active_damping_zone_bcs(pf))
+end
+
+function _boundary_normal(dom::IntegrationDomains, domain::Symbol)
+    key = Symbol(replace(String(domain), "dΓ" => "nΓ", count=1))
+    haskey(dom, key) || error("Normal key `$key` was not found in IntegrationDomains for damping zone `$domain`.")
+    return dom[key]
+end
+
+function _stabilization_parameter(dom::IntegrationDomains)
+    haskey(dom, :αₕ) || error("Damping-zone stabilization requires `:αₕ` in IntegrationDomains.")
+    return dom[:αₕ]
+end
+
+function _ηd(bc::DampingZoneBC, dom)
+    μ₂ = _as_space_function(bc.μ₂)
+    η_in = _resolve_space_function(bc.η_in, dom)
+    x -> μ₂(x) * η_in(x)
+end
+
+function _normal_damped(bc::DampingZoneBC, dom)
+    μ₁ = _as_space_function(bc.μ₁)
+    vz_in = _resolve_space_function(bc.vz_in, dom)
+    x -> μ₁(x) * vz_in(x)
+end
