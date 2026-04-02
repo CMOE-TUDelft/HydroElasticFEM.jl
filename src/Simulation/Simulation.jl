@@ -82,6 +82,7 @@ function build_problem(domain, physics::Vector{P.PhysicsParameters}, config::PH.
     trians = G.build_triangulations(domain, model)
     degrees = get_integration_degrees(trians, physics)
     measures = G.get_integration_domains(trians, degree=degrees)
+    _attach_simulation_metadata!(measures, physics, config; tconfig=tconfig)
 
     # Build FE spaces
     X, Y, fmap = FA.build_fe_spaces(physics, trians, config)
@@ -95,6 +96,46 @@ function build_problem(domain, physics::Vector{P.PhysicsParameters}, config::PH.
 
     HEFEM_Problem(model, trians, measures, physics, fmap, Y, X, op, config)
 
+end
+
+"""
+  _attach_simulation_metadata!(measures, physics, config; tconfig=nothing)
+
+Attaches simulation metadata to the integration domains, which can be used by physics entities and weak form methods.
+- `measures` — the `IntegrationDomains` to attach metadata to
+- `physics` — vector of physics entities, used to determine if free surface or damping zone physics are present
+- `config` — the simulation configuration, used to determine if frequency or time-domain and to extract parameters like ω
+- `tconfig` — optional time configuration, required if time-domain damping zones are present (to get αₕ)
+
+Returns the modified `measures` with attached metadata.
+"""
+function _attach_simulation_metadata!(measures::G.IntegrationDomains,
+                                      physics::Vector{P.PhysicsParameters},
+                                      config::PH.SimulationConfig; tconfig=nothing)
+    measures[:simulation_domain] = isa(config, PH.FreqDomainConfig) ? :frequency : :time
+
+    fs = findfirst(p -> p isa P.FreeSurface, physics)
+    has_damping_zone_bc = any(
+        p -> p isa P.PotentialFlow && any(bc -> bc isa P.DampingZoneBC && bc.enabled, p.boundary_conditions),
+        physics,
+    )
+
+    if isa(config, PH.FreqDomainConfig)
+        if !isnothing(fs)
+            free_surface = physics[fs]
+            measures[:αₕ] = -im * config.ω / free_surface.g * (1.0 - free_surface.βₕ) / free_surface.βₕ
+        end
+        measures[:ω] = config.ω
+    elseif isa(config, PH.TimeDomainConfig)
+        measures[:t] = 0.0
+        if has_damping_zone_bc
+            isnothing(tconfig) && error("Time-domain damping-zone problems require `tconfig` to be passed to `build_problem`.")
+            isnothing(tconfig.αₕ) && error("Time-domain damping-zone problems require `TimeConfig.αₕ`.")
+            measures[:αₕ] = tconfig.αₕ
+        end
+    end
+
+    return measures
 end
 
 
