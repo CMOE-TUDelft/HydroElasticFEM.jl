@@ -21,10 +21,10 @@ or spatially varying functions.
 _as_space_function(v) = v isa Function ? v : (x -> v)
 
 """
-    _resolve_space_function(v, dom)
+    _resolve_space_function(v, ctx)
 
 Resolve a user input into a pure space function using any transient metadata
-present in `dom`.
+present in the assembly context.
 
 Supported input shapes:
 - constant values
@@ -32,14 +32,12 @@ Supported input shapes:
 - time-indexed space functions: `t -> (x -> ...)`
 - space-time functions: `(x, t) -> ...`
 """
-function _resolve_space_function(v, dom)
+function _resolve_space_function(v, t)
     !(v isa Function) && return (x -> v)
 
-    if isnothing(dom) || !haskey(dom, :t)
+    if isnothing(t)
         return _as_space_function(v)
     end
-
-    t = dom[:t]
 
     try
         vt = v(t)
@@ -57,3 +55,7 @@ function _resolve_space_function(v, dom)
         end
     end
 end
+
+_resolve_space_function(v, ::AC.FrequencyAssemblyContext) = _resolve_space_function(v, nothing)
+_resolve_space_function(v, ctx::AC.TimeAssemblyContext) = _resolve_space_function(v, AC.current_time(ctx))
+_resolve_space_function(v, ::IntegrationDomains) = _resolve_space_function(v, nothing)

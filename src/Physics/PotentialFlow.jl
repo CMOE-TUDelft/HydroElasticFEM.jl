@@ -103,11 +103,30 @@ function stiffness(pf::PotentialFlow, dom::IntegrationDomains, x, y)
     return _add_contribution(val, bc_val)
 end
 
+function stiffness(pf::PotentialFlow, ctx::AC.AbstractAssemblyContext, x, y)
+    dom = AC.domains(ctx)
+    sym = variable_symbol(pf)
+    ϕ = x[sym]
+    w = y[sym]
+    val = ∫(∇(w) ⋅ ∇(ϕ))dom[:dΩ]
+    bc_val = _stiffness_bc_contributions(pf, ctx, ϕ, w)
+    return _add_contribution(val, bc_val)
+end
+
 function rhs(pf::PotentialFlow, dom::IntegrationDomains, f, y)
     sym = variable_symbol(pf)
     w = y[sym]
     val = ∫(w * f[sym])dom[:dΓin]
     bc_val = _rhs_bc_contributions(pf, dom, w)
+    return _add_contribution(val, bc_val)
+end
+
+function rhs(pf::PotentialFlow, ctx::AC.AbstractAssemblyContext, f, y)
+    dom = AC.domains(ctx)
+    sym = variable_symbol(pf)
+    w = y[sym]
+    val = ∫(w * f[sym])dom[:dΓin]
+    bc_val = _rhs_bc_contributions(pf, ctx, w)
     return _add_contribution(val, bc_val)
 end
 
@@ -130,6 +149,14 @@ function _stiffness_bc_contributions(pf::PotentialFlow, dom::IntegrationDomains,
     return val
 end
 
+function _stiffness_bc_contributions(pf::PotentialFlow, ctx::AC.AbstractAssemblyContext, ϕ, w)
+    val = nothing
+    for bc in pf.boundary_conditions
+        val = _add_contribution(val, _stiffness_bc_contribution(pf, bc, ctx, ϕ, w))
+    end
+    return val
+end
+
 
 """
     _stiffness_bc_contribution(pf::PotentialFlow, bc::AbstractPotentialFlowBC, dom::IntegrationDomains, ϕ, w)
@@ -140,6 +167,7 @@ flexible handling of different BC types (e.g., radiation, damping zones). The co
 over the relevant domains specified in the BC and added to the overall stiffness form.
 """
 _stiffness_bc_contribution(::PotentialFlow, ::AbstractPotentialFlowBC, ::IntegrationDomains, ϕ, w) = nothing
+_stiffness_bc_contribution(::PotentialFlow, ::AbstractPotentialFlowBC, ::AC.AbstractAssemblyContext, ϕ, w) = nothing
 
 function _stiffness_bc_contribution(pf::PotentialFlow, bc::RadiationBC, dom::IntegrationDomains, ϕ, w)
     bc.enabled || return nothing
@@ -155,6 +183,18 @@ function _stiffness_bc_contribution(::PotentialFlow, bc::DampingZoneBC, dom::Int
     nΓ = _boundary_normal(dom, bc.domain)
     μ₁ = _as_space_function(bc.μ₁)
     αₕ = _stabilization_parameter(dom)
+    ∇ₙϕ = ∇(ϕ) ⋅ nΓ
+    μ₁αₕ(x) = μ₁(x) * αₕ
+    return ∫(μ₁αₕ * w * ∇ₙϕ)dΓ
+end
+
+function _stiffness_bc_contribution(::PotentialFlow, bc::DampingZoneBC, ctx::AC.AbstractAssemblyContext, ϕ, w)
+    bc.enabled || return nothing
+    dom = AC.domains(ctx)
+    dΓ = dom[bc.domain]
+    nΓ = _boundary_normal(dom, bc.domain)
+    μ₁ = _as_space_function(bc.μ₁)
+    αₕ = _stabilization_parameter(ctx)
     ∇ₙϕ = ∇(ϕ) ⋅ nΓ
     μ₁αₕ(x) = μ₁(x) * αₕ
     return ∫(μ₁αₕ * w * ∇ₙϕ)dΓ
@@ -180,6 +220,14 @@ function _rhs_bc_contributions(pf::PotentialFlow, dom::IntegrationDomains, w)
     return val
 end
 
+function _rhs_bc_contributions(pf::PotentialFlow, ctx::AC.AbstractAssemblyContext, w)
+    val = nothing
+    for bc in pf.boundary_conditions
+        val = _add_contribution(val, _rhs_bc_contribution(pf, bc, ctx, w))
+    end
+    return val
+end
+
 """
     _rhs_bc_contribution(pf::PotentialFlow, bc::AbstractPotentialFlowBC, dom::IntegrationDomains, w)
 
@@ -189,9 +237,16 @@ flexible handling of different BC types (e.g., prescribed inlet potential, dampi
 over the relevant domains specified in the BC and added to the overall rhs form.
 """
 _rhs_bc_contribution(::PotentialFlow, ::AbstractPotentialFlowBC, ::IntegrationDomains, w) = nothing
+_rhs_bc_contribution(::PotentialFlow, ::AbstractPotentialFlowBC, ::AC.AbstractAssemblyContext, w) = nothing
 
 function _rhs_bc_contribution(pf::PotentialFlow, bc::PrescribedInletPotentialBC, dom::IntegrationDomains, w)
     forcing = _resolve_space_function(bc.forcing, dom)
+    return _prescribed_rhs_contribution(Val(bc.quantity), pf, forcing, dom[bc.domain], w)
+end
+
+function _rhs_bc_contribution(pf::PotentialFlow, bc::PrescribedInletPotentialBC, ctx::AC.AbstractAssemblyContext, w)
+    dom = AC.domains(ctx)
+    forcing = _resolve_space_function(bc.forcing, ctx)
     return _prescribed_rhs_contribution(Val(bc.quantity), pf, forcing, dom[bc.domain], w)
 end
 
@@ -201,6 +256,17 @@ function _rhs_bc_contribution(::PotentialFlow, bc::DampingZoneBC, dom::Integrati
     αₕ = _stabilization_parameter(dom)
     ηd = _ηd(bc, dom)
     ∇ₙϕd = _normal_damped(bc, dom)
+    f(x) = -ηd(x) + αₕ * ∇ₙϕd(x)
+    return ∫(f * w)dΓ
+end
+
+function _rhs_bc_contribution(::PotentialFlow, bc::DampingZoneBC, ctx::AC.AbstractAssemblyContext, w)
+    bc.enabled || return nothing
+    dom = AC.domains(ctx)
+    dΓ = dom[bc.domain]
+    αₕ = _stabilization_parameter(ctx)
+    ηd = _ηd(bc, ctx)
+    ∇ₙϕd = _normal_damped(bc, ctx)
     f(x) = -ηd(x) + αₕ * ∇ₙϕd(x)
     return ∫(f * w)dΓ
 end
@@ -241,10 +307,13 @@ function _boundary_normal(dom::IntegrationDomains, domain::Symbol)
     return dom[key]
 end
 
-function _stabilization_parameter(dom::IntegrationDomains)
-    haskey(dom, :αₕ) || error("Damping-zone stabilization requires `:αₕ` in IntegrationDomains.")
-    return dom[:αₕ]
+function _stabilization_parameter(ctx::AC.AbstractAssemblyContext)
+    AC.has_stabilization(ctx) || error("Damping-zone stabilization requires `αₕ` in the assembly context.")
+    return AC.stabilization_parameter(ctx)
 end
+
+_stabilization_parameter(::IntegrationDomains) =
+    error("Damping-zone stabilization now requires an immutable assembly context.")
 
 function _ηd(bc::DampingZoneBC, dom)
     μ₂ = _as_space_function(bc.μ₂)
@@ -255,5 +324,17 @@ end
 function _normal_damped(bc::DampingZoneBC, dom)
     μ₁ = _as_space_function(bc.μ₁)
     vz_in = _resolve_space_function(bc.vz_in, dom)
+    x -> μ₁(x) * vz_in(x)
+end
+
+function _ηd(bc::DampingZoneBC, ctx::AC.AbstractAssemblyContext)
+    μ₂ = _as_space_function(bc.μ₂)
+    η_in = _resolve_space_function(bc.η_in, ctx)
+    x -> μ₂(x) * η_in(x)
+end
+
+function _normal_damped(bc::DampingZoneBC, ctx::AC.AbstractAssemblyContext)
+    μ₁ = _as_space_function(bc.μ₁)
+    vz_in = _resolve_space_function(bc.vz_in, ctx)
     x -> μ₁(x) * vz_in(x)
 end

@@ -1,5 +1,6 @@
 using Test
 using Gridap
+import HydroElasticFEM
 
 import HydroElasticFEM.Simulation as SM
 import HydroElasticFEM.Physics as P
@@ -100,10 +101,13 @@ import HydroElasticFEM.Geometry as G
 
   problem = SM.build_problem(tank, entities, config; tconfig=tconfig)
   dom = SM.get_integration_domains(problem)
+  ctx = SM.get_assembly_context(problem)
   @test haskey(dom, :dΓfs)
   @test haskey(dom, :nΓd_1)
   @test haskey(dom, :nΓd_2)
-  @test dom[:αₕ] == αₕ
+  @test !haskey(dom, :αₕ)
+  @test ctx isa HydroElasticFEM.TimeAssemblyContext
+  @test HydroElasticFEM.stabilization_parameter(ctx) == αₕ
 
   result = SM.simulate(problem, tconfig)
 

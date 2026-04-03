@@ -10,6 +10,10 @@ module HydroElasticFEM
   include(joinpath(@__DIR__, "Geometry", "Geometry.jl"))
   using .Geometry
 
+  # Shared immutable assembly contexts
+  include(joinpath(@__DIR__, "AssemblyContexts.jl"))
+  using .AssemblyContexts
+
   # Physics (new canonical types)
   include(joinpath(@__DIR__, "Physics", "Physics.jl"))
   using .Physics
@@ -41,6 +45,8 @@ module HydroElasticFEM
   export PotentialFlow, FreeSurface, Membrane2D, EulerBernoulliBeam
   export ResonatorSingle, resonator_array
   export IntegrationDomains
+  export AbstractAssemblyContext, FrequencyAssemblyContext, TimeAssemblyContext
+  export domains, frequency, current_time, stabilization_parameter, has_stabilization, with_time
 
   # Re-export ParameterHandler public API
   export FESpaceConfig, SimConfig, TimeConfig
@@ -54,6 +60,9 @@ module HydroElasticFEM
   export build_fe_spaces, build_test_fe_space, build_trial_fe_space
   export SimResult
   export simulate, detect_couplings, build_fe_operator
+  export build_frequency_context, build_time_context
+  export build_frequency_fe_operator, build_time_fe_operator
+  export get_assembly_context
   export FieldMap
   export assemble_weakform
   export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs

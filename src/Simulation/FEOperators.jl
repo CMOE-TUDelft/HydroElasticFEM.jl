@@ -19,6 +19,7 @@ module FEOperators
 
 import ...Physics as P
 import ...Geometry as G
+import ...AssemblyContexts as AC
 
 using Gridap
 using Gridap.ODEs
@@ -77,6 +78,26 @@ _has_weakform(a, b) =
     P.has_mass_form(a, b) || P.has_damping_form(a, b) || P.has_stiffness_form(a, b)
 _has_residual(term) = _has_weakform(term) || P.has_rhs_form(term)
 
+_has_weakform(ctx::AC.AbstractAssemblyContext, term) = begin
+    forms = P.active_forms(ctx, term)
+    forms.mass || forms.damping || forms.stiffness
+end
+
+_has_weakform(ctx::AC.AbstractAssemblyContext, a, b) = begin
+    forms = P.active_forms(ctx, a, b)
+    forms.mass || forms.damping || forms.stiffness
+end
+
+_has_residual(ctx::AC.AbstractAssemblyContext, term) = begin
+    forms = P.active_forms(ctx, term)
+    forms.mass || forms.damping || forms.stiffness || forms.rhs
+end
+
+_has_residual(ctx::AC.AbstractAssemblyContext, a, b) = begin
+    forms = P.active_forms(ctx, a, b)
+    forms.mass || forms.damping || forms.stiffness || forms.rhs
+end
+
 # ─────────────────────────────────────────────────────────────
 # Coupling detection
 # ─────────────────────────────────────────────────────────────
@@ -105,23 +126,36 @@ function detect_couplings(entities)
     return pairs
 end
 
+function detect_couplings(entities, ctx::AC.AbstractAssemblyContext)
+    pairs = Tuple[]
+    for (i, ea) in enumerate(entities)
+        for (j, eb) in enumerate(entities)
+            i == j && continue
+            if _has_residual(ctx, ea, eb)
+                push!(pairs, (ea, eb))
+            end
+        end
+    end
+    return pairs
+end
+
 # ─────────────────────────────────────────────────────────────
 # Multi-entity assembly helpers (single + coupling entities)
 # ─────────────────────────────────────────────────────────────
 
 """Sum single-entity + coupling contributions for a given form."""
-function _assemble_form(f, has_f, entities, coupling_pairs, dom, fmap, x, y)
+function _assemble_form(form_sym::Symbol, f, entities, coupling_pairs, ctx::AC.AbstractAssemblyContext, fmap, x, y)
     xd = FieldMap(x, fmap)
     yd = FieldMap(y, fmap)
     val = nothing
     for e in entities
-        if has_f(e)
-            val = P._add_contribution(val, f(e, dom, xd, yd))
+        if getproperty(P.active_forms(ctx, e), form_sym)
+            val = P._add_contribution(val, f(e, ctx, xd, yd))
         end
     end
     for (ea, eb) in coupling_pairs
-        if has_f(ea, eb)
-            val = P._add_contribution(val, f(ea, eb, dom, xd, yd))
+        if getproperty(P.active_forms(ctx, ea, eb), form_sym)
+            val = P._add_contribution(val, f(ea, eb, ctx, xd, yd))
         end
     end
     isnothing(val) && error("No active $(nameof(f)) contributions found")
@@ -129,18 +163,18 @@ function _assemble_form(f, has_f, entities, coupling_pairs, dom, fmap, x, y)
 end
 
 """Assemble frequency-domain bilinear form (single + coupling entities)."""
-function _assemble_bilinear(entities, coupling_pairs, dom, ω, fmap, x, y)
+function _assemble_bilinear(entities, coupling_pairs, ctx::AC.FrequencyAssemblyContext, fmap, x, y)
     xd = FieldMap(x, fmap)
     yd = FieldMap(y, fmap)
     val = nothing
     for e in entities
-        if _has_weakform(e)
-            val = P._add_contribution(val, P.weakform(e, dom, ω, xd, yd))
+        if _has_weakform(ctx, e)
+            val = P._add_contribution(val, P.weakform(e, ctx, xd, yd))
         end
     end
     for (ea, eb) in coupling_pairs
-        if _has_weakform(ea, eb)
-            val = P._add_contribution(val, P.weakform(ea, eb, dom, ω, xd, yd))
+        if _has_weakform(ctx, ea, eb)
+            val = P._add_contribution(val, P.weakform(ea, eb, ctx, xd, yd))
         end
     end
     isnothing(val) && error("No active weak form contributions found")
@@ -163,6 +197,10 @@ function assemble_mass(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol,Int},
     _assemble_active(P.mass, P.has_mass_form, terms, dom, xd, yd)
 end
 
+function assemble_mass(terms, ctx::AC.AbstractAssemblyContext, fmap::Dict{Symbol,Int}, x_tt, y)
+    _assemble_form(:mass, P.mass, terms, Tuple[], ctx, fmap, x_tt, y)
+end
+
 """
     assemble_damping(terms, dom, fmap, x_t, y)
 
@@ -172,6 +210,10 @@ function assemble_damping(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol,In
     xd = _wrap(x_t, fmap)
     yd = _wrap(y, fmap)
     _assemble_active(P.damping, P.has_damping_form, terms, dom, xd, yd)
+end
+
+function assemble_damping(terms, ctx::AC.AbstractAssemblyContext, fmap::Dict{Symbol,Int}, x_t, y)
+    _assemble_form(:damping, P.damping, terms, Tuple[], ctx, fmap, x_t, y)
 end
 
 """
@@ -185,6 +227,10 @@ function assemble_stiffness(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol,
     _assemble_active(P.stiffness, P.has_stiffness_form, terms, dom, xd, yd)
 end
 
+function assemble_stiffness(terms, ctx::AC.AbstractAssemblyContext, fmap::Dict{Symbol,Int}, x, y)
+    _assemble_form(:stiffness, P.stiffness, terms, Tuple[], ctx, fmap, x, y)
+end
+
 """
     assemble_rhs(terms, dom, fmap, f, y)
 
@@ -196,18 +242,22 @@ function assemble_rhs(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol,Int}, 
     _assemble_active(P.rhs, P.has_rhs_form, terms, dom, fd, yd)
 end
 
-function _assemble_rhs_total(entities, coupling_pairs, dom, fmap, f, y)
+function assemble_rhs(terms, ctx::AC.AbstractAssemblyContext, fmap::Dict{Symbol,Int}, f, y)
+    _assemble_form(:rhs, P.rhs, terms, Tuple[], ctx, fmap, f, y)
+end
+
+function _assemble_rhs_total(entities, coupling_pairs, ctx::AC.AbstractAssemblyContext, fmap, f, y)
     fd = _wrap(f, fmap)
     yd = _wrap(y, fmap)
     val = nothing
     for e in entities
-        if P.has_rhs_form(e)
-            val = P._add_contribution(val, P.rhs(e, dom, fd, yd))
+        if P.active_forms(ctx, e).rhs
+            val = P._add_contribution(val, P.rhs(e, ctx, fd, yd))
         end
     end
     for (ea, eb) in coupling_pairs
-        if P.has_rhs_form(ea, eb)
-            val = P._add_contribution(val, P.rhs(ea, eb, dom, fd, yd))
+        if P.active_forms(ctx, ea, eb).rhs
+            val = P._add_contribution(val, P.rhs(ea, eb, ctx, fd, yd))
         end
     end
     isnothing(val) && error("No active rhs contributions found")
@@ -230,6 +280,19 @@ function assemble_weakform(terms, dom::G.IntegrationDomains, ω, fmap::Dict{Symb
     _assemble_active(P.weakform, _has_weakform, terms, dom, ω, xd, yd)
 end
 
+function assemble_weakform(terms, ctx::AC.FrequencyAssemblyContext, fmap::Dict{Symbol,Int}, x, y)
+    xd = _wrap(x, fmap)
+    yd = _wrap(y, fmap)
+    val = nothing
+    for term in terms
+        if _has_weakform(ctx, term)
+            val = P._add_contribution(val, P.weakform(term, ctx, xd, yd))
+        end
+    end
+    isnothing(val) && error("No active weak form contributions in provided terms")
+    return val
+end
+
 # ─────────────────────────────────────────────────────────────
 # Nonlinear form assemblers
 # ─────────────────────────────────────────────────────────────
@@ -244,7 +307,24 @@ function assemble_residual(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol,I
     xd_tt = _wrap(x_tt, fmap)
     fd    = _wrap(f, fmap)
     yd    = _wrap(y, fmap)
-    _assemble_active(residual, _has_residual, terms, dom, xd, xd_t, xd_tt, fd, yd)
+    _assemble_active(P.residual, _has_residual, terms, dom, xd, xd_t, xd_tt, fd, yd)
+end
+
+function assemble_residual(terms, ctx::AC.AbstractAssemblyContext, fmap::Dict{Symbol,Int},
+                           x, x_t, x_tt, f, y)
+    xd    = _wrap(x, fmap)
+    xd_t  = _wrap(x_t, fmap)
+    xd_tt = _wrap(x_tt, fmap)
+    fd    = _wrap(f, fmap)
+    yd    = _wrap(y, fmap)
+    val = nothing
+    for term in terms
+        if _has_residual(ctx, term)
+            val = P._add_contribution(val, P.residual(term, ctx, xd, xd_t, xd_tt, fd, yd))
+        end
+    end
+    isnothing(val) && error("No active residual contributions in provided terms")
+    return val
 end
 
 """
@@ -257,9 +337,25 @@ function assemble_jacobian(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol,I
     xd_tt = _wrap(x_tt, fmap)
     yd    = _wrap(y, fmap)
     _assemble_active(
-        jacobian, has_stiffness_form,
+        P.jacobian, P.has_stiffness_form,
         terms, dom, dxd, xd_t, xd_tt, yd,
     )
+end
+
+function assemble_jacobian(terms, ctx::AC.AbstractAssemblyContext, fmap::Dict{Symbol,Int},
+                           dx, x_t, x_tt, y)
+    dxd   = _wrap(dx, fmap)
+    xd_t  = _wrap(x_t, fmap)
+    xd_tt = _wrap(x_tt, fmap)
+    yd    = _wrap(y, fmap)
+    val = nothing
+    for term in terms
+        if P.active_forms(ctx, term).stiffness
+            val = P._add_contribution(val, P.jacobian(term, ctx, dxd, xd_t, xd_tt, yd))
+        end
+    end
+    isnothing(val) && error("No active jacobian contributions in provided terms")
+    return val
 end
 
 """
@@ -272,9 +368,25 @@ function assemble_jacobian_t(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol
     xd_tt = _wrap(x_tt, fmap)
     yd    = _wrap(y, fmap)
     _assemble_active(
-        jacobian_t, has_damping_form,
+        P.jacobian_t, P.has_damping_form,
         terms, dom, xd, dxd_t, xd_tt, yd,
     )
+end
+
+function assemble_jacobian_t(terms, ctx::AC.AbstractAssemblyContext, fmap::Dict{Symbol,Int},
+                             x, dx_t, x_tt, y)
+    xd    = _wrap(x, fmap)
+    dxd_t = _wrap(dx_t, fmap)
+    xd_tt = _wrap(x_tt, fmap)
+    yd    = _wrap(y, fmap)
+    val = nothing
+    for term in terms
+        if P.active_forms(ctx, term).damping
+            val = P._add_contribution(val, P.jacobian_t(term, ctx, xd, dxd_t, xd_tt, yd))
+        end
+    end
+    isnothing(val) && error("No active jacobian_t contributions in provided terms")
+    return val
 end
 
 """
@@ -287,10 +399,36 @@ function assemble_jacobian_tt(terms, dom::G.IntegrationDomains, fmap::Dict{Symbo
     dxd_tt = _wrap(dx_tt, fmap)
     yd    = _wrap(y, fmap)
     _assemble_active(
-        jacobian_tt, has_mass_form,
+        P.jacobian_tt, P.has_mass_form,
         terms, dom, xd, xd_t, dxd_tt, yd,
     )
 end
+
+function assemble_jacobian_tt(terms, ctx::AC.AbstractAssemblyContext, fmap::Dict{Symbol,Int},
+                              x, x_t, dx_tt, y)
+    xd    = _wrap(x, fmap)
+    xd_t  = _wrap(x_t, fmap)
+    dxd_tt = _wrap(dx_tt, fmap)
+    yd    = _wrap(y, fmap)
+    val = nothing
+    for term in terms
+        if P.active_forms(ctx, term).mass
+            val = P._add_contribution(val, P.jacobian_tt(term, ctx, xd, xd_t, dxd_tt, yd))
+        end
+    end
+    isnothing(val) && error("No active jacobian_tt contributions in provided terms")
+    return val
+end
+
+function _adapt_frequency_rhs(rhs_fn)
+    (ctx, y) -> (applicable(rhs_fn, ctx, y) && !applicable(rhs_fn, y)) ? rhs_fn(ctx, y) : rhs_fn(y)
+end
+
+function _adapt_time_rhs(rhs_fn)
+    (ctx, y) -> applicable(rhs_fn, AC.current_time(ctx), y) ? rhs_fn(AC.current_time(ctx), y) : rhs_fn(ctx, y)
+end
+
+_zero_rhs(fmap) = (ctx, y) -> zeros(length(fmap))
 
 # ─────────────────────────────────────────────────────────────
 # FE operator construction
@@ -311,22 +449,15 @@ Build a **frequency-domain** `AffineFEOperator`.
 - `rhs_fn` — optional callable `rhs_fn(y::FieldMap) -> DomainContribution`;
   if `nothing`, uses zero right-hand side (requires `:dΩ` in `dom`)
 """
-function build_fe_operator(entities, 
-                           dom::G.IntegrationDomains, ω,
-                           fmap::Dict{Symbol,Int}, X, Y;
-                           rhs_fn=nothing)
+function build_frequency_fe_operator(entities::Vector{<:P.PhysicsParameters},
+                                     ctx::AC.FrequencyAssemblyContext,
+                                     fmap::Dict{Symbol,Int}, X, Y;
+                                     rhs_fn=nothing)
+    coupling_pairs = detect_couplings(entities, ctx)
+    rhs_cb = rhs_fn === nothing ? _zero_rhs(fmap) : _adapt_frequency_rhs(rhs_fn)
 
-    coupling_pairs = detect_couplings(entities)
-    dom[:simulation_domain] = :frequency
-    dom[:ω] = ω
-
-    a(x, y) = _assemble_bilinear(entities, coupling_pairs, dom, ω, fmap, x, y)
-
-    l = if rhs_fn !== nothing
-        y -> _assemble_rhs_total(entities, coupling_pairs, dom, fmap, rhs_fn(FieldMap(y, fmap)), y)
-    else
-        y -> _assemble_rhs_total(entities, coupling_pairs, dom, fmap, zeros(length(fmap)), y)
-    end
+    a(x, y) = _assemble_bilinear(entities, coupling_pairs, ctx, fmap, x, y)
+    l(y) = _assemble_rhs_total(entities, coupling_pairs, ctx, fmap, rhs_cb(ctx, FieldMap(y, fmap)), y)
 
     AffineFEOperator(a, l, X, Y)
 end
@@ -345,36 +476,39 @@ Build a **time-domain** `TransientLinearFEOperator`.
 - `rhs_fn` — optional callable `rhs_fn(t, y::FieldMap) -> DomainContribution`;
   if `nothing`, uses zero right-hand side (requires `:dΩ` in `dom`)
 """
-function build_fe_operator(entities::Vector{<:P.PhysicsParameters},
-                           dom::G.IntegrationDomains,
-                           fmap::Dict{Symbol,Int}, X, Y;
-                           rhs_fn=nothing)
+function build_time_fe_operator(entities::Vector{<:P.PhysicsParameters},
+                                base_ctx::AC.TimeAssemblyContext,
+                                fmap::Dict{Symbol,Int}, X, Y;
+                                rhs_fn=nothing)
+    coupling_pairs = detect_couplings(entities, base_ctx)
+    rhs_cb = rhs_fn === nothing ? _zero_rhs(fmap) : _adapt_time_rhs(rhs_fn)
 
-    coupling_pairs = detect_couplings(entities)
-    dom[:simulation_domain] = :time
-    dom[:t] = 0.0
-
-    a(t, x, y)    = (dom[:t] = t; _assemble_form(P.stiffness, P.has_stiffness_form,
-                                    entities, coupling_pairs, dom, fmap, x, y))
-    c(t, x_t, y)  = (dom[:t] = t; _assemble_form(P.damping, P.has_damping_form,
-                                    entities, coupling_pairs, dom, fmap, x_t, y))
-    m(t, x_tt, y) = (dom[:t] = t; _assemble_form(P.mass, P.has_mass_form,
-                                    entities, coupling_pairs, dom, fmap, x_tt, y))
-
-    l = if rhs_fn !== nothing
-        (t, y) -> begin
-            dom[:t] = t
-            _assemble_rhs_total(entities, coupling_pairs, dom, fmap, rhs_fn(t, FieldMap(y, fmap)), y)
-        end
-    else
-        (t, y) -> begin
-            dom[:t] = t
-            _assemble_rhs_total(entities, coupling_pairs, dom, fmap, zeros(length(fmap)), y)
-        end
+    a(t, x, y) = _assemble_form(:stiffness, P.stiffness, entities, coupling_pairs, AC.with_time(base_ctx, t), fmap, x, y)
+    c(t, x_t, y) = _assemble_form(:damping, P.damping, entities, coupling_pairs, AC.with_time(base_ctx, t), fmap, x_t, y)
+    m(t, x_tt, y) = _assemble_form(:mass, P.mass, entities, coupling_pairs, AC.with_time(base_ctx, t), fmap, x_tt, y)
+    l(t, y) = begin
+        ctx = AC.with_time(base_ctx, t)
+        _assemble_rhs_total(entities, coupling_pairs, ctx, fmap, rhs_cb(ctx, FieldMap(y, fmap)), y)
     end
 
     TransientLinearFEOperator((a, c, m), l, X, Y;
         constant_forms=(true, true, true))
+end
+
+function build_fe_operator(entities,
+                           dom::G.IntegrationDomains, ω,
+                           fmap::Dict{Symbol,Int}, X, Y;
+                           rhs_fn=nothing)
+    ctx = AC.FrequencyAssemblyContext(dom, ω, nothing)
+    build_frequency_fe_operator(entities, ctx, fmap, X, Y; rhs_fn=rhs_fn)
+end
+
+function build_fe_operator(entities::Vector{<:P.PhysicsParameters},
+                           dom::G.IntegrationDomains,
+                           fmap::Dict{Symbol,Int}, X, Y;
+                           rhs_fn=nothing)
+    ctx = AC.TimeAssemblyContext(dom, 0.0, nothing)
+    build_time_fe_operator(entities, ctx, fmap, X, Y; rhs_fn=rhs_fn)
 end
 
 # ─────────────────────────────────────────────────────────────
@@ -384,6 +518,7 @@ end
 export FieldMap
 export detect_couplings
 export build_fe_operator
+export build_frequency_fe_operator, build_time_fe_operator
 export assemble_weakform
 export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
 export assemble_residual, assemble_jacobian, assemble_jacobian_t, assemble_jacobian_tt

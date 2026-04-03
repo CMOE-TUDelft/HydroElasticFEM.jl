@@ -40,19 +40,42 @@ has_damping_form(::PotentialFlow, ::FreeSurface) = true
 has_stiffness_form(::PotentialFlow, ::FreeSurface) = true
 has_rhs_form(::PotentialFlow, ::FreeSurface) = true
 
-function mass(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, x_tt, y)
-    if _simulation_domain(dom) == :time && haskey(dom, :αₕ)
-        return ∫(0.0 * y[variable_symbol(pf)] * x_tt[variable_symbol(pf)])dom[:dΓκ]
-    end
+function active_forms(::AC.FrequencyAssemblyContext, pf::PotentialFlow, fs::FreeSurface)
+    has_zone_rhs = _damping_zone_enabled(pf)
+    return (mass=true, damping=true, stiffness=has_zone_rhs, rhs=has_zone_rhs)
+end
+
+function active_forms(ctx::AC.TimeAssemblyContext, pf::PotentialFlow, fs::FreeSurface)
+    has_zone_rhs = _damping_zone_enabled(pf)
+    has_αₕ = AC.has_stabilization(ctx)
+    return (
+        mass=!has_αₕ,
+        damping=true,
+        stiffness=has_αₕ || has_zone_rhs,
+        rhs=has_zone_rhs,
+    )
+end
+
+function mass(pf::PotentialFlow, fs::FreeSurface, ctx::AC.FrequencyAssemblyContext, x_tt, y)
     ϕ_sym = variable_symbol(pf)
     ϕₜₜ = x_tt[ϕ_sym]
     w    = y[ϕ_sym]
     βₕ   = fs.βₕ
     g    = fs.g
-    ∫((1 - βₕ) / g * w * ϕₜₜ)dom[:dΓκ]
+    ∫((1 - βₕ) / g * w * ϕₜₜ)AC.domains(ctx)[:dΓκ]
 end
 
-function damping(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, x_t, y)
+function mass(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyContext, x_tt, y)
+    AC.has_stabilization(ctx) && error("PF/FreeSurface mass form is inactive for stabilized time-domain contexts.")
+    ϕ_sym = variable_symbol(pf)
+    ϕₜₜ = x_tt[ϕ_sym]
+    w    = y[ϕ_sym]
+    βₕ   = fs.βₕ
+    g    = fs.g
+    ∫((1 - βₕ) / g * w * ϕₜₜ)AC.domains(ctx)[:dΓκ]
+end
+
+function damping(pf::PotentialFlow, fs::FreeSurface, ctx::AC.FrequencyAssemblyContext, x_t, y)
     ϕ_sym = variable_symbol(pf)
     κ_sym = variable_symbol(fs)
     ϕₜ = x_t[ϕ_sym]
@@ -60,14 +83,26 @@ function damping(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, x_
     w  = y[ϕ_sym]
     u  = y[κ_sym]
     βₕ = fs.βₕ
-    if _simulation_domain(dom) == :time && haskey(dom, :αₕ)
-        αₕ = stabilization_parameter(fs, dom)
+    ∫(βₕ * u * ϕₜ - βₕ * w * κₜ)AC.domains(ctx)[:dΓκ]
+end
+
+function damping(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyContext, x_t, y)
+    dom = AC.domains(ctx)
+    ϕ_sym = variable_symbol(pf)
+    κ_sym = variable_symbol(fs)
+    ϕₜ = x_t[ϕ_sym]
+    κₜ = x_t[κ_sym]
+    w  = y[ϕ_sym]
+    u  = y[κ_sym]
+    βₕ = fs.βₕ
+    if AC.has_stabilization(ctx)
+        αₕ = stabilization_parameter(fs, ctx)
         return ∫(βₕ * (u + αₕ * w) * ϕₜ - w * κₜ)dom[:dΓκ]
     end
     ∫(βₕ * u * ϕₜ - βₕ * w * κₜ)dom[:dΓκ]
 end
 
-function stiffness(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, x, y)
+function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.FrequencyAssemblyContext, x, y)
     ϕ_sym = variable_symbol(pf)
     κ_sym = variable_symbol(fs)
     ϕ = x[ϕ_sym]
@@ -76,8 +111,33 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, 
     u = y[κ_sym]
 
     val = nothing
-    if _simulation_domain(dom) == :time && haskey(dom, :αₕ)
-        αₕ = stabilization_parameter(fs, dom)
+    dom = AC.domains(ctx)
+
+    for bc in _active_damping_zone_bcs(pf)
+        dΓ = dom[bc.domain]
+        nΓ = _boundary_normal(dom, bc.domain)
+        μ₁ = _as_space_function(bc.μ₁)
+        μ₂ = _as_space_function(bc.μ₂)
+        ∇ₙϕ = ∇(ϕ) ⋅ nΓ
+        zone_val = ∫(μ₁ * ∇ₙϕ * u - (μ₂ * κ * w))dΓ
+        val = _add_contribution(val, zone_val)
+    end
+
+    return val
+end
+
+function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyContext, x, y)
+    dom = AC.domains(ctx)
+    ϕ_sym = variable_symbol(pf)
+    κ_sym = variable_symbol(fs)
+    ϕ = x[ϕ_sym]
+    κ = x[κ_sym]
+    w = y[ϕ_sym]
+    u = y[κ_sym]
+
+    val = nothing
+    if AC.has_stabilization(ctx)
+        αₕ = stabilization_parameter(fs, ctx)
         val = ∫(fs.βₕ * fs.g * αₕ * w * κ)dom[:dΓκ]
     end
 
@@ -91,23 +151,22 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, 
         val = _add_contribution(val, zone_val)
     end
 
-    isnothing(val) && return ∫(0.0 * w * κ)dom[:dΓκ]
     return val
 end
 
-function rhs(pf::PotentialFlow, fs::FreeSurface, dom::IntegrationDomains, f, y)
+function rhs(pf::PotentialFlow, fs::FreeSurface, ctx::AC.AbstractAssemblyContext, f, y)
     κ_sym = variable_symbol(fs)
     u = y[κ_sym]
 
     val = nothing
+    dom = AC.domains(ctx)
     for bc in _active_damping_zone_bcs(pf)
         dΓ = dom[bc.domain]
-        ∇ₙϕd = _normal_damped(bc, dom)
+        ∇ₙϕd = _normal_damped(bc, ctx)
         zone_val = ∫(∇ₙϕd * u)dΓ
         val = _add_contribution(val, zone_val)
     end
 
-    isnothing(val) && return ∫(0.0 * u)dom[:dΓκ]
     return val
 end
 

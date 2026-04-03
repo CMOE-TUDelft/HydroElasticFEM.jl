@@ -2,6 +2,7 @@ using Gridap
 using Gridap.ODEs
 using Gridap.CellData
 using WaveSpec
+import HydroElasticFEM
 
 import HydroElasticFEM.Simulation as SM
 import HydroElasticFEM.Simulation.FEOperators as FO
@@ -73,6 +74,26 @@ end
     @test !((mem, fsurf) in pairs)
   end
 
+  @testset "assembly contexts" begin
+    ω = 2.0
+    fctx = SM.build_frequency_context(dom, P.PhysicsParameters[fluid, fsurf, mem], FES.FreqDomainConfig(ω=ω))
+    @test fctx isa HydroElasticFEM.FrequencyAssemblyContext
+    @test HydroElasticFEM.frequency(fctx) == ω
+    @test HydroElasticFEM.stabilization_parameter(fctx) ≈ (-im * ω / fsurf.g * (1.0 - fsurf.βₕ) / fsurf.βₕ)
+
+    tctx = SM.build_time_context(dom, P.PhysicsParameters[fluid, fsurf, mem], FES.TimeDomainConfig(t₀=0.25, tf=1.0), nothing)
+    @test tctx isa HydroElasticFEM.TimeAssemblyContext
+    @test HydroElasticFEM.current_time(tctx) == 0.25
+    @test isnothing(HydroElasticFEM.stabilization_parameter(tctx))
+
+    tctx2 = HydroElasticFEM.with_time(tctx, 1.5)
+    @test HydroElasticFEM.current_time(tctx) == 0.25
+    @test HydroElasticFEM.current_time(tctx2) == 1.5
+
+    @test P.active_forms(fctx, fluid, fsurf) == (mass=true, damping=true, stiffness=false, rhs=false)
+    @test P.active_forms(tctx, fluid, fsurf) == (mass=true, damping=true, stiffness=false, rhs=false)
+  end
+
   # =========================================================================
   # build_fe_operator — frequency domain
   # =========================================================================
@@ -81,7 +102,7 @@ end
     entities = [fluid, fsurf, mem]
     ω = 2.0
 
-    X, Y, fmap = FA.build_fe_spaces(entities, trian, PH.FreqDomainConfig(ω=ω))
+    X, Y, fmap = FA.build_fe_spaces(entities, trian, FES.FreqDomainConfig(ω=ω))
 
     # With explicit rhs_fn
     rhs_fn(y) = [1.0, 0.0, 0.0]  # corresponds to ϕ, κ, η order in fmap
@@ -120,7 +141,7 @@ end
 
     entities = [fluid_real, fsurf_real, mem_real]
 
-    X, Y, fmap = FA.build_fe_spaces(entities, trian, PH.TimeDomainConfig())
+    X, Y, fmap = FA.build_fe_spaces(entities, trian, FES.TimeDomainConfig())
 
     # With explicit rhs_fn
     ω_f = 2.0
@@ -214,6 +235,29 @@ end
     ϕ_l2_mixed = sqrt(abs(sum(∫(ϕ_mixed * conj(ϕ_mixed))dΩ_mixed)))
     @test ϕ_l2_mixed > 0.0
     @test isfinite(ϕ_l2_mixed)
+  end
+
+  @testset "structural context guards" begin
+    pkg_root = normpath(joinpath(dirname(pathof(HydroElasticFEM)), ".."))
+
+    physics_files = [
+      joinpath(pkg_root, "src", "Physics", "Helpers.jl"),
+      joinpath(pkg_root, "src", "Physics", "PotentialFlow.jl"),
+      joinpath(pkg_root, "src", "Physics", "FreeSurface.jl"),
+      joinpath(pkg_root, "src", "Physics", "CouplingTerms.jl"),
+    ]
+
+    for file in physics_files
+      content = read(file, String)
+      @test !occursin("dom[:simulation_domain]", content)
+      @test !occursin("dom[:t]", content)
+      @test !occursin("dom[:ω]", content)
+    end
+
+    feops = read(joinpath(pkg_root, "src", "Simulation", "FEOperators.jl"), String)
+    @test !occursin("dom[:simulation_domain] =", feops)
+    @test !occursin("dom[:ω] =", feops)
+    @test !occursin("dom[:t] =", feops)
   end
 
   @testset "simulate — damping-zone frequency domain" begin

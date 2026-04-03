@@ -33,19 +33,14 @@ end
 
 variable_symbol(s::FreeSurface) = s.symbol
 
-_simulation_domain(dom::IntegrationDomains) = get(dom, :simulation_domain, :generic)
+function stabilization_parameter(fs::FreeSurface, ctx::AC.FrequencyAssemblyContext)
+    AC.has_stabilization(ctx) || error("Frequency-domain free-surface stabilization requires `αₕ` in the assembly context.")
+    return AC.stabilization_parameter(ctx)
+end
 
-function stabilization_parameter(fs::FreeSurface, dom::IntegrationDomains)
-    mode = _simulation_domain(dom)
-    if mode == :frequency
-        haskey(dom, :αₕ) || error("Frequency-domain free-surface stabilization requires `:αₕ` in IntegrationDomains.")
-        return dom[:αₕ]
-    elseif mode == :time
-        haskey(dom, :αₕ) || error("Time-domain damping-zone stabilization requires `TimeConfig.αₕ`.")
-        return dom[:αₕ]
-    else
-        return zero(fs.g)
-    end
+function stabilization_parameter(fs::FreeSurface, ctx::AC.TimeAssemblyContext)
+    AC.has_stabilization(ctx) || error("Time-domain damping-zone stabilization requires `TimeConfig.αₕ`.")
+    return AC.stabilization_parameter(ctx)
 end
 
 # κ has no standalone mass, damping or rhs; stiffness captures the

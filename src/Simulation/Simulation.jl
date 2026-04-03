@@ -21,6 +21,7 @@ import ..Geometry as G
 import ..ParameterHandler as PH
 using ..ParameterHandler  # brings SimConfig, TimeConfig into scope
 import ..Physics as P
+import ..AssemblyContexts as AC
 
 
 # FESpaceAssembly (build_fe_spaces, build_test/trial_fe_space)
@@ -46,10 +47,11 @@ Container for all built entities in a simulation.
 - `fe_operator` — assembled FE operator
 - `sim_config` — simulation configuration (`FreqDomainConfig` or `TimeDomainConfig`)
 """
-struct HEFEM_Problem{T<:PH.SimulationConfig}
+struct HEFEM_Problem{T<:PH.SimulationConfig,C<:AC.AbstractAssemblyContext}
     model::DiscreteModel
     triangulations::G.TankTriangulations
     integration_domains::G.IntegrationDomains
+    assembly_context::C
     entities::Vector{P.PhysicsParameters}  # physics entities (e.g. Membrane2D, FreeSurface, etc.)
     field_map::Dict{Symbol,Int}  # maps physics entity symbols to FE space indices
     test_fe_space::MultiFieldFESpace
@@ -62,6 +64,7 @@ end
 get_model(prob::HEFEM_Problem) = prob.model
 get_triangulations(prob::HEFEM_Problem) = prob.triangulations
 get_integration_domains(prob::HEFEM_Problem) = prob.integration_domains
+get_assembly_context(prob::HEFEM_Problem) = prob.assembly_context
 get_entities(prob::HEFEM_Problem) = prob.entities
 get_field_map(prob::HEFEM_Problem) = prob.field_map
 get_test_fe_space(prob::HEFEM_Problem) = prob.test_fe_space
@@ -69,73 +72,77 @@ get_trial_fe_space(prob::HEFEM_Problem) = prob.trial_fe_space
 get_fe_operator(prob::HEFEM_Problem) = prob.fe_operator
 get_sim_config(prob::HEFEM_Problem) = prob.sim_config
 
-"""
-    build_problem(config, entities_trians...; dom, ...)
+function _find_free_surface(physics::Vector{P.PhysicsParameters})
+    idx = findfirst(p -> p isa P.FreeSurface, physics)
+    isnothing(idx) ? nothing : physics[idx]
+end
 
-Given a `SimConfig` and tuples of physics entities + triangulations,
-constructs the `HEFEM_Problem` by building FE spaces, assembling the FE operator, and building the solver.
-"""
-function build_problem(domain, physics::Vector{P.PhysicsParameters}, config::PH.SimulationConfig; tconfig=nothing, rhs_fn=nothing)
-    
-    # Build discrete model and triangulations from geometry
+function _has_damping_zone_bc(physics::Vector{P.PhysicsParameters})
+    any(
+        p -> p isa P.PotentialFlow && any(bc -> bc isa P.DampingZoneBC && bc.enabled, p.boundary_conditions),
+        physics,
+    )
+end
+
+function build_frequency_context(domains::G.IntegrationDomains,
+                                 physics::Vector{P.PhysicsParameters},
+                                 config::PH.FreqDomainConfig)
+    for entity in physics
+        if entity isa P.PotentialFlow
+            for bc in entity.boundary_conditions
+                if bc isa P.RadiationBC && bc.enabled
+                    P._radiation_frequency(entity)
+                end
+            end
+        end
+    end
+
+    free_surface = _find_free_surface(physics)
+    αₕ = isnothing(free_surface) ? nothing :
+        -im * config.ω / free_surface.g * (1.0 - free_surface.βₕ) / free_surface.βₕ
+    AC.FrequencyAssemblyContext(domains, config.ω, αₕ)
+end
+
+function build_time_context(domains::G.IntegrationDomains,
+                            physics::Vector{P.PhysicsParameters},
+                            config::PH.TimeDomainConfig,
+                            tconfig)
+    if _has_damping_zone_bc(physics)
+        isnothing(tconfig) && error("Time-domain damping-zone problems require `tconfig` to be passed to `build_problem`.")
+        isnothing(tconfig.αₕ) && error("Time-domain damping-zone problems require `TimeConfig.αₕ`.")
+    end
+    t₀ = isnothing(tconfig) ? config.t₀ : tconfig.t₀
+    αₕ = isnothing(tconfig) ? nothing : tconfig.αₕ
+    AC.TimeAssemblyContext(domains, t₀, αₕ)
+end
+
+function _build_problem_parts(domain, physics::Vector{P.PhysicsParameters}, config::PH.SimulationConfig)
     model = G.build_model(domain)
     trians = G.build_triangulations(domain, model)
     degrees = get_integration_degrees(trians, physics)
     measures = G.get_integration_domains(trians, degree=degrees)
-    _attach_simulation_metadata!(measures, physics, config; tconfig=tconfig)
-
-    # Build FE spaces
     X, Y, fmap = FA.build_fe_spaces(physics, trians, config)
-
-    # Build FE Operator
-    if isa(config, PH.FreqDomainConfig)
-        op = build_fe_operator(physics, measures, config.ω, fmap, X, Y; rhs_fn=rhs_fn)
-    elseif isa(config, PH.TimeDomainConfig)
-        op = build_fe_operator(physics, measures, fmap, X, Y; rhs_fn=rhs_fn)
-    end
-
-    HEFEM_Problem(model, trians, measures, physics, fmap, Y, X, op, config)
-
+    return model, trians, measures, X, Y, fmap
 end
 
 """
-  _attach_simulation_metadata!(measures, physics, config; tconfig=nothing)
+    build_problem(config, entities_trians...; dom, ...)
 
-Attaches simulation metadata to the integration domains, which can be used by physics entities and weak form methods.
-- `measures` — the `IntegrationDomains` to attach metadata to
-- `physics` — vector of physics entities, used to determine if free surface or damping zone physics are present
-- `config` — the simulation configuration, used to determine if frequency or time-domain and to extract parameters like ω
-- `tconfig` — optional time configuration, required if time-domain damping zones are present (to get αₕ)
-
-Returns the modified `measures` with attached metadata.
+Given a simulation config and physics entities, construct the immutable
+assembly context, FE spaces, and FE operator.
 """
-function _attach_simulation_metadata!(measures::G.IntegrationDomains,
-                                      physics::Vector{P.PhysicsParameters},
-                                      config::PH.SimulationConfig; tconfig=nothing)
-    measures[:simulation_domain] = isa(config, PH.FreqDomainConfig) ? :frequency : :time
+function build_problem(domain, physics::Vector{P.PhysicsParameters}, config::PH.FreqDomainConfig; rhs_fn=nothing)
+    model, trians, measures, X, Y, fmap = _build_problem_parts(domain, physics, config)
+    ctx = build_frequency_context(measures, physics, config)
+    op = build_frequency_fe_operator(physics, ctx, fmap, X, Y; rhs_fn=rhs_fn)
+    HEFEM_Problem(model, trians, measures, ctx, physics, fmap, Y, X, op, config)
+end
 
-    fs = findfirst(p -> p isa P.FreeSurface, physics)
-    has_damping_zone_bc = any(
-        p -> p isa P.PotentialFlow && any(bc -> bc isa P.DampingZoneBC && bc.enabled, p.boundary_conditions),
-        physics,
-    )
-
-    if isa(config, PH.FreqDomainConfig)
-        if !isnothing(fs)
-            free_surface = physics[fs]
-            measures[:αₕ] = -im * config.ω / free_surface.g * (1.0 - free_surface.βₕ) / free_surface.βₕ
-        end
-        measures[:ω] = config.ω
-    elseif isa(config, PH.TimeDomainConfig)
-        measures[:t] = 0.0
-        if has_damping_zone_bc
-            isnothing(tconfig) && error("Time-domain damping-zone problems require `tconfig` to be passed to `build_problem`.")
-            isnothing(tconfig.αₕ) && error("Time-domain damping-zone problems require `TimeConfig.αₕ`.")
-            measures[:αₕ] = tconfig.αₕ
-        end
-    end
-
-    return measures
+function build_problem(domain, physics::Vector{P.PhysicsParameters}, config::PH.TimeDomainConfig; tconfig=nothing, rhs_fn=nothing)
+    model, trians, measures, X, Y, fmap = _build_problem_parts(domain, physics, config)
+    ctx = build_time_context(measures, physics, config, tconfig)
+    op = build_time_fe_operator(physics, ctx, fmap, X, Y; rhs_fn=rhs_fn)
+    HEFEM_Problem(model, trians, measures, ctx, physics, fmap, Y, X, op, config)
 end
 
 
@@ -183,10 +190,13 @@ include("simulate.jl")
 export SimResult
 export simulate
 export build_problem
+export build_frequency_context, build_time_context
 export HEFEM_Problem
 export FESpaceAssembly, FEOperators
 export build_fe_spaces, build_test_fe_space, build_trial_fe_space
 export FieldMap, detect_couplings, build_fe_operator
+export build_frequency_fe_operator, build_time_fe_operator
+export get_assembly_context
 export assemble_weakform
 export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
 export assemble_residual, assemble_jacobian, assemble_jacobian_t, assemble_jacobian_tt

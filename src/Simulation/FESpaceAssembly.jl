@@ -28,12 +28,25 @@ import ...ParameterHandler as PH
 Build a Gridap `TestFESpace` for `entity` on triangulation `trian`,
 using the numerical parameters from `entity.fe`.
 """
-function build_test_fe_space(entity::P.PhysicsParameters, trian, config::PH.SimulationConfig)
+function build_test_fe_space(entity::P.PhysicsParameters, trian, config::PH.FreqDomainConfig)
     fe = entity.fe
     reffe = ReferenceFE(fe.reffe_type, fe.space_type, fe.order)
-    if config isa PH.FreqDomainConfig
-        @assert fe.vector_type == Vector{ComplexF64} "Frequency-domain simulations require complex-valued FE spaces."    
+    @assert fe.vector_type == Vector{ComplexF64} "Frequency-domain simulations require complex-valued FE spaces."
+    if fe.dirichlet_tags !== nothing
+        TestFESpace(trian, reffe;
+            conformity   = fe.conformity,
+            vector_type  = fe.vector_type,
+            dirichlet_tags = fe.dirichlet_tags)
+    else
+        TestFESpace(trian, reffe;
+            conformity  = fe.conformity,
+            vector_type = fe.vector_type)
     end
+end
+
+function build_test_fe_space(entity::P.PhysicsParameters, trian, ::PH.TimeDomainConfig)
+    fe = entity.fe
+    reffe = ReferenceFE(fe.reffe_type, fe.space_type, fe.order)
     if fe.dirichlet_tags !== nothing
         TestFESpace(trian, reffe;
             conformity   = fe.conformity,
@@ -52,10 +65,15 @@ end
 Build one `ConstantFESpace` per resonator on triangulation `trian`.
 Returns a `Vector` of test spaces.
 """
-function build_test_fe_space(resn::Vector{P.ResonatorSingle}, trian, config::PH.SimulationConfig)
-     if config isa PH.FreqDomainConfig
-        @assert all(r -> r.fe.vector_type == Vector{ComplexF64}, resn) "Frequency-domain simulations require complex-valued FE spaces."    
-    end
+function build_test_fe_space(resn::Vector{P.ResonatorSingle}, trian, ::PH.FreqDomainConfig)
+    @assert all(r -> r.fe.vector_type == Vector{ComplexF64}, resn) "Frequency-domain simulations require complex-valued FE spaces."
+    [ConstantFESpace(trian;
+        vector_type = iresn.fe.vector_type,
+        field_type  = iresn.fe.space_type)
+     for iresn in resn]
+end
+
+function build_test_fe_space(resn::Vector{P.ResonatorSingle}, trian, ::PH.TimeDomainConfig)
     [ConstantFESpace(trian;
         vector_type = iresn.fe.vector_type,
         field_type  = iresn.fe.space_type) 
@@ -69,20 +87,21 @@ Build a `TrialFESpace` (or `TransientTrialFESpace` when `config` is `TimeDomainC
 from the test space `V_test`, applying Dirichlet values from `entity.fe`
 if present.
 """
-function build_trial_fe_space(entity::P.PhysicsParameters, V_test, config::PH.SimulationConfig)
+function build_trial_fe_space(entity::P.PhysicsParameters, V_test, ::PH.FreqDomainConfig)
     fe = entity.fe
-    if config isa PH.TimeDomainConfig
-        if fe.dirichlet_value !== nothing
-            TransientTrialFESpace(V_test, fe.dirichlet_value)
-        else
-            TransientTrialFESpace(V_test)
-        end
+    if fe.dirichlet_value !== nothing
+        TrialFESpace(V_test, fe.dirichlet_value)
     else
-        if fe.dirichlet_value !== nothing
-            TrialFESpace(V_test, fe.dirichlet_value)
-        else
-            TrialFESpace(V_test)
-        end
+        TrialFESpace(V_test)
+    end
+end
+
+function build_trial_fe_space(entity::P.PhysicsParameters, V_test, ::PH.TimeDomainConfig)
+    fe = entity.fe
+    if fe.dirichlet_value !== nothing
+        TransientTrialFESpace(V_test, fe.dirichlet_value)
+    else
+        TransientTrialFESpace(V_test)
     end
 end
 
@@ -91,13 +110,8 @@ end
 
 Build trial spaces for each resonator's test space.
 """
-function build_trial_fe_space(resn::Vector{P.ResonatorSingle}, Vs::Vector, config::PH.SimulationConfig)
-    if config isa PH.TimeDomainConfig
-        [TransientTrialFESpace(V) for V in Vs]
-    else
-        [TrialFESpace(V) for V in Vs]
-    end
-end
+build_trial_fe_space(resn::Vector{P.ResonatorSingle}, Vs::Vector, ::PH.FreqDomainConfig) = [TrialFESpace(V) for V in Vs]
+build_trial_fe_space(resn::Vector{P.ResonatorSingle}, Vs::Vector, ::PH.TimeDomainConfig) = [TransientTrialFESpace(V) for V in Vs]
 
 # ─────────────────────────────────────────────────────────────
 # Main manager function
