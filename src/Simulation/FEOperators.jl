@@ -162,6 +162,29 @@ function _assemble_form(form_sym::Symbol, f, entities, coupling_pairs, ctx::AC.A
     return val
 end
 
+function _has_active_form(form_sym::Symbol, entities, coupling_pairs, ctx::AC.AbstractAssemblyContext)
+    single_active = any(e -> getproperty(P.active_forms(ctx, e), form_sym), entities)
+    pair_active = any(((ea, eb),) -> getproperty(P.active_forms(ctx, ea, eb), form_sym), coupling_pairs)
+    return single_active || pair_active
+end
+
+function _find_volume_symbol(entities, fmap)
+    for e in entities
+        sym = P.variable_symbol(e)
+        if haskey(fmap, sym) && e.space_domain_symbol == :Ω
+            return sym
+        end
+    end
+    return nothing
+end
+
+function _zero_mass_contribution(ctx::AC.TimeAssemblyContext, fmap, x_tt, y, sym::Symbol)
+    haskey(AC.domains(ctx), :dΩ) || error("Cannot build zero mass fallback: domain measure `:dΩ` is missing.")
+    xd = FieldMap(x_tt, fmap)
+    yd = FieldMap(y, fmap)
+    return ∫(0.0 * xd[sym] * yd[sym])AC.domains(ctx)[:dΩ]
+end
+
 """Assemble frequency-domain bilinear form (single + coupling entities)."""
 function _assemble_bilinear(entities, coupling_pairs, ctx::AC.FrequencyAssemblyContext, fmap, x, y)
     xd = FieldMap(x, fmap)
@@ -482,10 +505,19 @@ function build_time_fe_operator(entities::Vector{<:P.PhysicsParameters},
                                 rhs_fn=nothing)
     coupling_pairs = detect_couplings(entities, base_ctx)
     rhs_cb = rhs_fn === nothing ? _zero_rhs(fmap) : _adapt_time_rhs(rhs_fn)
+    volume_sym = _find_volume_symbol(entities, fmap)
 
     a(t, x, y) = _assemble_form(:stiffness, P.stiffness, entities, coupling_pairs, AC.with_time(base_ctx, t), fmap, x, y)
     c(t, x_t, y) = _assemble_form(:damping, P.damping, entities, coupling_pairs, AC.with_time(base_ctx, t), fmap, x_t, y)
-    m(t, x_tt, y) = _assemble_form(:mass, P.mass, entities, coupling_pairs, AC.with_time(base_ctx, t), fmap, x_tt, y)
+    m(t, x_tt, y) = begin
+        ctx = AC.with_time(base_ctx, t)
+        if _has_active_form(:mass, entities, coupling_pairs, ctx)
+            _assemble_form(:mass, P.mass, entities, coupling_pairs, ctx, fmap, x_tt, y)
+        else
+            isnothing(volume_sym) && error("No active mass contributions found and no volume field is available for zero-mass fallback.")
+            _zero_mass_contribution(ctx, fmap, x_tt, y, volume_sym)
+        end
+    end
     l(t, y) = begin
         ctx = AC.with_time(base_ctx, t)
         _assemble_rhs_total(entities, coupling_pairs, ctx, fmap, rhs_cb(ctx, FieldMap(y, fmap)), y)
