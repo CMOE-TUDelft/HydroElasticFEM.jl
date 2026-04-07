@@ -1,0 +1,11 @@
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+JSON = "682c06a0-de75-4c83-958d-ab22b9c4c00e"
+
+# HydroElasticFEM is added via `Pkg.develop(path="..")` in CI (see Benchmarks.yml).
+# It therefore does not appear in [deps] here, but is available at runtime.
+
+[compat]
+julia = "1.10, 1.11"
+BenchmarkTools = "1"
+JSON = "0.21, 1"

@@ -1,0 +1,79 @@
+name: Benchmarks
+
+on:
+  # Run on a nightly schedule
+  schedule:
+    - cron: '0 3 * * *'   # 03:00 UTC every day
+
+  # Allow manual trigger from the Actions tab
+  workflow_dispatch:
+
+  # Run on PRs that carry the "benchmark" label
+  pull_request:
+    types: [labeled]
+
+jobs:
+  benchmark:
+    # For PR-label trigger, only run when the label is "benchmark"
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.label.name == 'benchmark')
+
+    name: Performance regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.11'
+
+      - uses: julia-actions/cache@v2
+
+      # Instantiate the main package so the benchmark project can dev-use it
+      - name: Instantiate package
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
+
+      # Instantiate the benchmark environment
+      - name: Instantiate benchmark environment
+        run: julia --project=benchmark -e 'using Pkg; Pkg.develop(PackageSpec(path=".")); Pkg.instantiate()'
+
+      # Try to restore a previously saved baseline artifact
+      - name: Restore baseline artifact
+        uses: actions/cache@v4
+        with:
+          path: benchmark/baseline.json
+          key: benchmark-baseline-${{ github.ref_name }}
+          restore-keys: |
+            benchmark-baseline-main
+            benchmark-baseline-master
+
+      # Run the benchmark suite and compare (non-blocking)
+      - name: Run benchmarks
+        run: julia --project=benchmark benchmark/runbenchmarks.jl
+        continue-on-error: true   # soft-warn: never block the pipeline
+
+      # On the default branch: update the stored baseline
+      - name: Save new baseline
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        run: julia --project=benchmark benchmark/runbenchmarks.jl --save-baseline
+
+      - name: Cache updated baseline
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: actions/cache@v4
+        with:
+          path: benchmark/baseline.json
+          key: benchmark-baseline-${{ github.ref_name }}
+
+      # Upload benchmark results as a downloadable artifact for every run
+      - name: Upload results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.run_id }}
+          path: |
+            benchmark/baseline.json
+          retention-days: 90
