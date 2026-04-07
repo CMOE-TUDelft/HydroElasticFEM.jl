@@ -16,6 +16,7 @@ TickTock = "9ff05d80-102d-5586-aa04-3a8bd1a90d20"
 WaveSpec = "908d4cf6-a6c0-449c-92e4-852c8f288332"
 
 [compat]
+julia = "1.10, 1.11"
 DataFrames = "1.8.1"
 Printf = "1.11.0"
 Revise = "3.13.2"

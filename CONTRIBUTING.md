@@ -17,3 +17,25 @@ Gridap Style Guides
 See [the Julia CONTRIBUTING.md](https://github.com/JuliaLang/julia/blob/master/CONTRIBUTING.md) for further information.
 
 ---
+
+Legacy Code Policy
+===
+
+We are migrating all maintained workflows to the structured API under `src/` and
+user-facing examples under `examples/`.
+
+* Do not add new code under `archive/`.
+* Legacy scripts are removed once equivalent behavior exists in `src/` +
+	`examples/`.
+* New features must be implemented in `src/` and covered by tests under `test/`.
+
+Scripts Policy
+===
+
+The `scripts/` directory is retained only for reproducible local runners that
+call current `src/` modules.
+
+* Keep scripts thin: parameter setup + invocation of maintained `src/` code.
+* Do not duplicate physics/assembly logic inside scripts.
+* When a script workflow becomes a supported user workflow, promote it to
+	`examples/` and add test coverage.

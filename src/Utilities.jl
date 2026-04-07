@@ -59,16 +59,16 @@ their relevant properties and parameters in a human-readable format.
 """
 function print_properties() end
 
-function print_properties(ele::BeamNoJoints.Beam2D)
-    BeamNoJoints.print_properties(ele)
+function print_properties(ele::EulerBernoulliBeam)
+  print_parameters(ele)
 end
 
-function print_properties(ele::Membrane.Membrane2D)
-    Membrane.print_properties(ele)
+function print_properties(ele::Membrane2D)
+  print_parameters(ele)
 end
 
-function print_properties(ele::Union{Resonator.Single, Vector{Resonator.Single}})
-    Resonator.print_properties(ele)
+function print_properties(ele::Union{Physics.ResonatorSingle, Vector{Physics.ResonatorSingle}})
+  print_parameters(ele)
 end
 # ----------------------End---------------------
 
