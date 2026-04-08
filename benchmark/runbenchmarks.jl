@@ -19,7 +19,6 @@ summary is printed to stdout (non-blocking: exit code 0 regardless of deltas).
 """
 
 using BenchmarkTools
-using JSON
 using Printf
 
 # ── load package + example modules ───────────────────────────────────────────
