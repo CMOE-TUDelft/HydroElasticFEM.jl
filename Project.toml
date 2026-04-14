@@ -15,11 +15,11 @@ TickTock = "9ff05d80-102d-5586-aa04-3a8bd1a90d20"
 WaveSpec = "908d4cf6-a6c0-449c-92e4-852c8f288332"
 
 [compat]
-julia = "1.10, 1.11"
 DataFrames = "1.8.1"
-WaveSpec = "0.3.1"
 Gridap = "0.20"
-
+Parameters = "0.12.3"
+WaveSpec = "0.3.1"
+julia = "1.10, 1.11"
 [extras]
 Gridap = "56d4f2e9-7ea1-5844-9cf6-b9c51ca7ce8e"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
