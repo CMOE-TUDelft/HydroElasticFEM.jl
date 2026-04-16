@@ -53,6 +53,6 @@ result   = simulate(problem, tconfig)
 |--------|---------|
 | `HydroElasticFEM.Physics` | Physics entity types and weak forms |
 | `HydroElasticFEM.Geometry` | Mesh and integration domain helpers |
-| `HydroElasticFEM.Simulation` | FE-space assembly and time/frequency solvers |
+| `HydroElasticFEM.Simulation` | FE space assembly and time/frequency solvers |
 | `HydroElasticFEM.AssemblyContexts` | Context objects for assembly |
 | `HydroElasticFEM.ParameterHandler` | Configuration structs |

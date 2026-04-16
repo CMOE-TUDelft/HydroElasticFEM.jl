@@ -7,24 +7,24 @@ in either the frequency domain (harmonic steady state) or the time domain.
 
 ### Fluid: potential flow
 
-The fluid is governed by Laplace's equation for the velocity potential ``\phi``:
+The fluid is governed by Laplace's equation for the velocity potential $\phi$:
 
 ```math
 \nabla^2 \phi = 0 \quad \text{in } \Omega,
 ```
 
-subject to the linearised free-surface condition on ``\Gamma_\kappa``:
+subject to the linearised free-surface condition on $\Gamma_\kappa$:
 
 ```math
 \frac{\partial \phi}{\partial t} + g\,\kappa = 0, \qquad
 \frac{\partial \kappa}{\partial t} = \frac{\partial \phi}{\partial z},
 ```
 
-where ``\kappa`` is the free-surface elevation auxiliary variable.
+where $\kappa$ is the free-surface elevation auxiliary variable.
 
 ### Structures
 
-**Membrane (2-D):**
+**Membrane (1D in a 2D domain):**
 
 ```math
 m_\rho \ddot{\eta} - T_\rho \nabla^2 \eta + \text{coupling} = 0
