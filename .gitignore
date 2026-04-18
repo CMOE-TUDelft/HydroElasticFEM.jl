@@ -37,3 +37,5 @@ JuliaLocalPreferences.toml
 *.pvd
 *.pvtu
 *.vtu
+
+.github/

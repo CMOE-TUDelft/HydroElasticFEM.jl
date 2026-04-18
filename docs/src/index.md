@@ -1,9 +1,15 @@
 # HydroElasticFEM.jl
 
+```@raw html
+<div style="text-align: center; margin: 0 0 1.5rem;">
+    <img src="assets/logo.svg" alt="HydroElasticFEM.jl logo" style="max-width: 360px; width: 100%; height: auto;">
+</div>
+```
+
 **HydroElasticFEM.jl** is a Julia package for finite element (FE) simulation of
 hydro-elastic wave–structure interaction problems.  It couples potential flow
 fluid models with structural models (membranes, Euler–Bernoulli beams,
-resonators) using the [Gridap.jl](www.github.com/gridap/Gridap.jl) FE framework.
+resonators) using the [Gridap.jl](https://www.github.com/gridap/Gridap.jl) FE framework.
 
 ## Package features
 

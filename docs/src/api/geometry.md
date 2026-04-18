@@ -3,6 +3,10 @@
 The `Geometry` sub-module provides domain specification types, Cartesian mesh
 construction, and the integration-domain containers used by weak forms.
 
+```@docs
+HydroElasticFEM.Geometry
+```
+
 ## Integration domains
 
 ```@docs

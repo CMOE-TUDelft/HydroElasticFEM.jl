@@ -7,8 +7,10 @@ makedocs(
     modules  = [HydroElasticFEM],
     format   = Documenter.HTML(
         prettyurls = get(ENV, "CI", nothing) == "true",
-        canonical  = "https://github.com/CMOE/HydroElasticFEM.jl",
+        canonical  = "https://CMOE.github.io/HydroElasticFEM.jl",
+        repolink   = "https://github.com/CMOE/HydroElasticFEM.jl",
     ),
+    remotes = nothing,
     pages = [
         "Home" => "index.md",
         "Guides" => [
@@ -27,10 +29,11 @@ makedocs(
     ],
     checkdocs = :exports,
     doctest   = true,
-    strict    = false,
 )
 
-deploydocs(
-    repo = "github.com/CMOE/HydroElasticFEM.jl.git",
-    devbranch = "main",
-)
+if get(ENV, "CI", "false") == "true"
+    deploydocs(
+        repo = "github.com/CMOE/HydroElasticFEM.jl.git",
+        devbranch = "main",
+    )
+end

@@ -4,6 +4,10 @@ The `Physics` sub-module defines all physical-entity types together with their
 weak-form methods (`mass`, `damping`, `stiffness`, `rhs`) and the composed
 frequency/time-domain forms (`weakform`, `residual`, `jacobian`, …).
 
+```@docs
+HydroElasticFEM.Physics
+```
+
 ## Abstract base
 
 ```@docs

@@ -562,6 +562,15 @@ function build_time_fe_operator(entities::Vector{<:P.PhysicsParameters},
         constant_forms=(true, true, true))
 end
 
+"""
+    build_fe_operator(entities, dom, ω, fmap, X, Y; rhs_fn=nothing)
+    build_fe_operator(entities, dom, fmap, X, Y; rhs_fn=nothing)
+
+Dispatcher for building frequency-domain or time-domain FE operators.
+
+Routes to `build_frequency_fe_operator` or `build_time_fe_operator` based on
+whether an angular frequency `ω` is provided.
+"""
 function build_fe_operator(entities,
                            dom::G.IntegrationDomains, ω,
                            fmap::Dict{Symbol,Int}, X, Y;

@@ -3,15 +3,24 @@
 The `Simulation` sub-module orchestrates FE-space construction, operator
 assembly, and time/frequency-domain solving.
 
+```@docs
+HydroElasticFEM.Simulation
+```
+
 ## Entry points
 
 ```@docs
 HydroElasticFEM.Simulation.build_problem
 HydroElasticFEM.Simulation.simulate
 HydroElasticFEM.Simulation.SimResult
+HydroElasticFEM.Simulation.HEFEM_Problem
 ```
 
 ## FE-space assembly
+
+```@docs
+HydroElasticFEM.Simulation.FESpaceAssembly
+```
 
 ```@docs
 HydroElasticFEM.Simulation.FESpaceAssembly.build_fe_spaces
@@ -22,9 +31,12 @@ HydroElasticFEM.Simulation.FESpaceAssembly.build_trial_fe_space
 ## FE-operator construction
 
 ```@docs
+HydroElasticFEM.Simulation.FEOperators
+```
+
+```@docs
 HydroElasticFEM.Simulation.FEOperators.FieldMap
 HydroElasticFEM.Simulation.FEOperators.detect_couplings
-HydroElasticFEM.Simulation.FEOperators.build_fe_operator
 HydroElasticFEM.Simulation.FEOperators.build_frequency_fe_operator
 HydroElasticFEM.Simulation.FEOperators.build_time_fe_operator
 ```
