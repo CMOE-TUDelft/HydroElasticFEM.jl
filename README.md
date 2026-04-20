@@ -10,7 +10,7 @@
 
 [ci-img]: https://img.shields.io/github/actions/workflow/status/CMOE-TUDelft/HydroElasticFEM.jl/CI.yml?branch=main
 [ci-url]: https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/actions/workflows/CI.yml
-[cov-img]: https://img.shields.io/codecov/c/github/CMOE/HydroElasticFEM.jl
+[cov-img]: https://img.shields.io/codecov/c/github/CMOE-TUDelft/HydroElasticFEM.jl?branch=main
 [cov-url]: https://codecov.io/gh/CMOE-TUDelft/HydroElasticFEM.jl
 [docs-img]: https://img.shields.io/badge/docs-stable-blue.svg
 [docs-url]: https://CMOE-TUDelft.github.io/HydroElasticFEM.jl/
