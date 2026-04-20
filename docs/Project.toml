@@ -1,0 +1,6 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+HydroElasticFEM = "e85360b2-c40c-44d1-92ad-66f8d48f49a1"
+
+[compat]
+Documenter = "1"

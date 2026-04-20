@@ -322,6 +322,15 @@ end
 
 """
     assemble_residual(terms, dom, fmap, x, x_t, x_tt, f, y)
+    assemble_residual(terms, ctx, fmap, x, x_t, x_tt, f, y)
+
+Assemble the nonlinear residual form from a collection of physics terms.
+`x`, `x_t`, `x_tt` are the solution, first-order, and second-order time
+derivative fields; `f` is the forcing field; `y` is the test field.
+Wraps each field via `fmap` before dispatching to `Physics.residual`.
+Only terms that pass `has_residual` trait check contribute.
+
+Returns a `DomainContribution`; errors if no terms are active.
 """
 function assemble_residual(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol,Int},
                            x, x_t, x_tt, f, y)
@@ -352,6 +361,14 @@ end
 
 """
     assemble_jacobian(terms, dom, fmap, dx, x_t, x_tt, y)
+    assemble_jacobian(terms, ctx, fmap, dx, x_t, x_tt, y)
+
+Assemble the Jacobian (stiffness sensitivity) bilinear form.
+`dx` is the trial increment direction; `x_t` and `x_tt` are the
+first- and second-order time derivative fields; `y` is the test field.
+Only terms with an active `stiffness` form (via `has_stiffness_form`) contribute.
+
+Returns a `DomainContribution`; errors if no terms are active.
 """
 function assemble_jacobian(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol,Int},
                            dx, x_t, x_tt, y)
@@ -383,6 +400,15 @@ end
 
 """
     assemble_jacobian_t(terms, dom, fmap, x, dx_t, x_tt, y)
+    assemble_jacobian_t(terms, ctx, fmap, x, dx_t, x_tt, y)
+
+Assemble the first-order time-derivative Jacobian (damping sensitivity) bilinear form.
+`dx_t` is the trial increment in the first time derivative direction;
+`x` and `x_tt` are the primal and second time derivative fields;
+`y` is the test field.
+Only terms with an active `damping` form (via `has_damping_form`) contribute.
+
+Returns a `DomainContribution`; errors if no terms are active.
 """
 function assemble_jacobian_t(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol,Int},
                              x, dx_t, x_tt, y)
@@ -414,6 +440,15 @@ end
 
 """
     assemble_jacobian_tt(terms, dom, fmap, x, x_t, dx_tt, y)
+    assemble_jacobian_tt(terms, ctx, fmap, x, x_t, dx_tt, y)
+
+Assemble the second-order time-derivative Jacobian (mass sensitivity) bilinear form.
+`dx_tt` is the trial increment in the second time derivative direction;
+`x` and `x_t` are the primal and first time derivative fields;
+`y` is the test field.
+Only terms with an active `mass` form (via `has_mass_form`) contribute.
+
+Returns a `DomainContribution`; errors if no terms are active.
 """
 function assemble_jacobian_tt(terms, dom::G.IntegrationDomains, fmap::Dict{Symbol,Int},
                               x, x_t, dx_tt, y)
@@ -527,6 +562,15 @@ function build_time_fe_operator(entities::Vector{<:P.PhysicsParameters},
         constant_forms=(true, true, true))
 end
 
+"""
+    build_fe_operator(entities, dom, ω, fmap, X, Y; rhs_fn=nothing)
+    build_fe_operator(entities, dom, fmap, X, Y; rhs_fn=nothing)
+
+Dispatcher for building frequency-domain or time-domain FE operators.
+
+Routes to `build_frequency_fe_operator` or `build_time_fe_operator` based on
+whether an angular frequency `ω` is provided.
+"""
 function build_fe_operator(entities,
                            dom::G.IntegrationDomains, ω,
                            fmap::Dict{Symbol,Int}, X, Y;
