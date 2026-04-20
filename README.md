@@ -47,11 +47,25 @@ Pkg.develop(url="https://github.com/CMOE/HydroElasticFEM.jl")
 Here's a minimal example to get started with HydroElasticFEM.jl:
 
 ```julia
-using HydroElasticFEM
+import HydroElasticFEM.Geometry as G
+import HydroElasticFEM.ParameterHandler as PH
+import HydroElasticFEM.Physics as P
+import HydroElasticFEM.Simulation as S
 
-# Define your problem (geometry, physics, parameters)
-# Run a frequency-domain or time-domain simulation
-# Analyze results with the SimResult interface
+# 1. Define the fluid domain (a 2D rectangular tank)
+domain = G.TankDomain2D(L=10.0, H=1.0, nx=60, ny=8)
+
+# 2. Define physics entities using defaults (ρw=1025, g=9.81, βₕ=0.5, …)
+fluid   = P.PotentialFlow()
+surface = P.FreeSurface()
+
+# 3. Configure and run a frequency-domain simulation at ω = 1 rad/s
+config  = PH.FreqDomainConfig(ω=1.0)
+problem = S.build_problem(domain, P.PhysicsParameters[fluid, surface], config)
+result  = S.simulate(problem)
+
+# 4. Unpack the solution fields: velocity potential ϕ and free-surface elevation κ
+phi_h, kappa_h = result.solution
 ```
 
 For detailed examples, see the [examples/](examples/) directory.
