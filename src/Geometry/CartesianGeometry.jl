@@ -35,19 +35,47 @@ end
 """
     JointDomain1D
 
-Describes a single structural joint on a 1D beam.
+Declares a rotational-spring joint located at a specific point on a 1D beam
+boundary embedded in the 2D tank mesh.
 
-The joint location is provided as a point on the structural line, and the
-joint skeleton triangulation is built automatically in `build_triangulations`.
+`JointDomain1D` is purely a geometry-level descriptor.  After you add it to
+`TankDomain2D.joint_domains`, `build_triangulations` automatically builds the
+corresponding Gridap skeleton sub-triangulation (one interior facet of
+`Skeleton(Γη)` whose centroid is closest to `location`).  Then
+`get_integration_domains` populates `IntegrationDomains` with the resulting
+measure and outward normal, ready to be consumed by
+[`EulerBernoulliBeam`](@ref) via the matching `JointRotationalSpring`.
 
 # Fields
-- `location::Vector{Float64}` — Joint point location in 2D (e.g. `[xj, yj]`).
-- `domain_symbol::Symbol` — Key under which the joint measure is stored in
-  `IntegrationDomains` (e.g. `:dΛj_1`).
-- `normal_symbol::Symbol` — Key under which the joint outward normal is stored
-  (e.g. `:n_Λ_j_1`).
-- `tol::Float64` — Selection tolerance used when extracting the joint from
-    structure skeleton facets.
+- `location::Vector{Float64}` — 2D coordinates `[x, y]` of the joint point
+  on the structure surface (e.g. `[2.0, 1.0]`).
+- `domain_symbol::Symbol` — Key under which the Gridap skeleton `Measure` is
+  stored in `IntegrationDomains` (e.g. `:dΛj_1`).  Must match
+  `JointRotationalSpring.domain_symbol` in the corresponding beam entity.
+- `normal_symbol::Symbol` — Key under which the skeleton outward-normal field
+  is stored (e.g. `:n_Λ_j_1`).  Must match
+  `JointRotationalSpring.normal_symbol` in the corresponding beam entity.
+- `tol::Float64` — Spatial tolerance for selecting the skeleton facet whose
+  centroid is within `tol` of `location`.  Default `1e-6` m.
+
+# Example
+
+```julia
+# Beam spanning x ∈ [1.5, 2.5] at y = 1.0 — joint at midpoint x = 2.0
+s1 = StructureDomain1D(L=1.0, x₀=[1.5, 1.0])
+j1 = JointDomain1D(location=[2.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
+
+tank = TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
+    structure_domains=[s1],
+    joint_domains=[j1])
+model  = build_model(tank)
+trians = build_triangulations(tank, model)   # skeleton facet extracted here
+dom    = get_integration_domains(trians)      # :dΛj_1 and :n_Λ_j_1 populated
+
+# Physics side — link via matching symbols
+beam = EulerBernoulliBeam(L=1.0, mᵨ=0.5, EIᵨ=100.0,
+    joints=[JointRotationalSpring(:dΛj_1, :n_Λ_j_1, kᵣ)])
+```
 """
 @with_kw struct JointDomain1D
         location::Vector{Float64}

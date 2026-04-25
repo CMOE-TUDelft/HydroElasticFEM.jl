@@ -1,12 +1,33 @@
 """
     JointRotationalSpring
 
-Rotational spring data for a structural joint contribution.
+Rotational spring stiffness contribution at an interior joint of an
+`EulerBernoulliBeam`.  Each joint adds the term
+
+```math
+\\int_{\\Lambda_j} k_r \\,
+[\\![ \\nabla(v) \\cdot n_{\\Lambda_j} ]\\!] \\,
+[\\![ \\nabla(\\eta) \\cdot n_{\\Lambda_j} ]\\!]
+\\, \\mathrm{d}\\Lambda_j
+```
+
+to the beam stiffness form, where ``[\\![\\cdot]\\!]`` denotes the jump across
+the skeleton facet ``\\Lambda_j`` and ``n_{\\Lambda_j}`` is its outward normal.
+
+The `domain_symbol` and `normal_symbol` must match the keys registered in
+`IntegrationDomains` — this is done automatically by `get_integration_domains`
+when the corresponding `JointDomain1D` is declared in `TankDomain2D`.
 
 # Fields
-- `domain_symbol::Symbol` — Integration-domain key for the joint measure (e.g. `:dΛj_1`)
-- `normal_symbol::Symbol` — Integration-domain key for joint normals (e.g. `:n_Λ_j_1`)
-- `kᵣ::Float64`          — Rotational stiffness coefficient
+- `domain_symbol::Symbol` — Key for the joint skeleton `Measure` in
+  `IntegrationDomains` (e.g. `:dΛj_1`).
+- `normal_symbol::Symbol` — Key for the joint outward-normal field in
+  `IntegrationDomains` (e.g. `:n_Λ_j_1`).
+- `kᵣ::Float64` — Rotational spring stiffness ``[\\mathrm{N}\\cdot\\mathrm{m}^2/\\rho_w]``.
+
+# See also
+[`JointDomain1D`](@ref HydroElasticFEM.Geometry.JointDomain1D),
+[`EulerBernoulliBeam`](@ref)
 """
 struct JointRotationalSpring
     domain_symbol::Symbol
