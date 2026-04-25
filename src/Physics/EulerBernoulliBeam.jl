@@ -102,9 +102,9 @@ function stiffness(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
               + (γ / h) * jump(∇(v) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ)))dom[:dΛη]
 
     for joint in s.joints
-        dΛj = dom[joint.domain_symbol]
+        dΛj  = dom[joint.domain_symbol]
         n_Λj = dom[joint.normal_symbol]
-        val += ∫(joint.kᵣ * jump(∇(v) ⋅ n_Λj) * jump(∇(η) ⋅ n_Λj))dΛj
+        val  = _add_contribution(val, ∫(joint.kᵣ * jump(∇(v) ⋅ n_Λj) * jump(∇(η) ⋅ n_Λj))dΛj)
     end
 
     return val

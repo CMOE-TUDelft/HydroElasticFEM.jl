@@ -33,6 +33,30 @@ Variables:
 end
 
 """
+    JointDomain1D
+
+Describes a single structural joint on a 1D beam.
+
+The joint location is provided as a point on the structural line, and the
+joint skeleton triangulation is built automatically in `build_triangulations`.
+
+# Fields
+- `location::Vector{Float64}` — Joint point location in 2D (e.g. `[xj, yj]`).
+- `domain_symbol::Symbol` — Key under which the joint measure is stored in
+  `IntegrationDomains` (e.g. `:dΛj_1`).
+- `normal_symbol::Symbol` — Key under which the joint outward normal is stored
+  (e.g. `:n_Λ_j_1`).
+- `tol::Float64` — Selection tolerance used when extracting the joint from
+    structure skeleton facets.
+"""
+@with_kw struct JointDomain1D
+        location::Vector{Float64}
+        domain_symbol::Symbol
+        normal_symbol::Symbol
+        tol::Float64 = 1.0e-6
+end
+
+"""
   TankDomain2D 
 
 Defines a rectangular domain for 2D problems, with dimensions `L` and `H` [0,L]x[0,H], discretized into `nx` by `ny` elements. 
@@ -46,6 +70,7 @@ Variables:
 - map::Function = (x, y) -> (x, y): Identity mapping function for coordinates
 - structure_domains::Vector{StructureDomain1D} = Vector{StructureDomain1D}(): List of structure domains within the tank
 - damping_zones::Vector{DampingZone1D} = Vector{DampingZone1D}(): List of damping zones within the
+- joint_domains::Vector{JointDomain1D} = Vector{JointDomain1D}(): List of structural joints used to build joint skeleton domains
 """
 @with_kw struct TankDomain2D
     L::Float64 = 4.0
@@ -55,6 +80,7 @@ Variables:
     map::Function = x->x
     structure_domains::Vector{StructureDomain1D} = Vector{StructureDomain1D}()
     damping_zones::Vector{DampingZone1D} = Vector{DampingZone1D}()
+    joint_domains::Vector{JointDomain1D} = Vector{JointDomain1D}()
 end
 
 """
@@ -134,6 +160,22 @@ function surface_masks(domain::TankDomain2D)
     smasks = [surface_mask(s) for s in domain.structure_domains]
     dmasks = [surface_mask(d) for d in domain.damping_zones]
     return smasks, dmasks
+end
+
+"""
+    joint_mask(joint::JointDomain1D) -> Function
+
+Return a closure `(xs) -> Bool` that selects skeleton cells whose centroid is
+at `joint.location` within the joint tolerance.
+"""
+function joint_mask(joint::JointDomain1D)
+    xj = joint.location[1]
+    yj = joint.location[2]
+    tol = joint.tol
+    return function (xs)
+        c = _centroid(xs)
+        (abs(c[1] - xj) <= tol) && (abs(c[2] - yj) <= tol)
+    end
 end
 
 
@@ -228,6 +270,38 @@ function build_triangulations(domain::TankDomain2D, model)
     # η surface = all structures
     Γη  = Triangulation(Γ, findall(any_structure))
 
+    if !isempty(domain.joint_domains) && isempty(domain.structure_domains)
+        error("Joint domains require at least one structure domain in TankDomain2D.")
+    end
+
+    # Joint skeleton triangulations from the structure skeleton
+    Λ_joints = Any[]
+    joint_domain_syms = Symbol[]
+    if !isempty(domain.joint_domains)
+        Λη = Skeleton(Γη)
+        xΛη = get_cell_coordinates(Λη)
+        seen_joint_domain_syms = Set{Symbol}()
+        seen_joint_normal_syms = Set{Symbol}()
+        for joint in domain.joint_domains
+            if joint.domain_symbol in seen_joint_domain_syms
+                error("Duplicate joint domain_symbol :$(joint.domain_symbol) found in joint_domains. Each joint must have a unique domain_symbol.")
+            end
+            if joint.normal_symbol in seen_joint_normal_syms
+                error("Duplicate joint normal_symbol :$(joint.normal_symbol) found in joint_domains. Each joint must have a unique normal_symbol.")
+            end
+            push!(seen_joint_domain_syms, joint.domain_symbol)
+            push!(seen_joint_normal_syms, joint.normal_symbol)
+
+            bits = lazy_map(joint_mask(joint), xΛη)
+            Λj = Triangulation(Λη, findall(bits))
+            if num_cells(Λj) == 0
+                error("Joint at location $(joint.location) did not match any structure skeleton cell. Check location and tolerance.")
+            end
+            push!(Λ_joints, Λj)
+            push!(joint_domain_syms, joint.domain_symbol)
+        end
+    end
+
     # Compose dictionary for TankTriangulations
     trian_dict = Dict(
         :Ω => Ω,
@@ -240,6 +314,8 @@ function build_triangulations(domain::TankDomain2D, model)
         :Γfs => Γfs,
         :Γκ => Γκ,
         :Γη => Γη,
+        :Λ_joints => Λ_joints,
+        :joint_domains => domain.joint_domains,
     )
     # Add each structure triangulation under its domain_symbol, error if duplicate
     for sym in structure_syms
@@ -254,6 +330,13 @@ function build_triangulations(domain::TankDomain2D, model)
             error("domain_symbol :$sym for damping triangulation would overwrite an existing triangulation key in TankTriangulations. All keys must be unique.")
         end
         trian_dict[sym] = damping_trians[sym]
+    end
+    # Add each joint skeleton triangulation under its domain_symbol, error if duplicate
+    for (i, sym) in enumerate(joint_domain_syms)
+        if haskey(trian_dict, sym)
+            error("domain_symbol :$sym for joint triangulation would overwrite an existing triangulation key in TankTriangulations. All keys must be unique.")
+        end
+        trian_dict[sym] = Λ_joints[i]
     end
     return TankTriangulations(trian_dict)
 end
@@ -342,6 +425,14 @@ function get_integration_domains(tri::TankTriangulations; degree::Union{Int, Dic
         key = Symbol("dΓd_$i")
         d[key] = Measure(Γd, get_deg(key))
         d[Symbol("nΓd_$i")] = get_normal_vector(Γd)
+    end
+
+    # Per-joint skeleton measures and normals
+    if haskey(tri, :joint_domains) && haskey(tri, :Λ_joints)
+        for (joint, Λj) in zip(tri[:joint_domains], tri[:Λ_joints])
+            d[joint.domain_symbol] = Measure(Λj, get_deg(joint.domain_symbol))
+            d[joint.normal_symbol] = get_normal_vector(Λj)
+        end
     end
 
     return IntegrationDomains(d)
