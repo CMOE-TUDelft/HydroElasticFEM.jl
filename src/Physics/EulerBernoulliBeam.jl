@@ -1,7 +1,23 @@
 """
+    JointRotationalSpring
+
+Rotational spring data for a structural joint contribution.
+
+# Fields
+- `domain_symbol::Symbol` — Integration-domain key for the joint measure (e.g. `:dΛj_1`)
+- `normal_symbol::Symbol` — Integration-domain key for joint normals (e.g. `:n_Λ_j_1`)
+- `kᵣ::Float64`          — Rotational stiffness coefficient
+"""
+struct JointRotationalSpring
+    domain_symbol::Symbol
+    normal_symbol::Symbol
+    kᵣ::Float64
+end
+
+"""
     EulerBernoulliBeam <: Structure
 
-Parameters for a 2D Euler-Bernoulli beam model (no joints),
+Parameters for a 2D Euler-Bernoulli beam model,
 normalised by fluid density ρw.
 
 # Fields
@@ -10,6 +26,7 @@ normalised by fluid density ρw.
 - `EIᵨ::Float64`  — Flexural Rigidity / ρw
 - `τ::Float64`    — Stiffness Proportional Structural Damping coefficient
 - `g::Float64`    — Gravitational acceleration
+- `joints::Vector{JointRotationalSpring}` — Optional rotational spring joints
 - `bndType::BoundaryCondition` — Boundary Type
 - `ωn1::Float64`   — Dry Analytical Natural frequency (derived)
 """
@@ -19,6 +36,7 @@ normalised by fluid density ρw.
     EIᵨ::Float64
     τ::Float64     = 0.0
     g::Float64     = 9.81
+    joints::Vector{JointRotationalSpring} = JointRotationalSpring[]
     symbol::Symbol = :η_b
     space_domain_symbol::Symbol = :Γη
     fe::FESpaceConfig = FESpaceConfig()
