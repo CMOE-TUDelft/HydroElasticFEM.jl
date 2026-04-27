@@ -183,11 +183,18 @@ end
   @test haskey(d, :dΓd_2)
   @test haskey(d, :nΓd_1)
   @test haskey(d, :nΓd_2)
+  @test haskey(d, :dΛη)
+  @test haskey(d, :n_Λ_η)
+  @test haskey(d, :h_η)
 
-  # Measures and normals are both stored in the integration-domain dictionary
+  # Measures, normals, and scalar mesh sizes are all stored in the integration-domain dictionary.
   for (k, v) in pairs(d.data)
     if startswith(String(k), "nΓ")
       @test v isa Gridap.CellData.GenericCellField
+    elseif startswith(String(k), "n_Λ")
+      @test (v isa Gridap.CellData.GenericCellField) || (v isa Gridap.Geometry.SkeletonPair)
+    elseif startswith(String(k), "h_")
+      @test v isa Real
     else
       @test v isa Gridap.CellData.Measure
     end

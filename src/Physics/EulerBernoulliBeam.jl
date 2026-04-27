@@ -44,17 +44,17 @@ normalised by fluid density ρw.
 # Fields
 - `L::Float64`    — Length of beam
 - `mᵨ::Float64`   — Mass per unit length per unit width / ρw
-- `EIᵨ::Float64`  — Flexural Rigidity / ρw
+- `EIᵨ::Union{Float64,Function}` — Flexural Rigidity / ρw (scalar or a function of position `x`)
 - `τ::Float64`    — Stiffness Proportional Structural Damping coefficient
 - `g::Float64`    — Gravitational acceleration
 - `joints::Vector{JointRotationalSpring}` — Optional rotational spring joints
 - `bndType::BoundaryCondition` — Boundary Type
-- `ωn1::Float64`   — Dry Analytical Natural frequency (derived)
+- `ωn1::Union{Float64,Nothing}` — Dry Analytical Natural frequency (derived; `nothing` when `EIᵨ` is a function)
 """
 @with_kw struct EulerBernoulliBeam <: Structure
     L::Float64
     mᵨ::Float64
-    EIᵨ::Float64
+    EIᵨ::Union{Float64, Function}
     τ::Float64     = 0.0
     g::Float64     = 9.81
     joints::Vector{JointRotationalSpring} = JointRotationalSpring[]
@@ -63,16 +63,16 @@ normalised by fluid density ρw.
     fe::FESpaceConfig = FESpaceConfig()
 
     # Derived quantities
-    ωn1::Float64   = 22.3733 * sqrt(EIᵨ / (mᵨ * L^4))
+    ωn1::Union{Float64, Nothing} = EIᵨ isa Float64 ? 22.3733 * sqrt(EIᵨ / (mᵨ * L^4)) : nothing
 end
 
 function print_parameters(beam::EulerBernoulliBeam)
     @printf("\n[MSG] Beam Properties:\n")
     @printf("[VAL] L = %.4f m\n", beam.L)
     @printf("[VAL] mᵨ = %.4f m\n", beam.mᵨ)
-    @printf("[VAL] EIᵨ = %.4f m5/s2\n", beam.EIᵨ)
+    beam.EIᵨ isa Float64 ? @printf("[VAL] EIᵨ = %.4f m5/s2\n", beam.EIᵨ) : @printf("[VAL] EIᵨ = <function>\n")
     @printf("[VAL] τ = %.4f \n", beam.τ)
-    @printf("[VAL] 1st Dry Analytical Natural Freq, ωn1 = %.4f rad/s\n", beam.ωn1)
+    beam.ωn1 !== nothing ? @printf("[VAL] 1st Dry Analytical Natural Freq, ωn1 = %.4f rad/s\n", beam.ωn1) : @printf("[VAL] 1st Dry Analytical Natural Freq, ωn1 = <not available for variable EIᵨ>\n")
     @printf("[MSG] See free-free vibration frequency formula involving 22.3733 from Wiki.\n")
     println()
 end
@@ -95,15 +95,16 @@ function damping(s::EulerBernoulliBeam, dom::IntegrationDomains, x_t, y)
     v  = y[sym]
     EIᵨ = s.EIᵨ
     τ   = s.τ
+    EIτ = EIᵨ isa Float64 ? EIᵨ * τ : (x -> EIᵨ(x) * τ)
     γ   = s.fe.γ
     h   = dom[:h_η]
     n_Λ = dom[:n_Λ_η]
 
-    val = ∫(EIᵨ * τ * Δ(v) * Δ(ηₜ))dom[:dΓη] +
-          ∫(EIᵨ * τ * (
-              -jump(∇(v) ⋅ n_Λ) * mean(Δ(ηₜ))
-              - mean(Δ(v)) * jump(∇(ηₜ) ⋅ n_Λ)
-              + (γ / h) * jump(∇(v) ⋅ n_Λ) * jump(∇(ηₜ) ⋅ n_Λ)))dom[:dΛη]
+    val = ∫(EIτ * Δ(v) * Δ(ηₜ))dom[:dΓη] +
+          ∫(
+              -jump(∇(v) ⋅ n_Λ) * mean(EIτ * Δ(ηₜ))
+              - mean(EIτ * Δ(v)) * jump(∇(ηₜ) ⋅ n_Λ)
+              + (γ / h) * mean(EIτ) * jump(∇(v) ⋅ n_Λ) * jump(∇(ηₜ) ⋅ n_Λ))dom[:dΛη]
     return val
 end
 
@@ -117,10 +118,10 @@ function stiffness(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
     n_Λ = dom[:n_Λ_η]
 
     val = ∫(v * (s.g * η) + EIᵨ * Δ(v) * Δ(η))dom[:dΓη] +
-          ∫(EIᵨ * (
-              -jump(∇(v) ⋅ n_Λ) * mean(Δ(η))
-              - mean(Δ(v)) * jump(∇(η) ⋅ n_Λ)
-              + (γ / h) * jump(∇(v) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ)))dom[:dΛη]
+          ∫(
+              -jump(∇(v) ⋅ n_Λ) * mean(EIᵨ * Δ(η))
+              - mean(EIᵨ * Δ(v)) * jump(∇(η) ⋅ n_Λ)
+              + (γ / h) * mean(EIᵨ) * jump(∇(v) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ))dom[:dΛη]
 
     for joint in s.joints
         dΛj  = dom[joint.domain_symbol]

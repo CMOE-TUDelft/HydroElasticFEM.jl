@@ -406,10 +406,10 @@ from `tri`.
 | `:dΓ_bot` | `tri.Γbot` | Bottom boundary terms |
 | `:dΓ_d_i` | `tri.Γ_dampings[i]` | Damping zone terms (`:dΓ_d_1`, `:dΓ_d_2`, …) |
 
-# Optional skeleton keys (beams only)
+# Automatic beam skeleton keys
 
-If the structure triangulation has interior edges,
-add `:dΛ_s`, `:n_Λ_s`, and `:h_s` manually after calling this function.
+If at least one structure domain is present, this function also adds the beam
+DG skeleton entries `:dΛη`, `:n_Λ_η`, and `:h_η`.
 
 # Example
 
@@ -461,6 +461,17 @@ function get_integration_domains(tri::TankTriangulations; degree::Union{Int, Dic
             d[joint.domain_symbol] = Measure(Λj, get_deg(joint.domain_symbol))
             d[joint.normal_symbol] = get_normal_vector(Λj)
         end
+    end
+
+    # Beam DG skeleton keys (:dΛη, :n_Λη, :h_η) — required by EulerBernoulliBeam
+    if !isempty(tri[:Γ_structures])
+        Λη = Skeleton(tri[:Γη])
+        d[:dΛη]   = Measure(Λη, get_deg(:dΛη))
+        d[:n_Λ_η] = get_normal_vector(Λη)
+        # mesh size: minimum cell length on the structure surface
+        cell_measures = get_cell_measure(tri[:Γη])
+        d[:h_η] = minimum(cell_measures)
+
     end
 
     return IntegrationDomains(d)
