@@ -1,5 +1,20 @@
 
 """
+    materialize(param, trian)
+
+Convert `param` to something Gridap can use in a weak form on `trian`.
+
+- If `param` is a `Float64` (or any scalar), it is returned as-is.
+- If `param` is a `Function`, it is wrapped in a `CellField` on `trian`.
+
+The triangulation is typically obtained from the test function via
+`get_triangulation(v)`, so no geometry objects need to be stored outside
+the physics module.
+"""
+materialize(param::Float64, ::Any) = param
+materialize(param::Function, trian) = CellField(param, trian)
+
+"""
    _add_contribution(a, b)
    
 Utility function to sum contributions from multiple forms, handling `nothing` values.

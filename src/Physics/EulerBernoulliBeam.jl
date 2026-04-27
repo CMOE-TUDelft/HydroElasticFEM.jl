@@ -93,18 +93,10 @@ function damping(s::EulerBernoulliBeam, dom::IntegrationDomains, x_t, y)
     sym = variable_symbol(s)
     ηₜ = x_t[sym]
     v  = y[sym]
-    EIᵨ = s.EIᵨ
     τ   = s.τ
-    
-    # Construct EIτ: as scalar if EIᵨ is Float64, else as CellField
-    if EIᵨ isa Float64
-        EIτ = EIᵨ * τ
-    else
-        # Extract triangulation from the stored key
-        trian = dom[:Γη_trian]
-        EIτ = CellField(x -> EIᵨ(x) * τ, trian)
-    end
-    
+    trian = get_triangulation(v)
+    EIτ_param = s.EIᵨ isa Float64 ? s.EIᵨ * τ : (x -> s.EIᵨ(x) * τ)
+    EIτ = materialize(EIτ_param, trian)
     γ   = s.fe.γ
     h   = dom[:h_η]
     n_Λ = dom[:n_Λ_η]
@@ -121,17 +113,8 @@ function stiffness(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
     sym = variable_symbol(s)
     η = x[sym]
     v = y[sym]
-    EIᵨ = s.EIᵨ
-    
-    # Construct EI as CellField if it's a function
-    if EIᵨ isa Float64
-        EI = EIᵨ
-    else
-        # Extract triangulation from the stored key
-        trian = dom[:Γη_trian]
-        EI = CellField(EIᵨ, trian)
-    end
-    
+    trian = get_triangulation(v)
+    EI  = materialize(s.EIᵨ, trian)
     γ   = s.fe.γ
     h   = dom[:h_η]
     n_Λ = dom[:n_Λ_η]
