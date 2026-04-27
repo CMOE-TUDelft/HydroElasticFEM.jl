@@ -95,7 +95,16 @@ function damping(s::EulerBernoulliBeam, dom::IntegrationDomains, x_t, y)
     v  = y[sym]
     EIᵨ = s.EIᵨ
     τ   = s.τ
-    EIτ = EIᵨ isa Float64 ? EIᵨ * τ : (x -> EIᵨ(x) * τ)
+    
+    # Construct EIτ: as scalar if EIᵨ is Float64, else as CellField
+    if EIᵨ isa Float64
+        EIτ = EIᵨ * τ
+    else
+        # Extract triangulation from the stored key
+        trian = dom[:Γη_trian]
+        EIτ = CellField(x -> EIᵨ(x) * τ, trian)
+    end
+    
     γ   = s.fe.γ
     h   = dom[:h_η]
     n_Λ = dom[:n_Λ_η]
@@ -113,15 +122,25 @@ function stiffness(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
     η = x[sym]
     v = y[sym]
     EIᵨ = s.EIᵨ
+    
+    # Construct EI as CellField if it's a function
+    if EIᵨ isa Float64
+        EI = EIᵨ
+    else
+        # Extract triangulation from the stored key
+        trian = dom[:Γη_trian]
+        EI = CellField(EIᵨ, trian)
+    end
+    
     γ   = s.fe.γ
     h   = dom[:h_η]
     n_Λ = dom[:n_Λ_η]
 
-    val = ∫(v * (s.g * η) + EIᵨ * Δ(v) * Δ(η))dom[:dΓη] +
+    val = ∫(v * (s.g * η) + EI * Δ(v) * Δ(η))dom[:dΓη] +
           ∫(
-              -jump(∇(v) ⋅ n_Λ) * mean(EIᵨ * Δ(η))
-              - mean(EIᵨ * Δ(v)) * jump(∇(η) ⋅ n_Λ)
-              + (γ / h) * mean(EIᵨ) * jump(∇(v) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ))dom[:dΛη]
+              -jump(∇(v) ⋅ n_Λ) * mean(EI * Δ(η))
+              - mean(EI * Δ(v)) * jump(∇(η) ⋅ n_Λ)
+              + (γ / h) * mean(EI) * jump(∇(v) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ))dom[:dΛη]
 
     for joint in s.joints
         dΛj  = dom[joint.domain_symbol]

@@ -37,5 +37,6 @@ using Test
   # ==========================================================================
 
   include("examples/EulerBernoulliBeamWeakFormTests.jl")
+  include("examples/KhabakhpashevaBeamJointTests.jl")
 
 end

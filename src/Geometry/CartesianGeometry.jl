@@ -471,7 +471,8 @@ function get_integration_domains(tri::TankTriangulations; degree::Union{Int, Dic
         # mesh size: minimum cell length on the structure surface
         cell_measures = get_cell_measure(tri[:Γη])
         d[:h_η] = minimum(cell_measures)
-
+        # Store the structure triangulation for CellField construction
+        d[:Γη_trian] = tri[:Γη]
     end
 
     return IntegrationDomains(d)
