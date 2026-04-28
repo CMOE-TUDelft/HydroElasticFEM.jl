@@ -157,7 +157,6 @@ function run_khabakhpasheva_case(params::KhabakhpashevaCaseParams)
             P.RadiationBC(domain = :dΓin),
             P.RadiationBC(domain = :dΓout),
             P.PrescribedInletPotentialBC(domain = :dΓin, forcing = f_in, quantity = :traction),
-            # P.PrescribedInletPotentialBC(domain = :dΓout, forcing = f_out, quantity = :traction),
             # P.DampingZoneBC(
             #     domain = :dΓd_1,
             #     μ₁ = damp.μ1_in,
@@ -213,7 +212,8 @@ function run_khabakhpasheva_case(params::KhabakhpashevaCaseParams)
         writevtk(trians[:Γκ], joinpath(outdir, "free_surface_field"), cellfields = ["kappa_re" => real(κh), "kappa_im" => imag(κh)])
     end
 
-    ξs = collect(range(0.0, 1.0, length = 400))
+    ξs_uniform = collect(range(0.0, 1.0, length = 400))
+    ξs = sort(unique(vcat(ξs_uniform, c.β)))  # ensure joint location is captured exactly
     probes = [Point(c.xb0 + ξi * c.Lb, c.H) for ξi in ξs]
     ηvals = ηh(probes)
 
@@ -233,6 +233,7 @@ function run_khabakhpasheva_case(params::KhabakhpashevaCaseParams)
         xb0 = c.xb0,
         xbj = c.xbj,
         xb1 = c.xb1,
+        β = c.β,          # normalized joint location along beam (ξ = β)
     )
 
     return xs, η_rel_xs, meta
