@@ -304,10 +304,13 @@ function build_triangulations(domain::TankDomain2D, model)
 
     # Joint skeleton triangulations from the structure skeleton
     Λ_joints = Any[]
+    Λη_no_joints = nothing
     joint_domain_syms = Symbol[]
     if !isempty(domain.joint_domains)
         Λη = Skeleton(Γη)
         xΛη = get_cell_coordinates(Λη)
+        joint_bits_all = falses(length(xΛη))
+        non_joint_bits = trues(length(xΛη))
         seen_joint_domain_syms = Set{Symbol}()
         seen_joint_normal_syms = Set{Symbol}()
         for joint in domain.joint_domains
@@ -321,6 +324,8 @@ function build_triangulations(domain::TankDomain2D, model)
             push!(seen_joint_normal_syms, joint.normal_symbol)
 
             bits = lazy_map(joint_mask(joint), xΛη)
+            joint_bits_all .= joint_bits_all .| bits
+            non_joint_bits .= non_joint_bits .& .!bits
             Λj = Triangulation(Λη, findall(bits))
             if num_cells(Λj) == 0
                 error("Joint at location $(joint.location) did not match any structure skeleton cell. Check location and tolerance.")
@@ -328,6 +333,18 @@ function build_triangulations(domain::TankDomain2D, model)
             push!(Λ_joints, Λj)
             push!(joint_domain_syms, joint.domain_symbol)
         end
+
+        # Beam DG skeleton excludes joint facets via the complementary mask
+        # to avoid double counting with explicit rotational-spring terms.
+        Λη_no_joints = Triangulation(Λη, findall(non_joint_bits))
+
+        # Partition sanity check: non-joint + joint facets must cover Λη.
+        if (num_cells(Λη_no_joints) + count(joint_bits_all)) != length(xΛη)
+            error("Joint/non-joint skeleton partition is inconsistent for Γη.")
+        end
+    elseif !isempty(domain.structure_domains)
+        # No joints: use full structure skeleton.
+        Λη_no_joints = Skeleton(Γη)
     end
 
     # Compose dictionary for TankTriangulations
@@ -342,6 +359,7 @@ function build_triangulations(domain::TankDomain2D, model)
         :Γfs => Γfs,
         :Γκ => Γκ,
         :Γη => Γη,
+        :Λη => Λη_no_joints,
         :Λ_joints => Λ_joints,
         :joint_domains => domain.joint_domains,
     )
@@ -465,7 +483,7 @@ function get_integration_domains(tri::TankTriangulations; degree::Union{Int, Dic
 
     # Beam DG skeleton keys (:dΛη, :n_Λη, :h_η) — required by EulerBernoulliBeam
     if !isempty(tri[:Γ_structures])
-        Λη = Skeleton(tri[:Γη])
+        Λη = haskey(tri, :Λη) && tri[:Λη] !== nothing ? tri[:Λη] : Skeleton(tri[:Γη])
         d[:dΛη]   = Measure(Λη, get_deg(:dΛη))
         d[:n_Λ_η] = get_normal_vector(Λη)
         # mesh size: minimum cell length on the structure surface
