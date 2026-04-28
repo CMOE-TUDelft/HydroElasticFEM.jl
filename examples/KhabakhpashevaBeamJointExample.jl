@@ -115,12 +115,12 @@ end
 Run one HydroElasticFEM frequency-domain case for the Khabakhpasheva beam+joint setup.
 Returns `(xs, η_rel_xs, meta)` where:
 - `xs` are normalized coordinates `(x - xb0)/Lb` on `[0,1]`
-- `η_rel_xs` is `|η|/η0` sampled along the beam
+- `η_rel_xs` is `|η|/η₀` sampled along the beam
 - `meta` includes derived constants (ω, k, kᵣ, etc.)
 
-Note: current `EulerBernoulliBeam` uses a single `EIᵨ` on `:Γη`.
-This example therefore uses `EI1` globally for the beam and represents the
-joint via `JointRotationalSpring` at `xbj`.
+This follows the benchmark described in Section 5.3 of Colomés et al. (2023):
+the beam has an elastic joint at `xbj` and piecewise flexural rigidity,
+with `EI1` on the left segment and `EI2` on the right segment.
 """
 function run_khabakhpasheva_case(params::KhabakhpashevaCaseParams)
     c = _constants()
@@ -148,6 +148,7 @@ function run_khabakhpasheva_case(params::KhabakhpashevaCaseParams)
     )
 
     f_in(x) = -wave.vin(x) - im * wave.k * wave.ϕin(x)
+    # f_out(x) = 0.0 + 0.0im
 
     potential = P.PotentialFlow(
         ρw = pconst.ρ,
@@ -156,20 +157,21 @@ function run_khabakhpasheva_case(params::KhabakhpashevaCaseParams)
             P.RadiationBC(domain = :dΓin),
             P.RadiationBC(domain = :dΓout),
             P.PrescribedInletPotentialBC(domain = :dΓin, forcing = f_in, quantity = :traction),
-            P.DampingZoneBC(
-                domain = :dΓd_1,
-                μ₁ = damp.μ1_in,
-                μ₂ = damp.μ2_in,
-                η_in = wave.ηin,
-                vz_in = wave.vzin,
-            ),
-            P.DampingZoneBC(
-                domain = :dΓd_2,
-                μ₁ = damp.μ1_out,
-                μ₂ = damp.μ2_out,
-                η_in = (x -> 0.0 + 0.0im),
-                vz_in = (x -> 0.0 + 0.0im),
-            ),
+            # P.PrescribedInletPotentialBC(domain = :dΓout, forcing = f_out, quantity = :traction),
+            # P.DampingZoneBC(
+            #     domain = :dΓd_1,
+            #     μ₁ = damp.μ1_in,
+            #     μ₂ = damp.μ2_in,
+            #     η_in = wave.ηin,
+            #     vz_in = wave.vzin,
+            # ),
+            # P.DampingZoneBC(
+            #     domain = :dΓd_2,
+            #     μ₁ = damp.μ1_out,
+            #     μ₂ = damp.μ2_out,
+            #     η_in = (x -> 0.0 + 0.0im),
+            #     vz_in = (x -> 0.0 + 0.0im),
+            # ),
         ],
         sea_state = wave.sea_state,
         fe = PH.FESpaceConfig(order = params.order, vector_type = Vector{ComplexF64}),
