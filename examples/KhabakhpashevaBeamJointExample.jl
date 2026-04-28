@@ -213,7 +213,8 @@ function run_khabakhpasheva_case(params::KhabakhpashevaCaseParams)
     end
 
     ξs_uniform = collect(range(0.0, 1.0, length = 400))
-    ξs = sort(unique(vcat(ξs_uniform, c.β)))  # ensure joint location is captured exactly
+    ξs_joint_cluster = clamp.(c.β .+ [-0.02, -0.01, -0.005, -0.002, -0.001, 0.0, 0.001, 0.002, 0.005, 0.01, 0.02], 0.0, 1.0)
+    ξs = sort(unique(vcat(ξs_uniform, ξs_joint_cluster)))  # ensure exact and near-joint sampling
     probes = [Point(c.xb0 + ξi * c.Lb, c.H) for ξi in ξs]
     ηvals = ηh(probes)
 
@@ -249,25 +250,25 @@ Run the two benchmark-style cases:
 Returns a named tuple with both result curves and metadata.
 """
 function run_khabakhpasheva_two_cases(; nx=20, ny=5, order=4, vtk_output=true, make_plot=true)
-    case_with = KhabakhpashevaCaseParams(name = "xi_0", nx = nx, ny = ny, order = order, ξ = 0.0, vtk_output = vtk_output, make_plot = make_plot)
-    case_without = KhabakhpashevaCaseParams(name = "xi_625", nx = nx, ny = ny, order = order, ξ = 625.0, vtk_output = vtk_output, make_plot = make_plot)
+    case_hinged = KhabakhpashevaCaseParams(name = "xi_0", nx = nx, ny = ny, order = order, ξ = 0.0, vtk_output = vtk_output, make_plot = make_plot)
+    case_stiff_joint = KhabakhpashevaCaseParams(name = "xi_625", nx = nx, ny = ny, order = order, ξ = 625.0, vtk_output = vtk_output, make_plot = make_plot)
 
-    xs_with, η_with, meta_with = run_khabakhpasheva_case(case_with)
-    xs_without, η_without, meta_without = run_khabakhpasheva_case(case_without)
+    xs_hinged, η_hinged, meta_hinged = run_khabakhpasheva_case(case_hinged)
+    xs_stiff, η_stiff, meta_stiff = run_khabakhpasheva_case(case_stiff_joint)
 
     plt = nothing
     if make_plot
         plt = plot(
-            xs_with, η_with,
+            xs_hinged, η_hinged,
             lw = 2,
-            label = "ξ = 0 (kᵣ = $(round(meta_with.kᵣ, digits=4)))",
+            label = "ξ = 0 (hinged, kᵣ = $(round(meta_hinged.kᵣ, digits=4)))",
             xlabel = "x/L",
             ylabel = "|η|/η₀",
             xlims = (0.0, 1.0),
             legend = :topright,
             title = "HydroElasticFEM: Khabakhpasheva beam with joint",
         )
-        plot!(plt, xs_without, η_without, lw = 2, ls = :dash, label = "ξ = 625 (kᵣ = $(round(meta_without.kᵣ, digits=4)))")
+        plot!(plt, xs_stiff, η_stiff, lw = 2, ls = :dash, label = "ξ = 625 (stiff joint, kᵣ = $(round(meta_stiff.kᵣ, digits=4)))")
 
         outdir = joinpath(PKG_ROOT, "data", "VTK", "examples", "KhabakhpashevaBeamJointExample")
         isdir(outdir) || mkpath(outdir)
@@ -275,8 +276,11 @@ function run_khabakhpasheva_two_cases(; nx=20, ny=5, order=4, vtk_output=true, m
     end
 
     return (
-        with_joint = (xs = xs_with, η_rel = η_with, meta = meta_with),
-        without_joint = (xs = xs_without, η_rel = η_without, meta = meta_without),
+        hinged = (xs = xs_hinged, η_rel = η_hinged, meta = meta_hinged),
+        stiff_joint = (xs = xs_stiff, η_rel = η_stiff, meta = meta_stiff),
+        # Backward-compatible aliases (deprecated semantic names):
+        with_joint = (xs = xs_stiff, η_rel = η_stiff, meta = meta_stiff),
+        without_joint = (xs = xs_hinged, η_rel = η_hinged, meta = meta_hinged),
         plot = plt,
     )
 end
@@ -295,7 +299,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     )
     run_khabakhpasheva_case(warmup)
     results = run_khabakhpasheva_two_cases()
-    @printf("Done. Generated %d points per case.\n", length(results.with_joint.xs))
+    @printf("Done. Generated %d points per case.\n", length(results.hinged.xs))
 end
 
 end # module
