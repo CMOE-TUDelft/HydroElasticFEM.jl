@@ -20,7 +20,8 @@ export run_khabakhpasheva_two_cases
     name::String = "KhabakhpashevaFreqDomain"
     nx::Int = 20
     ny::Int = 5
-    order::Int = 4
+    order::Int = 4       # polynomial order for beam (EulerBernoulliBeam)
+    order_pf::Int = 2    # polynomial order for PotentialFlow and FreeSurface
     ξ::Float64 = 0.0
     vtk_output::Bool = true
     make_plot::Bool = true
@@ -157,23 +158,23 @@ function run_khabakhpasheva_case(params::KhabakhpashevaCaseParams)
             P.RadiationBC(domain = :dΓin),
             P.RadiationBC(domain = :dΓout),
             P.PrescribedInletPotentialBC(domain = :dΓin, forcing = f_in, quantity = :traction),
-            # P.DampingZoneBC(
-            #     domain = :dΓd_1,
-            #     μ₁ = damp.μ1_in,
-            #     μ₂ = damp.μ2_in,
-            #     η_in = wave.ηin,
-            #     vz_in = wave.vzin,
-            # ),
-            # P.DampingZoneBC(
-            #     domain = :dΓd_2,
-            #     μ₁ = damp.μ1_out,
-            #     μ₂ = damp.μ2_out,
-            #     η_in = (x -> 0.0 + 0.0im),
-            #     vz_in = (x -> 0.0 + 0.0im),
-            # ),
+            P.DampingZoneBC(
+                domain = :dΓd_1,
+                μ₁ = damp.μ1_in,
+                μ₂ = damp.μ2_in,
+                η_in = wave.ηin,
+                vz_in = wave.vzin,
+            ),
+            P.DampingZoneBC(
+                domain = :dΓd_2,
+                μ₁ = damp.μ1_out,
+                μ₂ = damp.μ2_out,
+                η_in = (x -> 0.0 + 0.0im),
+                vz_in = (x -> 0.0 + 0.0im),
+            ),
         ],
         sea_state = wave.sea_state,
-        fe = PH.FESpaceConfig(order = params.order, vector_type = Vector{ComplexF64}),
+        fe = PH.FESpaceConfig(order = params.order_pf, vector_type = Vector{ComplexF64}),
         space_domain_symbol = :Ω,
     )
 
@@ -181,7 +182,7 @@ function run_khabakhpasheva_case(params::KhabakhpashevaCaseParams)
         ρw = pconst.ρ,
         g = pconst.g,
         βₕ = num.βh,
-        fe = PH.FESpaceConfig(order = params.order, vector_type = Vector{ComplexF64}),
+        fe = PH.FESpaceConfig(order = params.order_pf, vector_type = Vector{ComplexF64}),
         space_domain_symbol = :Γκ,
     )
 
@@ -218,13 +219,28 @@ function run_khabakhpasheva_case(params::KhabakhpashevaCaseParams)
     probes = [Point(c.xb0 + ξi * c.Lb, c.H) for ξi in ξs]
     ηvals = ηh(probes)
 
+    xsurf = collect(range(0.0, c.LΩ, length = max(4 * num.nx_total + 1, 401)))
+    surf_probes = [Point(xi, c.H) for xi in xsurf]
+    κvals = ComplexF64[]
+    for p in surf_probes
+        κp = try
+            κh(p)
+        catch
+            NaN + 0.0im
+        end
+        push!(κvals, κp)
+    end
+
     xs = ξs
     η_rel_xs = abs.(ηvals) ./ wave.η0
+    xs_surface = xsurf ./ c.LΩ
+    κ_rel_surface = abs.(κvals) ./ wave.η0
 
     meta = (
         ω = wave.ω,
         k = wave.k,
         λ = wave.λ,
+        LΩ = c.LΩ,
         kᵣ = pconst.kr,
         EIᵨ = pconst.a1,
         EI2_over_ρ = pconst.a2,
@@ -235,6 +251,8 @@ function run_khabakhpasheva_case(params::KhabakhpashevaCaseParams)
         xbj = c.xbj,
         xb1 = c.xb1,
         β = c.β,          # normalized joint location along beam (ξ = β)
+        xs_surface = xs_surface,
+        κ_rel_surface = κ_rel_surface,
     )
 
     return xs, η_rel_xs, meta
@@ -258,7 +276,7 @@ function run_khabakhpasheva_two_cases(; nx=20, ny=5, order=4, vtk_output=true, m
 
     plt = nothing
     if make_plot
-        plt = plot(
+        beam_plot = plot(
             xs_hinged, η_hinged,
             lw = 2,
             label = "ξ = 0 (hinged, kᵣ = $(round(meta_hinged.kᵣ, digits=4)))",
@@ -266,9 +284,30 @@ function run_khabakhpasheva_two_cases(; nx=20, ny=5, order=4, vtk_output=true, m
             ylabel = "|η|/η₀",
             xlims = (0.0, 1.0),
             legend = :topright,
-            title = "HydroElasticFEM: Khabakhpasheva beam with joint",
+            title = "Beam Deflection",
         )
-        plot!(plt, xs_stiff, η_stiff, lw = 2, ls = :dash, label = "ξ = 625 (stiff joint, kᵣ = $(round(meta_stiff.kᵣ, digits=4)))")
+        plot!(beam_plot, xs_stiff, η_stiff, lw = 2, ls = :dash, label = "ξ = 625 (stiff joint, kᵣ = $(round(meta_stiff.kᵣ, digits=4)))")
+
+        surface_plot = plot(
+            meta_hinged.xs_surface, meta_hinged.κ_rel_surface,
+            lw = 2,
+            label = "ξ = 0",
+            xlabel = "x/LΩ",
+            ylabel = "|κ|/η₀",
+            xlims = (0.0, 1.0),
+            legend = :topright,
+            title = "Free-Surface Elevation",
+        )
+        plot!(surface_plot, meta_stiff.xs_surface, meta_stiff.κ_rel_surface, lw = 2, ls = :dash, label = "ξ = 625")
+        vline!(surface_plot, [meta_hinged.xb0 / meta_hinged.LΩ, meta_hinged.xb1 / meta_hinged.LΩ], color = :gray, alpha = 0.35, ls = :dot, label = "")
+
+        plt = plot(
+            beam_plot,
+            surface_plot,
+            layout = (2, 1),
+            size = (900, 900),
+            plot_title = "HydroElasticFEM: Khabakhpasheva beam with joint",
+        )
 
         outdir = joinpath(PKG_ROOT, "data", "VTK", "examples", "KhabakhpashevaBeamJointExample")
         isdir(outdir) || mkpath(outdir)
