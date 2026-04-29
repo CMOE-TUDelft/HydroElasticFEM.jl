@@ -1,0 +1,399 @@
+module KhabakhpashevaBeamJointExample
+
+using Gridap
+using Parameters
+using Printf
+using Plots
+
+using WaveSpec
+using HydroElasticFEM: PKG_ROOT
+import HydroElasticFEM.Geometry as G
+import HydroElasticFEM.ParameterHandler as PH
+import HydroElasticFEM.Physics as P
+import HydroElasticFEM.Simulation as S
+
+export KhabakhpashevaCaseParams
+export run_khabakhpasheva_case
+export run_khabakhpasheva_two_cases
+
+@with_kw struct KhabakhpashevaCaseParams
+    name::String = "KhabakhpashevaFreqDomain"
+    nx::Int = 20
+    ny::Int = 5
+    order::Int = 4       # polynomial order for beam (EulerBernoulliBeam)
+    order_pf::Int = 2    # polynomial order for PotentialFlow and FreeSurface
+    ξ::Float64 = 0.0
+    vtk_output::Bool = true
+    make_plot::Bool = true
+end
+
+function _constants()
+    Lb = 12.5
+    m = 8.36
+    EI1 = 47100.0
+    EI2 = 471.0
+    β = 0.2
+    H = 1.1
+    α = 0.249
+
+    Ld = Lb
+    LΩ = 2 * Ld + 2 * Lb
+
+    x0 = 0.0
+    xd_in = x0 + Ld
+    xb0 = xd_in + Lb / 2
+    xbj = xb0 + β * Lb
+    xb1 = xb0 + Lb
+    xd_out = LΩ - Ld
+
+    return (; Lb, m, EI1, EI2, β, H, α, Ld, LΩ, x0, xd_in, xb0, xbj, xb1, xd_out)
+end
+
+function _physics_constants(c, ξ)
+    g = 9.81
+    ρ = 1025.0
+    d0 = c.m / ρ
+    a1 = c.EI1 / ρ
+    a2 = c.EI2 / ρ
+    kr = ξ * a1 / c.Lb
+    return (; g, ρ, d0, a1, a2, kr)
+end
+
+function _incident_functions(c, pconst)
+    λ = c.α * c.Lb
+    k = 2 * pi / λ
+    ω = sqrt(pconst.g * k * tanh(k * c.H))
+    η0 = 0.01
+
+    H_wave = 2 * η0
+    T = 2π / ω
+    spec = WaveSpec.ContinuousSpectrums.RegularWave(H_wave, T)
+    ds = WaveSpec.SpectralSpreading.DiscreteSpectralSpreading(spec; mess=false)
+    spread = WaveSpec.AngularSpreading.DiscreteAngularSpreading(0.0)
+    θ_vec = [0.0]
+    sea_state = WaveSpec.AiryWaves.AiryState(ds, spread, 1, 1, [ω], [k], θ_vec, c.H, 1)
+
+    ηin(x) = η0 * exp(im * k * x[1])
+    ϕin(x) = -im * (η0 * ω / k) * (cosh(k * x[2]) / sinh(k * c.H)) * exp(im * k * x[1])
+    vin(x) = (η0 * ω) * (cosh(k * x[2]) / sinh(k * c.H)) * exp(im * k * x[1])
+    vzin(x) = -im * ω * η0 * exp(im * k * x[1])
+
+    return (; λ, k, ω, η0, sea_state, ηin, ϕin, vin, vzin)
+end
+
+function _numerics(c, p::KhabakhpashevaCaseParams, ω)
+    nx_total = Int(ceil(p.nx / c.β) * ceil(c.LΩ / c.Lb))
+    h = c.LΩ / nx_total
+    γ = 1.0 * p.order * (p.order - 1)  # dimensionless; stiffness() multiplies by EI and divides by h
+    βh = 0.5
+    αh = -im * ω / 9.81 * (1 - βh) / βh
+    return (; nx_total, h, γ, βh, αh)
+end
+
+function _damping(c, wave)
+    μ0 = 2.5
+    μ1_in(x) = μ0 * (1.0 - sin(pi / 2 * (x[1]) / c.Ld))
+    μ1_out(x) = μ0 * (1.0 - cos(pi / 2 * (x[1] - c.xd_out) / c.Ld))
+    μ2_in(x) = μ1_in(x) * wave.k
+    μ2_out(x) = μ1_out(x) * wave.k
+    return (; μ1_in, μ1_out, μ2_in, μ2_out)
+end
+
+function _graded_map(H, ny)
+    function f_y(y)
+        if y == H
+            return H
+        end
+        i = y / (H / ny)
+        H - H / (2.5^i)
+    end
+    x -> VectorValue(x[1], f_y(x[2]))
+end
+
+"""
+    run_khabakhpasheva_case(params::KhabakhpashevaCaseParams)
+
+Run one HydroElasticFEM frequency-domain case for the Khabakhpasheva beam+joint setup.
+Returns `(xs, η_rel_xs, meta)` where:
+- `xs` are normalized coordinates `(x - xb0)/Lb` on `[0,1]`
+- `η_rel_xs` is `|η|/η₀` sampled along the beam
+- `meta` includes derived constants (ω, k, kᵣ, etc.)
+
+This follows the benchmark described in Section 5.3 of Colomés et al. (2023):
+the beam has an elastic joint at `xbj` and piecewise flexural rigidity,
+with `EI1` on the left segment and `EI2` on the right segment.
+"""
+function run_khabakhpasheva_case(params::KhabakhpashevaCaseParams)
+    c = _constants()
+    pconst = _physics_constants(c, params.ξ)
+    wave = _incident_functions(c, pconst)
+    num = _numerics(c, params, wave.ω)
+    damp = _damping(c, wave)
+
+    tank = G.TankDomain2D(
+        L = c.LΩ,
+        H = c.H,
+        nx = num.nx_total,
+        ny = params.ny,
+        map = _graded_map(c.H, params.ny),
+        structure_domains = [
+            G.StructureDomain1D(L = c.Lb, x₀ = [c.xb0, c.H], domain_symbol = :Γ_beam),
+        ],
+        damping_zones = [
+            G.DampingZone1D(L = c.Ld, x₀ = [0.0, c.H], domain_symbol = :Γ_d_in),
+            G.DampingZone1D(L = c.Ld, x₀ = [c.xd_out, c.H], domain_symbol = :Γ_d_out),
+        ],
+        joint_domains = [
+            G.JointDomain1D(location = [c.xbj, c.H], domain_symbol = :dΛj_1, normal_symbol = :n_Λ_j_1),
+        ],
+    )
+
+    f_in(x) = -wave.vin(x) - im * wave.k * wave.ϕin(x)
+    # f_out(x) = 0.0 + 0.0im
+
+    potential = P.PotentialFlow(
+        ρw = pconst.ρ,
+        g = pconst.g,
+        boundary_conditions = [
+            P.RadiationBC(domain = :dΓin),
+            P.RadiationBC(domain = :dΓout),
+            P.PrescribedInletPotentialBC(domain = :dΓin, forcing = f_in, quantity = :traction),
+            P.DampingZoneBC(
+                domain = :dΓd_1,
+                μ₁ = damp.μ1_in,
+                μ₂ = damp.μ2_in,
+                η_in = wave.ηin,
+                vz_in = wave.vzin,
+            ),
+            P.DampingZoneBC(
+                domain = :dΓd_2,
+                μ₁ = damp.μ1_out,
+                μ₂ = damp.μ2_out,
+                η_in = (x -> 0.0 + 0.0im),
+                vz_in = (x -> 0.0 + 0.0im),
+            ),
+        ],
+        sea_state = wave.sea_state,
+        fe = PH.FESpaceConfig(order = params.order_pf, vector_type = Vector{ComplexF64}),
+        space_domain_symbol = :Ω,
+    )
+
+    free_surface = P.FreeSurface(
+        ρw = pconst.ρ,
+        g = pconst.g,
+        βₕ = num.βh,
+        fe = PH.FESpaceConfig(order = params.order_pf, vector_type = Vector{ComplexF64}),
+        space_domain_symbol = :Γκ,
+    )
+
+    beam = P.EulerBernoulliBeam(
+        L = c.Lb,
+        mᵨ = pconst.d0,
+        EIᵨ = x -> pconst.a1*(x[1]<c.xbj) + pconst.a2*(x[1]>=c.xbj),
+        g = pconst.g,
+        joints = [P.JointRotationalSpring(:dΛj_1, :n_Λ_j_1, pconst.kr)],
+        fe = PH.FESpaceConfig(order = params.order, vector_type = Vector{ComplexF64}, γ = num.γ),
+        space_domain_symbol = :Γη,
+    )
+
+    physics = P.PhysicsParameters[potential, free_surface, beam]
+    config = S.FreqDomainConfig(ω = wave.ω)
+
+    problem = S.build_problem(tank, physics, config)
+    result = S.simulate(problem)
+
+    ϕh, κh, ηh = result.solution
+
+    if params.vtk_output
+        trians = S.get_triangulations(problem)
+        outdir = joinpath(PKG_ROOT, "data", "VTK", "examples", "KhabakhpashevaBeamJointExample", params.name)
+        isdir(outdir) || mkpath(outdir)
+        writevtk(trians[:Ω], joinpath(outdir, "omega_field"), cellfields = ["phi_re" => real(ϕh), "phi_im" => imag(ϕh)])
+        writevtk(trians[:Γη], joinpath(outdir, "beam_field"), cellfields = ["eta_re" => real(ηh), "eta_im" => imag(ηh)])
+        writevtk(trians[:Γκ], joinpath(outdir, "free_surface_field"), cellfields = ["kappa_re" => real(κh), "kappa_im" => imag(κh)])
+    end
+
+    ξs_uniform = collect(range(0.0, 1.0, length = 400))
+    ξs_joint_cluster = clamp.(c.β .+ [-0.02, -0.01, -0.005, -0.002, -0.001, 0.0, 0.001, 0.002, 0.005, 0.01, 0.02], 0.0, 1.0)
+    ξs = sort(unique(vcat(ξs_uniform, ξs_joint_cluster)))  # ensure exact and near-joint sampling
+    probes = [Point(c.xb0 + ξi * c.Lb, c.H) for ξi in ξs]
+    ηvals = ηh(probes)
+
+    xsurf = collect(range(0.0, c.LΩ, length = max(4 * num.nx_total + 1, 401)))
+    surf_probes = [Point(xi, c.H) for xi in xsurf]
+    κvals = ComplexF64[]
+    for p in surf_probes
+        κp = try
+            κh(p)
+        catch
+            NaN + 0.0im
+        end
+        push!(κvals, κp)
+    end
+
+    xs = ξs
+    η_rel_xs = abs.(ηvals) ./ wave.η0
+    xs_surface = xsurf ./ c.LΩ
+    κ_rel_surface = abs.(κvals) ./ wave.η0
+
+    meta = (
+        ω = wave.ω,
+        k = wave.k,
+        λ = wave.λ,
+        LΩ = c.LΩ,
+        kᵣ = pconst.kr,
+        EIᵨ = pconst.a1,
+        EI2_over_ρ = pconst.a2,
+        nx_total = num.nx_total,
+        h = num.h,
+        γ = num.γ,
+        xb0 = c.xb0,
+        xbj = c.xbj,
+        xb1 = c.xb1,
+        β = c.β,          # normalized joint location along beam (ξ = β)
+        xs_surface = xs_surface,
+        κ_rel_surface = κ_rel_surface,
+    )
+
+    return xs, η_rel_xs, meta
+end
+
+"""
+    run_khabakhpasheva_two_cases(; kwargs...)
+
+Run the two benchmark-style cases:
+- ξ = 0.0
+- ξ = 625.0
+
+Returns a named tuple with both result curves and metadata.
+"""
+function run_khabakhpasheva_two_cases(; nx=20, ny=5, order=4, order_pf=2, vtk_output=true, make_plot=true)
+    case_hinged = KhabakhpashevaCaseParams(name = "xi_0", nx = nx, ny = ny, order = order, order_pf = order_pf, ξ = 0.0, vtk_output = vtk_output, make_plot = make_plot)
+    case_stiff_joint = KhabakhpashevaCaseParams(name = "xi_625", nx = nx, ny = ny, order = order, order_pf = order_pf, ξ = 625.0, vtk_output = vtk_output, make_plot = make_plot)
+
+    xs_hinged, η_hinged, meta_hinged = run_khabakhpasheva_case(case_hinged)
+    xs_stiff, η_stiff, meta_stiff = run_khabakhpasheva_case(case_stiff_joint)
+
+    plt = nothing
+    if make_plot
+        # ── shared style ────────────────────────────────────────────────────
+        c_hinged = "#1F78B4"   # steel blue
+        c_stiff  = "#E2211D"   # vermilion red
+        c_beam   = "#AEC6E8"   # light-blue fill
+        c_joint  = "#666666"   # mid-grey
+        lw_main  = 2.2
+        fsize    = 11
+
+        β_joint  = meta_hinged.β
+        xb0_norm = meta_hinged.xb0 / meta_hinged.LΩ
+        xb1_norm = meta_hinged.xb1 / meta_hinged.LΩ
+
+        common_kw = (
+            framestyle    = :box,
+            left_margin   = 6Plots.mm,
+            bottom_margin = 5Plots.mm,
+            top_margin    = 3Plots.mm,
+            right_margin  = 4Plots.mm,
+            tickfontsize  = fsize - 1,
+            guidefontsize = fsize,
+            legendfontsize = fsize - 1,
+            titlefontsize  = fsize + 1,
+        )
+
+        # ── beam deflection panel ───────────────────────────────────────────
+        ymax_beam = ceil(max(maximum(η_hinged), maximum(η_stiff)) * 1.2; digits = 1)
+
+        beam_plot = plot(; common_kw...)
+
+        # shaded beam background
+        plot!(beam_plot, Shape([0.0, 1.0, 1.0, 0.0], [0.0, 0.0, ymax_beam, ymax_beam]),
+            fillcolor = c_beam, fillalpha = 0.18, lw = 0, label = "")
+
+        # joint marker
+        vline!(beam_plot, [β_joint],
+            lw = 1.4, ls = :dash, color = c_joint, alpha = 0.7,
+            label = "joint  (x/L = $(β_joint))")
+
+        # deflection curves
+        plot!(beam_plot, xs_hinged, η_hinged,
+            lw = lw_main, color = c_hinged, label = "ξ = 0  (hinged)")
+        plot!(beam_plot, xs_stiff, η_stiff,
+            lw = lw_main, ls = :dash, color = c_stiff, label = "ξ = 625  (stiff spring)")
+
+        plot!(beam_plot,
+            xlabel = "x / L", ylabel = "|η| / η₀",
+            xlims = (0.0, 1.0), ylims = (0.0, ymax_beam),
+            title = "Beam deflection envelope", legend = :topright)
+
+        # ── free-surface panel ──────────────────────────────────────────────
+        # NaN values are passed directly — Plots.jl renders NaN as line gaps
+        ymax_surf = 2.0
+
+        surface_plot = plot(; common_kw...)
+
+        # shaded beam-equivalent region
+        plot!(surface_plot, Shape([xb0_norm, xb1_norm, xb1_norm, xb0_norm],
+                                  [0.0, 0.0, ymax_surf, ymax_surf]),
+            fillcolor = c_beam, fillalpha = 0.22, lw = 0, label = "beam region")
+
+        # reference η₀ = 1
+        hline!(surface_plot, [1.0],
+            lw = 1.0, ls = :dot, color = :black, alpha = 0.35, label = "")
+
+        # elevation curves (NaN entries render as gaps)
+        plot!(surface_plot,
+            meta_hinged.xs_surface, meta_hinged.κ_rel_surface,
+            lw = lw_main, color = c_hinged, label = "ξ = 0")
+        plot!(surface_plot,
+            meta_stiff.xs_surface, meta_stiff.κ_rel_surface,
+            lw = lw_main, ls = :dash, color = c_stiff, label = "ξ = 625")
+
+        plot!(surface_plot,
+            xlabel = "x / LΩ", ylabel = "|κ| / η₀",
+            xlims = (0.0, 1.0), ylims = (0.0, ymax_surf),
+            title = "Free-surface elevation", legend = :topright)
+
+        # ── compose two-panel figure ────────────────────────────────────────
+        plt = plot(
+            beam_plot, surface_plot,
+            layout     = (2, 1),
+            size       = (900, 780),
+            dpi        = 150,
+            plot_title = "HydroElasticFEM  ·  Khabakhpasheva hydroelastic beam benchmark",
+            plot_titlefontsize = fsize,
+        )
+
+        outdir = joinpath(PKG_ROOT, "data", "VTK", "examples", "KhabakhpashevaBeamJointExample")
+        isdir(outdir) || mkpath(outdir)
+        savefig(plt, joinpath(outdir, "khabakhpasheva_joint_cases.png"))
+
+        # keep docs/assets in sync so the README image is always current
+        docs_assets = joinpath(PKG_ROOT, "docs", "assets")
+        isdir(docs_assets) && savefig(plt, joinpath(docs_assets, "khabakhpasheva_joint_cases.png"))
+    end
+
+    return (
+        with_hinge         = (xs = xs_hinged, η_rel = η_hinged, meta = meta_hinged),
+        with_elastic_joint = (xs = xs_stiff,  η_rel = η_stiff,  meta = meta_stiff),
+        plot = plt,
+    )
+end
+
+if abspath(PROGRAM_FILE) == @__FILE__
+    @printf("Running HydroElasticFEM Khabakhpasheva beam-joint cases...\n")
+    @printf("Warm-up run (nx=2, ny=1, ξ=0)...\n")
+    warmup = KhabakhpashevaCaseParams(
+        name = "warmup_nx2_ny1",
+        nx = 2,
+        ny = 1,
+        order = 2,
+        ξ = 0.0,
+        vtk_output = false,
+        make_plot = false,
+    )
+    run_khabakhpasheva_case(warmup)
+    results = run_khabakhpasheva_two_cases()
+    @printf("Done. Generated %d points per case.\n", length(results.with_hinge.xs))
+end
+
+end # module

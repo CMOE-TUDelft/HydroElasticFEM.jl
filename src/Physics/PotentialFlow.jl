@@ -177,6 +177,11 @@ function _stiffness_bc_contribution(pf::PotentialFlow, bc::RadiationBC, dom::Int
     return ∫(-im * k * w * ϕ)dΓ
 end
 
+function _stiffness_bc_contribution(pf::PotentialFlow, bc::RadiationBC, ctx::AC.AbstractAssemblyContext, ϕ, w)
+    dom = AC.domains(ctx)
+    return _stiffness_bc_contribution(pf, bc, dom, ϕ, w)
+end
+
 function _stiffness_bc_contribution(::PotentialFlow, bc::DampingZoneBC, dom::IntegrationDomains, ϕ, w)
     bc.enabled || return nothing
     dΓ = dom[bc.domain]

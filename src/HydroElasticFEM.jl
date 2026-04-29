@@ -30,7 +30,6 @@ module HydroElasticFEM
 
   # Re-export Physics public API
   export PhysicsParameters, print_parameters
-  export BoundaryCondition, FreeBoundary, FixedBoundary
   export PotentialFlow, FreeSurface, Membrane2D, EulerBernoulliBeam
   export ResonatorSingle, resonator_array
   export IntegrationDomains
@@ -38,7 +37,7 @@ module HydroElasticFEM
   export domains, frequency, current_time, stabilization_parameter, has_stabilization, with_time
 
   # Re-export ParameterHandler public API
-  export FESpaceConfig, SimConfig, TimeConfig
+  export FESpaceConfig, TimeConfig
   export variable_symbol
   export weakform, mass, damping, stiffness, rhs
   export residual, jacobian, jacobian_t, jacobian_tt

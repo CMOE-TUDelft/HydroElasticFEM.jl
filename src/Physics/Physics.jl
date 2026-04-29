@@ -120,9 +120,41 @@ rhs(a, b, ctx::AC.AbstractAssemblyContext, f, y) =
 
 # Optional form-presence traits.
 # Single-entity forms default to present for backward compatibility.
+"""
+    has_mass_form(s::PhysicsParameters)
+    has_mass_form(a, b)
+
+Return whether mass-form contributions are active for the given entity or
+entity pair. Single-entity forms default to `true`; coupling forms default
+to `false` unless specialized.
+"""
 has_mass_form(::PhysicsParameters) = true
+"""
+    has_damping_form(s::PhysicsParameters)
+    has_damping_form(a, b)
+
+Return whether damping-form contributions are active for the given entity or
+entity pair. Single-entity forms default to `true`; coupling forms default
+to `false` unless specialized.
+"""
 has_damping_form(::PhysicsParameters) = true
+"""
+    has_stiffness_form(s::PhysicsParameters)
+    has_stiffness_form(a, b)
+
+Return whether stiffness-form contributions are active for the given entity or
+entity pair. Single-entity forms default to `true`; coupling forms default
+to `false` unless specialized.
+"""
 has_stiffness_form(::PhysicsParameters) = true
+"""
+    has_rhs_form(s::PhysicsParameters)
+    has_rhs_form(a, b)
+
+Return whether right-hand-side contributions are active for the given entity or
+entity pair. Single-entity forms default to `true`; coupling forms default
+to `false` unless specialized.
+"""
 has_rhs_form(::PhysicsParameters) = true
 
 # Two-entity coupling forms default to absent unless enabled.
@@ -131,6 +163,13 @@ has_damping_form(a, b) = false
 has_stiffness_form(a, b) = false
 has_rhs_form(a, b) = false
 
+"""
+    active_forms(ctx::AC.AbstractAssemblyContext, s::PhysicsParameters)
+    active_forms(ctx::AC.AbstractAssemblyContext, a, b)
+
+Return a named tuple with active form flags for `mass`, `damping`,
+`stiffness`, and `rhs` in the provided assembly context.
+"""
 active_forms(::AC.AbstractAssemblyContext, s::PhysicsParameters) = (
     mass=has_mass_form(s),
     damping=has_damping_form(s),
@@ -336,7 +375,7 @@ export mass, damping, stiffness, rhs
 export has_mass_form, has_damping_form, has_stiffness_form, has_rhs_form
 export active_forms
 export weakform, residual, jacobian, jacobian_t, jacobian_tt
-export PotentialFlow, FreeSurface, Membrane2D, EulerBernoulliBeam, Resonator
+export PotentialFlow, FreeSurface, Membrane2D, JointRotationalSpring, EulerBernoulliBeam, Resonator
 export AbstractPotentialFlowBC, RadiationBC, PrescribedInletPotentialBC, DampingZoneBC
 export CouplingTerms
 

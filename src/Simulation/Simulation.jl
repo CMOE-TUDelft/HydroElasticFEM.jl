@@ -64,6 +64,12 @@ end
 get_model(prob::HEFEM_Problem) = prob.model
 get_triangulations(prob::HEFEM_Problem) = prob.triangulations
 get_integration_domains(prob::HEFEM_Problem) = prob.integration_domains
+"""
+    get_assembly_context(prob::HEFEM_Problem)
+
+Return the immutable assembly context attached to a built problem.
+This is either a `FrequencyAssemblyContext` or `TimeAssemblyContext`.
+"""
 get_assembly_context(prob::HEFEM_Problem) = prob.assembly_context
 get_entities(prob::HEFEM_Problem) = prob.entities
 get_field_map(prob::HEFEM_Problem) = prob.field_map
@@ -84,6 +90,13 @@ function _has_damping_zone_bc(physics::Vector{P.PhysicsParameters})
     )
 end
 
+"""
+    build_frequency_context(domains, physics, config)
+
+Build a `FrequencyAssemblyContext` from integration domains and
+frequency-domain simulation inputs. The function also triggers
+radiation-boundary validation for enabled `RadiationBC` entries.
+"""
 function build_frequency_context(domains::G.IntegrationDomains,
                                  physics::Vector{P.PhysicsParameters},
                                  config::PH.FreqDomainConfig)
@@ -103,6 +116,13 @@ function build_frequency_context(domains::G.IntegrationDomains,
     AC.FrequencyAssemblyContext(domains, config.ω, αₕ)
 end
 
+"""
+    build_time_context(domains, physics, config, tconfig)
+
+Build a `TimeAssemblyContext` from integration domains and time-domain
+simulation inputs. For damping-zone cases, a non-`nothing` `tconfig`
+with `αₕ` is required.
+"""
 function build_time_context(domains::G.IntegrationDomains,
                             physics::Vector{P.PhysicsParameters},
                             config::PH.TimeDomainConfig,
