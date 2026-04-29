@@ -83,7 +83,7 @@ end
 function _numerics(c, p::KhabakhpashevaCaseParams, ω)
     nx_total = Int(ceil(p.nx / c.β) * ceil(c.LΩ / c.Lb))
     h = c.LΩ / nx_total
-    γ = 1.0 * p.order * (p.order - 1) / h
+    γ = 1.0 * p.order * (p.order - 1)  # dimensionless; stiffness() multiplies by EI and divides by h
     βh = 0.5
     αh = -im * ω / 9.81 * (1 - βh) / βh
     return (; nx_total, h, γ, βh, αh)
