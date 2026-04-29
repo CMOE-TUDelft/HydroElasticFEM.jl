@@ -129,21 +129,21 @@ using .KhabakhpashevaBeamJointExample
             nx = nx_test, ny = ny_test, order = ord_test,
             vtk_output = false, make_plot = false)
 
-        @test haskey(results, :with_joint)
-        @test haskey(results, :without_joint)
+        @test haskey(results, :with_elastic_joint)
+        @test haskey(results, :with_hinge)
 
-        @test length(results.with_joint.xs)    >= 400
-        @test length(results.without_joint.xs) >= 400
+        @test length(results.with_elastic_joint.xs) >= 400
+        @test length(results.with_hinge.xs)         >= 400
 
-        # with_joint aliases the ξ=625 (stiff spring) case, so kᵣ must be positive
-        @test results.with_joint.meta.kᵣ > 0.0
+        # with_elastic_joint is the ξ=625 (stiff spring) case, so kᵣ must be positive
+        @test results.with_elastic_joint.meta.kᵣ > 0.0
 
-        # without_joint aliases the ξ=0 (hinged) case, so kᵣ must be zero
-        @test results.without_joint.meta.kᵣ == 0.0
+        # with_hinge is the ξ=0 (hinged) case, so kᵣ must be zero
+        @test results.with_hinge.meta.kᵣ == 0.0
 
         # Both produce non-negative deflection fields
-        @test all(results.with_joint.η_rel    .>= 0.0)
-        @test all(results.without_joint.η_rel .>= 0.0)
+        @test all(results.with_elastic_joint.η_rel .>= 0.0)
+        @test all(results.with_hinge.η_rel         .>= 0.0)
     end
 
 end

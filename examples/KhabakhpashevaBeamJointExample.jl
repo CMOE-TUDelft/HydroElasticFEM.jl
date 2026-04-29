@@ -373,11 +373,8 @@ function run_khabakhpasheva_two_cases(; nx=20, ny=5, order=4, order_pf=2, vtk_ou
     end
 
     return (
-        hinged = (xs = xs_hinged, η_rel = η_hinged, meta = meta_hinged),
-        stiff_joint = (xs = xs_stiff, η_rel = η_stiff, meta = meta_stiff),
-        # Backward-compatible aliases (deprecated semantic names):
-        with_joint = (xs = xs_stiff, η_rel = η_stiff, meta = meta_stiff),
-        without_joint = (xs = xs_hinged, η_rel = η_hinged, meta = meta_hinged),
+        with_hinge         = (xs = xs_hinged, η_rel = η_hinged, meta = meta_hinged),
+        with_elastic_joint = (xs = xs_stiff,  η_rel = η_stiff,  meta = meta_stiff),
         plot = plt,
     )
 end
@@ -396,7 +393,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     )
     run_khabakhpasheva_case(warmup)
     results = run_khabakhpasheva_two_cases()
-    @printf("Done. Generated %d points per case.\n", length(results.hinged.xs))
+    @printf("Done. Generated %d points per case.\n", length(results.with_hinge.xs))
 end
 
 end # module

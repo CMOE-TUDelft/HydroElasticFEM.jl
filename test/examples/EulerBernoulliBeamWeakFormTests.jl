@@ -376,11 +376,11 @@ import HydroElasticFEM.ParameterHandler as FES
   end
 
   # -----------------------------------------------------------------------
-  # Test 9: Mid-span joint breaks symmetry under asymmetric load
+  # Test 9: Symmetric load preserves symmetry with a mid-span joint
   #
-  # A uniform load is symmetric so w(L/4) ≈ w(3L/4) even with a center
-  # joint.  With an asymmetric load (non-zero on left half only) the two
-  # quarter-points must differ.
+  # Under a uniform (symmetric) load, the deflection at symmetric
+  # quarter-points w(L/4) and w(3L/4) must be equal even when the beam
+  # has a rotational spring at mid-span.
   # -----------------------------------------------------------------------
 
   @testset "Joint — symmetric load preserves symmetry" begin
