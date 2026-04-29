@@ -267,51 +267,109 @@ Run the two benchmark-style cases:
 
 Returns a named tuple with both result curves and metadata.
 """
-function run_khabakhpasheva_two_cases(; nx=20, ny=5, order=4, vtk_output=true, make_plot=true)
-    case_hinged = KhabakhpashevaCaseParams(name = "xi_0", nx = nx, ny = ny, order = order, ξ = 0.0, vtk_output = vtk_output, make_plot = make_plot)
-    case_stiff_joint = KhabakhpashevaCaseParams(name = "xi_625", nx = nx, ny = ny, order = order, ξ = 625.0, vtk_output = vtk_output, make_plot = make_plot)
+function run_khabakhpasheva_two_cases(; nx=20, ny=5, order=4, order_pf=2, vtk_output=true, make_plot=true)
+    case_hinged = KhabakhpashevaCaseParams(name = "xi_0", nx = nx, ny = ny, order = order, order_pf = order_pf, ξ = 0.0, vtk_output = vtk_output, make_plot = make_plot)
+    case_stiff_joint = KhabakhpashevaCaseParams(name = "xi_625", nx = nx, ny = ny, order = order, order_pf = order_pf, ξ = 625.0, vtk_output = vtk_output, make_plot = make_plot)
 
     xs_hinged, η_hinged, meta_hinged = run_khabakhpasheva_case(case_hinged)
     xs_stiff, η_stiff, meta_stiff = run_khabakhpasheva_case(case_stiff_joint)
 
     plt = nothing
     if make_plot
-        beam_plot = plot(
-            xs_hinged, η_hinged,
-            lw = 2,
-            label = "ξ = 0 (hinged, kᵣ = $(round(meta_hinged.kᵣ, digits=4)))",
-            xlabel = "x/L",
-            ylabel = "|η|/η₀",
-            xlims = (0.0, 1.0),
-            legend = :topright,
-            title = "Beam Deflection",
-        )
-        plot!(beam_plot, xs_stiff, η_stiff, lw = 2, ls = :dash, label = "ξ = 625 (stiff joint, kᵣ = $(round(meta_stiff.kᵣ, digits=4)))")
+        # ── shared style ────────────────────────────────────────────────────
+        c_hinged = "#1F78B4"   # steel blue
+        c_stiff  = "#E2211D"   # vermilion red
+        c_beam   = "#AEC6E8"   # light-blue fill
+        c_joint  = "#666666"   # mid-grey
+        lw_main  = 2.2
+        fsize    = 11
 
-        surface_plot = plot(
+        β_joint  = meta_hinged.β
+        xb0_norm = meta_hinged.xb0 / meta_hinged.LΩ
+        xb1_norm = meta_hinged.xb1 / meta_hinged.LΩ
+
+        common_kw = (
+            framestyle    = :box,
+            left_margin   = 6Plots.mm,
+            bottom_margin = 5Plots.mm,
+            top_margin    = 3Plots.mm,
+            right_margin  = 4Plots.mm,
+            tickfontsize  = fsize - 1,
+            guidefontsize = fsize,
+            legendfontsize = fsize - 1,
+            titlefontsize  = fsize + 1,
+        )
+
+        # ── beam deflection panel ───────────────────────────────────────────
+        ymax_beam = ceil(max(maximum(η_hinged), maximum(η_stiff)) * 1.2; digits = 1)
+
+        beam_plot = plot(; common_kw...)
+
+        # shaded beam background
+        plot!(beam_plot, Shape([0.0, 1.0, 1.0, 0.0], [0.0, 0.0, ymax_beam, ymax_beam]),
+            fillcolor = c_beam, fillalpha = 0.18, lw = 0, label = "")
+
+        # joint marker
+        vline!(beam_plot, [β_joint],
+            lw = 1.4, ls = :dash, color = c_joint, alpha = 0.7,
+            label = "joint  (x/L = $(β_joint))")
+
+        # deflection curves
+        plot!(beam_plot, xs_hinged, η_hinged,
+            lw = lw_main, color = c_hinged, label = "ξ = 0  (hinged)")
+        plot!(beam_plot, xs_stiff, η_stiff,
+            lw = lw_main, ls = :dash, color = c_stiff, label = "ξ = 625  (stiff spring)")
+
+        plot!(beam_plot,
+            xlabel = "x / L", ylabel = "|η| / η₀",
+            xlims = (0.0, 1.0), ylims = (0.0, ymax_beam),
+            title = "Beam deflection envelope", legend = :topright)
+
+        # ── free-surface panel ──────────────────────────────────────────────
+        # NaN values are passed directly — Plots.jl renders NaN as line gaps
+        ymax_surf = 2.0
+
+        surface_plot = plot(; common_kw...)
+
+        # shaded beam-equivalent region
+        plot!(surface_plot, Shape([xb0_norm, xb1_norm, xb1_norm, xb0_norm],
+                                  [0.0, 0.0, ymax_surf, ymax_surf]),
+            fillcolor = c_beam, fillalpha = 0.22, lw = 0, label = "beam region")
+
+        # reference η₀ = 1
+        hline!(surface_plot, [1.0],
+            lw = 1.0, ls = :dot, color = :black, alpha = 0.35, label = "")
+
+        # elevation curves (NaN entries render as gaps)
+        plot!(surface_plot,
             meta_hinged.xs_surface, meta_hinged.κ_rel_surface,
-            lw = 2,
-            label = "ξ = 0",
-            xlabel = "x/LΩ",
-            ylabel = "|κ|/η₀",
-            xlims = (0.0, 1.0),
-            legend = :topright,
-            title = "Free-Surface Elevation",
-        )
-        plot!(surface_plot, meta_stiff.xs_surface, meta_stiff.κ_rel_surface, lw = 2, ls = :dash, label = "ξ = 625")
-        vline!(surface_plot, [meta_hinged.xb0 / meta_hinged.LΩ, meta_hinged.xb1 / meta_hinged.LΩ], color = :gray, alpha = 0.35, ls = :dot, label = "")
+            lw = lw_main, color = c_hinged, label = "ξ = 0")
+        plot!(surface_plot,
+            meta_stiff.xs_surface, meta_stiff.κ_rel_surface,
+            lw = lw_main, ls = :dash, color = c_stiff, label = "ξ = 625")
 
+        plot!(surface_plot,
+            xlabel = "x / LΩ", ylabel = "|κ| / η₀",
+            xlims = (0.0, 1.0), ylims = (0.0, ymax_surf),
+            title = "Free-surface elevation", legend = :topright)
+
+        # ── compose two-panel figure ────────────────────────────────────────
         plt = plot(
-            beam_plot,
-            surface_plot,
-            layout = (2, 1),
-            size = (900, 900),
-            plot_title = "HydroElasticFEM: Khabakhpasheva beam with joint",
+            beam_plot, surface_plot,
+            layout     = (2, 1),
+            size       = (900, 780),
+            dpi        = 150,
+            plot_title = "HydroElasticFEM  ·  Khabakhpasheva hydroelastic beam benchmark",
+            plot_titlefontsize = fsize,
         )
 
         outdir = joinpath(PKG_ROOT, "data", "VTK", "examples", "KhabakhpashevaBeamJointExample")
         isdir(outdir) || mkpath(outdir)
         savefig(plt, joinpath(outdir, "khabakhpasheva_joint_cases.png"))
+
+        # keep docs/assets in sync so the README image is always current
+        docs_assets = joinpath(PKG_ROOT, "docs", "assets")
+        isdir(docs_assets) && savefig(plt, joinpath(docs_assets, "khabakhpasheva_joint_cases.png"))
     end
 
     return (
