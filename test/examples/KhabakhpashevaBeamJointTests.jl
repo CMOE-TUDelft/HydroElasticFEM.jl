@@ -44,9 +44,11 @@ using .KhabakhpashevaBeamJointExample
         # spring constant must be zero
         @test meta0.kᵣ == 0.0
 
-        # output arrays have the expected length (400 probe points hard-coded in example)
-        @test length(xs0) == 400
-        @test length(eta0) == 400
+        # output arrays have at least 400 probe points (the example appends a
+        # near-joint cluster on top of the 400-point uniform grid)
+        @test length(xs0) >= 400
+        @test length(eta0) >= 400
+        @test length(xs0) == length(eta0)
 
         # normalised coordinates span [0, 1]
         @test xs0[1]   ≈ 0.0  atol=1e-12
@@ -81,8 +83,9 @@ using .KhabakhpashevaBeamJointExample
         @test meta625.kᵣ > 0.0
 
         # same array-length invariants
-        @test length(xs625) == 400
-        @test length(eta625) == 400
+        @test length(xs625) >= 400
+        @test length(eta625) >= 400
+        @test length(xs625) == length(eta625)
 
         # coordinates span [0, 1]
         @test xs625[1]   ≈ 0.0  atol=1e-12
@@ -129,14 +132,14 @@ using .KhabakhpashevaBeamJointExample
         @test haskey(results, :with_joint)
         @test haskey(results, :without_joint)
 
-        @test length(results.with_joint.xs)    == 400
-        @test length(results.without_joint.xs) == 400
+        @test length(results.with_joint.xs)    >= 400
+        @test length(results.without_joint.xs) >= 400
 
-        # ξ=0 case (with_joint) has kᵣ = 0
-        @test results.with_joint.meta.kᵣ == 0.0
+        # with_joint aliases the ξ=625 (stiff spring) case, so kᵣ must be positive
+        @test results.with_joint.meta.kᵣ > 0.0
 
-        # ξ=625 case (without_joint) has kᵣ > 0
-        @test results.without_joint.meta.kᵣ > 0.0
+        # without_joint aliases the ξ=0 (hinged) case, so kᵣ must be zero
+        @test results.without_joint.meta.kᵣ == 0.0
 
         # Both produce non-negative deflection fields
         @test all(results.with_joint.η_rel    .>= 0.0)
