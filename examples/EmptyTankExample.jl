@@ -238,6 +238,21 @@ The inlet forcing and radiation boundaries are attached to `PotentialFlow`.
 """
 function run_structured_implementation(; kwargs...)
   p = EmptyTankTutorialParams(; kwargs...)
+  return _run_structured_implementation(p; inlet_nx=-1.0, ik_sign=-1.0)
+end
+
+"""
+    run_structured_debug_variant(; inlet_nx=-1.0, ik_sign=-1.0, kwargs...)
+
+Structured empty-tank solve with configurable inlet forcing signs.
+Useful for debugging inlet-wave generation conventions.
+"""
+function run_structured_debug_variant(; inlet_nx=-1.0, ik_sign=-1.0, kwargs...)
+  p = EmptyTankTutorialParams(; kwargs...)
+  return _run_structured_implementation(p; inlet_nx=inlet_nx, ik_sign=ik_sign)
+end
+
+function _run_structured_implementation(p::EmptyTankTutorialParams; inlet_nx::Float64, ik_sign::Float64)
   tp = tank_parameters(; H0=p.H0, nx=p.nx, ny=p.ny)
   inc = incident_wave(; H0=p.H0, ω=p.ω, η0=p.η0, α=p.α)
   probes = probe_points(p.probe_x)
@@ -251,7 +266,7 @@ function run_structured_implementation(; kwargs...)
   )
 
   sea_state = build_regular_wave_state(H=2.0 * p.η0, T=2π / p.ω, h=p.H0)
-  f_in(x) = (inc.vin(x) ⋅ VectorValue(-1.0, 0.0)) - im * inc.sea_state.k[1] * inc.ϕin(x)
+  f_in(x) = (inc.vin(x) ⋅ VectorValue(inlet_nx, 0.0)) + ik_sign * im * inc.sea_state.k[1] * inc.ϕin(x)
 
   p_flow = P.PotentialFlow(
     ρw=1025.0,

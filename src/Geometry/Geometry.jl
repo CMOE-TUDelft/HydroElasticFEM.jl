@@ -67,6 +67,7 @@ changing this type.
 - `:dΓin`, `:dΓout`  — inlet / outlet radiation boundaries
 - `:dΓd_1`, `:dΓd_2` — damping zone measures
 - `:δ_p`    — vector of DiracDelta functionals (resonator points)
+- `:dΛj_1`, `:n_Λ_j_1` — joint skeleton measures/normals (from `TankDomain2D.joint_domains`)
 """
 struct IntegrationDomains
     data::Dict{Symbol, Any}
@@ -85,5 +86,6 @@ include("CartesianGeometry.jl")
 
 export TankTriangulations
 export IntegrationDomains
+export JointDomain1D
 
 end # module Geometry

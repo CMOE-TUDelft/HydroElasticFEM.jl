@@ -8,7 +8,11 @@ import HydroElasticFEM.Geometry as G
   structure_b = G.StructureDomain1D(L=2.0, x₀=[0.5,1.0], domain_symbol=:Γ_s_b)
   damping_a = G.DampingZone1D(L=0.5, x₀=[0.0,1.0], domain_symbol=:Γ_d_a)
   damping_b = G.DampingZone1D(L=0.5, x₀=[3.5,1.0], domain_symbol=:Γ_d_b)
-  tank = G.TankDomain2D(L=10.0, H=1.0, nx=20, ny=2, structure_domains=[structure_a, structure_b], damping_zones=[damping_a, damping_b])
+  joint_a = G.JointDomain1D(location=[1.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
+  tank = G.TankDomain2D(L=10.0, H=1.0, nx=20, ny=2,
+    structure_domains=[structure_a, structure_b],
+    damping_zones=[damping_a, damping_b],
+    joint_domains=[joint_a])
 
   @test tank.L == 10.0
   @test tank.H == 1.0
@@ -20,6 +24,8 @@ import HydroElasticFEM.Geometry as G
   @test tank.structure_domains[2].x₀ == [0.5, 1.0]
   @test tank.damping_zones[1].σ == 1.0
   @test tank.damping_zones[2].x₀ == [3.5, 1.0]
+  @test length(tank.joint_domains) == 1
+  @test tank.joint_domains[1].location == [1.0, 1.0]
 
 end
 
@@ -134,6 +140,22 @@ end
   @test num_cells(trian[:Γη])  == 0
 end
 
+@testset "build_triangulations — joint skeletons from location" begin
+  s1 = G.StructureDomain1D(L=1.0, x₀=[1.5, 1.0])
+  j1 = G.JointDomain1D(location=[2.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
+  tank = G.TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
+    structure_domains=[s1],
+    joint_domains=[j1])
+
+  model = G.build_model(tank)
+  trian = G.build_triangulations(tank, model)
+
+  @test haskey(trian, :Λ_joints)
+  @test length(trian[:Λ_joints]) == 1
+  @test num_cells(trian[:Λ_joints][1]) > 0
+  @test haskey(trian, :dΛj_1)
+end
+
 @testset "get_integration_domains" begin
   s1 = G.StructureDomain1D(L=1.0, x₀=[1.5, 1.0])
   d1 = G.DampingZone1D(L=0.5, x₀=[0.0, 1.0], domain_symbol=:Γ_d_in)
@@ -161,13 +183,37 @@ end
   @test haskey(d, :dΓd_2)
   @test haskey(d, :nΓd_1)
   @test haskey(d, :nΓd_2)
+  @test haskey(d, :dΛη)
+  @test haskey(d, :n_Λ_η)
+  @test haskey(d, :h_η)
 
-  # Measures and normals are both stored in the integration-domain dictionary
+  # Measures, normals, and scalar mesh sizes are all stored in the integration-domain dictionary.
   for (k, v) in pairs(d.data)
     if startswith(String(k), "nΓ")
       @test v isa Gridap.CellData.GenericCellField
+    elseif startswith(String(k), "n_Λ")
+      @test (v isa Gridap.CellData.GenericCellField) || (v isa Gridap.Geometry.SkeletonPair)
+    elseif startswith(String(k), "h_")
+      @test v isa Real
     else
       @test v isa Gridap.CellData.Measure
     end
   end
+end
+
+@testset "get_integration_domains — automatic joint keys" begin
+  s1 = G.StructureDomain1D(L=1.0, x₀=[1.5, 1.0])
+  j1 = G.JointDomain1D(location=[2.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
+  tank = G.TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
+    structure_domains=[s1],
+    joint_domains=[j1])
+
+  model = G.build_model(tank)
+  trians = G.build_triangulations(tank, model)
+  d = G.get_integration_domains(trians; degree=4)
+
+  @test haskey(d, :dΛj_1)
+  @test haskey(d, :n_Λ_j_1)
+  @test d[:dΛj_1] isa Gridap.CellData.Measure
+  @test !isnothing(d[:n_Λ_j_1])
 end

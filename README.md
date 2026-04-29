@@ -70,6 +70,25 @@ phi_h, kappa_h = result.solution
 
 For detailed examples, see the [examples/](examples/) directory.
 
+## Validation Example: Hydroelastic Beam with Rotational Joint
+
+The figure below shows the normalised beam deflection $|\eta|/\eta_0$ for two cases of the Khabakhpasheva benchmark (regular wave, $\alpha = \lambda/L_b = 0.249$, $kH \approx 2.22$), reproduced from Section 5.3 of [Colomés et al. (2023)](https://onlinelibrary.wiley.com/doi/full/10.1002/nme.7140):
+
+- **ξ = 0** — hinged joint (zero rotational stiffness), the beam can rotate freely at the joint location $x/L = 0.2$
+- **ξ = 625** — stiff rotational spring, limiting joint rotation
+
+<div align="center">
+  <img src="docs/assets/khabakhpasheva_joint_cases.png" alt="Khabakhpasheva beam deflection benchmark" width="800">
+</div>
+
+The top panel shows the deflection envelope along the beam; the bottom panel shows the free-surface elevation $|\kappa|/\eta_0$ across the whole domain. Reproduced with `examples/KhabakhpashevaBeamJointExample.jl`:
+
+```julia
+include("examples/KhabakhpashevaBeamJointExample.jl")
+using .KhabakhpashevaBeamJointExample
+results = run_khabakhpasheva_two_cases()
+```
+
 ## Documentation
 
 Complete documentation is available at [https://CMOE.github.io/HydroElasticFEM.jl/](https://CMOE.github.io/HydroElasticFEM.jl/) with:

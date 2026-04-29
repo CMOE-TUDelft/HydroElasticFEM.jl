@@ -61,6 +61,7 @@ HydroElasticFEM.Physics.FreeSurface
 ```@docs
 HydroElasticFEM.Physics.Membrane2D
 HydroElasticFEM.Physics.EulerBernoulliBeam
+HydroElasticFEM.Physics.JointRotationalSpring
 ```
 
 ## Resonators
