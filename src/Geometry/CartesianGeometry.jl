@@ -324,12 +324,20 @@ function build_triangulations(domain::TankDomain2D, model)
             push!(seen_joint_normal_syms, joint.normal_symbol)
 
             bits = lazy_map(joint_mask(joint), xΛη)
-            joint_bits_all .= joint_bits_all .| bits
-            non_joint_bits .= non_joint_bits .& .!bits
-            Λj = Triangulation(Λη, findall(bits))
-            if num_cells(Λj) == 0
+            joint_idxs = findall(bits)
+            if isempty(joint_idxs)
                 error("Joint at location $(joint.location) did not match any structure skeleton cell. Check location and tolerance.")
             end
+
+            overlap_bits = joint_bits_all .& bits
+            if any(overlap_bits)
+                overlap_idxs = findall(overlap_bits)
+                error("Joint domain_symbol :$(joint.domain_symbol) overlaps previously assigned joint skeleton facet(s) at index/indices $(overlap_idxs). Each skeleton facet may belong to at most one joint.")
+            end
+
+            joint_bits_all .= joint_bits_all .| bits
+            non_joint_bits .= non_joint_bits .& .!bits
+            Λj = Triangulation(Λη, joint_idxs)
             push!(Λ_joints, Λj)
             push!(joint_domain_syms, joint.domain_symbol)
         end
