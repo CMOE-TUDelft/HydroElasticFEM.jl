@@ -39,3 +39,7 @@ JuliaLocalPreferences.toml
 *.vtu
 
 .github/
+
+# Agent md files
+*/AGENT.md
+CLAUDE.md
