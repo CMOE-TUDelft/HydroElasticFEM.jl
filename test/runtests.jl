@@ -38,5 +38,6 @@ using Test
 
   include("examples/EulerBernoulliBeamWeakFormTests.jl")
   include("examples/KhabakhpashevaBeamJointTests.jl")
+  include("examples/test_liu_benchmark.jl")
 
 end

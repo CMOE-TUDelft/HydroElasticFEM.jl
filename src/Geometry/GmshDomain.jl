@@ -197,35 +197,54 @@ The returned container has the following entries:
 | `:Γin`        | `Boundary(model, tags="inlet")`     |
 | `:Γout`       | `Boundary(model, tags="outlet")`    |
 | `:Γ_structures` | `[Boundary(model, tags="structure")]` |
-| `:Γ_dampings` | `[]`                                |
+| `:Γ_dampings` | damping-zone triangulations (see below) |
 | `:Λη`         | `Skeleton(Γη)`                      |
 | `:Λ_joints`   | `[]`                                |
 | `:joint_domains` | `[]`                             |
 
-Damping zones and joint domains are not supported for `GmshDomain` in the
-current implementation; extend by sub-classing or by operating on the model
-directly.
+**Damping zone support**: if the mesh contains physical groups named
+`"damping_in"` and/or `"damping_out"`, their boundary triangulations are
+collected (in that order) into `:Γ_dampings`.  `get_integration_domains`
+then exposes them as `:dΓd_1` / `:nΓd_1` (for `"damping_in"`) and
+`:dΓd_2` / `:nΓd_2` (for `"damping_out"`), which matches the domain
+symbols expected by `DampingZoneBC(domain=:dΓd_1, ...)`.  The `:Γκ`
+triangulation is automatically expanded to include these zones.
+
+Joint domains are not supported for `GmshDomain`; extend by sub-classing
+or by operating on the model directly.
 """
 function build_triangulations(d::GmshDomain, model)
-  Ω   = Interior(model)
-  Γfs = Boundary(model, tags="free_surface")
-  Γη  = Boundary(model, tags="structure")
+  Ω    = Interior(model)
+  Γfs  = Boundary(model, tags="free_surface")
+  Γη   = Boundary(model, tags="structure")
   Γbot = Boundary(model, tags="seabed")
   Γin  = Boundary(model, tags="inlet")
   Γout = Boundary(model, tags="outlet")
   Λη   = Skeleton(Γη)
 
+  # ── Optional damping zone boundaries ────────────────────────────────────
+  # Detect "damping_in" and "damping_out" physical groups (in that order so
+  # they map to :dΓd_1 and :dΓd_2 in get_integration_domains).
+  DAMP_TAGS = ["damping_in", "damping_out"]
+  present_damp = filter(t -> haskey(d.tags, t), DAMP_TAGS)
+
+  Γ_dampings = Any[Boundary(model, tags=t) for t in present_damp]
+
+  # :Γκ = free surface ∪ all damping zones (everything except structure)
+  κ_tags = vcat(["free_surface"], present_damp)
+  Γκ = isempty(present_damp) ? Γfs : Boundary(model, tags=κ_tags)
+
   TankTriangulations(Dict{Symbol, Any}(
     :Ω            => Ω,
     :Γ            => Γfs,
     :Γfs          => Γfs,
-    :Γκ           => Γfs,
+    :Γκ           => Γκ,
     :Γη           => Γη,
     :Γbot         => Γbot,
     :Γin          => Γin,
     :Γout         => Γout,
     :Γ_structures => Any[Γη],
-    :Γ_dampings   => Any[],
+    :Γ_dampings   => Γ_dampings,
     :Λη           => Λη,
     :Λ_joints     => Any[],
     :joint_domains => JointDomain1D[],
