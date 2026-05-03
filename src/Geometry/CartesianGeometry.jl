@@ -85,22 +85,27 @@ beam = EulerBernoulliBeam(L=1.0, mᵨ=0.5, EIᵨ=100.0,
 end
 
 """
-  TankDomain2D 
+  TankDomain2D <: AbstractDomain
 
-Defines a rectangular domain for 2D problems, with dimensions `L` and `H` [0,L]x[0,H], discretized into `nx` by `ny` elements. 
+Defines a rectangular domain for 2D problems, with dimensions `L` and `H`
+`[0,L]×[0,H]`, discretized into `nx` by `ny` elements.
+
 The `map` function allows for coordinate transformations if needed.
+`TankDomain2D` implements the [`AbstractDomain`](@ref) interface; use
+[`triangulation`](@ref), [`get_boundary`](@ref), [`boundary_tags`](@ref),
+[`ambient_dimension`](@ref), and [`manifold_dimension`](@ref) for generic code.
 
-Variables:
-- L::Float64 = 4.0: Length of the tank domain
-- H::Float64 = 1.0: Height of the tank domain
-- nx::Int = 16: Number of elements in the x-direction
-- ny::Int = 2: Number of elements in the y-direction
-- map::Function = (x, y) -> (x, y): Identity mapping function for coordinates
-- structure_domains::Vector{StructureDomain1D} = Vector{StructureDomain1D}(): List of structure domains within the tank
-- damping_zones::Vector{DampingZone1D} = Vector{DampingZone1D}(): List of damping zones within the
-- joint_domains::Vector{JointDomain1D} = Vector{JointDomain1D}(): List of structural joints used to build joint skeleton domains
+# Fields
+- `L::Float64 = 4.0`  — length of the tank domain [m]
+- `H::Float64 = 1.0`  — height of the tank domain [m]
+- `nx::Int = 16`      — number of elements in the x-direction
+- `ny::Int = 2`       — number of elements in the y-direction
+- `map::Function`     — optional coordinate mapping (default: identity)
+- `structure_domains::Vector{StructureDomain1D}` — structure sub-domains
+- `damping_zones::Vector{DampingZone1D}` — damping sub-zones
+- `joint_domains::Vector{JointDomain1D}` — structural joint descriptors
 """
-@with_kw struct TankDomain2D
+@with_kw struct TankDomain2D <: AbstractDomain
     L::Float64 = 4.0
     H::Float64 = 1.0
     nx::Int = 16
@@ -500,4 +505,136 @@ function get_integration_domains(tri::TankTriangulations; degree::Union{Int, Dic
     end
 
     return IntegrationDomains(d)
+end
+
+
+# ─────────────────────────────────────────────────────────────
+# AbstractDomain interface for TankDomain2D
+# ─────────────────────────────────────────────────────────────
+
+"""
+    _tank_label_map() -> Dict{String, String}
+
+Internal mapping from [`STANDARD_TAGS`](@ref) to the Gridap face-label
+strings used by [`build_model`](@ref) for Cartesian meshes.
+
+`"fluid"` maps to the interior label `"water"`.  `"structure"` is handled
+separately via coordinate masks in [`get_boundary`](@ref).
+"""
+function _tank_label_map()
+  Dict{String, String}(
+    "fluid"        => "water",
+    "free_surface" => "surface",
+    "seabed"       => "bottom",
+    "inlet"        => "inlet",
+    "outlet"       => "outlet",
+    "structure"    => "structure",  # virtual; resolved via masks
+  )
+end
+
+"""
+    _label_tank_model!(model) -> nothing
+
+Apply the standard Cartesian face labels to `model` in-place.
+
+Adds `"surface"`, `"bottom"`, `"inlet"`, `"outlet"`, and `"water"` tags
+using the fixed entity-id convention for 2D Cartesian meshes.
+"""
+function _label_tank_model!(model)
+  labels = get_face_labeling(model)
+  add_tag_from_tags!(labels, "surface", [3, 4, 6])
+  add_tag_from_tags!(labels, "bottom",  [1, 2, 5])
+  add_tag_from_tags!(labels, "inlet",   [7])
+  add_tag_from_tags!(labels, "outlet",  [8])
+  add_tag_from_tags!(labels, "water",   [9])
+  nothing
+end
+
+"""
+    ambient_dimension(d::TankDomain2D) -> Int
+
+Return 2: all `TankDomain2D` problems live in a 2-D ambient space (x, z).
+"""
+ambient_dimension(::TankDomain2D) = 2
+
+"""
+    manifold_dimension(d::TankDomain2D) -> Int
+
+Return 2: the fluid volume is a 2-D manifold.
+"""
+manifold_dimension(::TankDomain2D) = 2
+
+"""
+    boundary_tags(d::TankDomain2D) -> Dict{String, String}
+
+Return a dictionary mapping each [`STANDARD_TAGS`](@ref) name to its
+corresponding Gridap face-label string for the Cartesian mesh.
+
+The `"structure"` key maps to `"structure"` (a virtual label resolved via
+coordinate masks in [`get_boundary`](@ref) and [`build_triangulations`](@ref)).
+"""
+function boundary_tags(d::TankDomain2D)
+  _tank_label_map()
+end
+
+"""
+    triangulation(d::TankDomain2D) -> Triangulation
+
+Build the Cartesian discrete model from `d` and return the bulk-fluid
+interior triangulation `Ω`.
+
+Note: this method constructs a fresh `CartesianDiscreteModel` every call.
+For performance-critical code use [`build_model`](@ref) /
+[`build_triangulations`](@ref) directly.
+"""
+function triangulation(d::TankDomain2D)
+  model = build_model(d)
+  _label_tank_model!(model)
+  Interior(model)
+end
+
+"""
+    get_boundary(d::TankDomain2D, name::String) -> BoundaryTriangulation
+
+Return the Gridap boundary triangulation for the standard region `name`.
+
+Supported `name` values: all six [`STANDARD_TAGS`](@ref).
+
+For `"fluid"` the interior triangulation is returned.  For `"structure"` the
+union of all structure-domain cells on the top surface is returned (empty
+if no structure domains are defined).
+
+Note: builds a fresh model on each call; use [`build_triangulations`](@ref)
+when multiple boundaries are needed.
+"""
+function get_boundary(d::TankDomain2D, name::String)
+  valid = STANDARD_TAGS
+  if !(name in valid)
+    error(
+      "Unknown boundary tag \"$name\" for TankDomain2D. " *
+      "Valid tags are: " * join(valid, ", ") * ".",
+    )
+  end
+  model = build_model(d)
+  _label_tank_model!(model)
+  lmap  = _tank_label_map()
+
+  if name == "fluid"
+    return Interior(model)
+  end
+
+  if name == "structure"
+    # Build the full top-surface triangulation, then sub-select structure cells
+    Γ = Boundary(model, tags=lmap["free_surface"])
+    if isempty(d.structure_domains)
+      return Triangulation(Γ, Int[])
+    end
+    xΓ = get_cell_coordinates(Γ)
+    smasks, _ = surface_masks(d)
+    n = length(xΓ)
+    any_structure = _or_bits([lazy_map(m, xΓ) for m in smasks], n)
+    return Triangulation(Γ, findall(any_structure))
+  end
+
+  Boundary(model, tags=lmap[name])
 end
