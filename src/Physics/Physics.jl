@@ -207,6 +207,7 @@ include("PotentialFlow.jl")
 include("FreeSurface.jl")
 include("Membrane2D.jl")
 include("EulerBernoulliBeam.jl")
+include("Structures/Plate/KirchhoffLovePlate3D.jl")
 include("Resonator.jl")
 
 # Coupling weak forms (cross-terms between pairs of entities)
@@ -376,6 +377,7 @@ export has_mass_form, has_damping_form, has_stiffness_form, has_rhs_form
 export active_forms
 export weakform, residual, jacobian, jacobian_t, jacobian_tt
 export PotentialFlow, FreeSurface, Membrane2D, JointRotationalSpring, EulerBernoulliBeam, Resonator
+export KirchhoffLovePlate3D, build_KL_tensor, check_major_symmetry
 export AbstractPotentialFlowBC, RadiationBC, PrescribedInletPotentialBC, DampingZoneBC
 export CouplingTerms
 

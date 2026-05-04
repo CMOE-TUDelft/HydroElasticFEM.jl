@@ -32,9 +32,11 @@ module HydroElasticFEM
   export AbstractDomain, STANDARD_TAGS
   export TankDomain2D, StructureDomain1D, DampingZone1D, JointDomain1D
   export TankDomain3D
+  export CartesianDomain3D
   export GmshDomain
   export triangulation, boundary_tags, ambient_dimension
   export manifold_dimension, get_boundary
+  export get_plate_triangulation
   export validate_gmsh_tags
   export build_model, build_triangulations, get_integration_domains
   export TankTriangulations, IntegrationDomains
@@ -42,6 +44,7 @@ module HydroElasticFEM
   # Re-export Physics public API
   export PhysicsParameters, print_parameters
   export PotentialFlow, FreeSurface, Membrane2D, EulerBernoulliBeam
+  export KirchhoffLovePlate3D, build_KL_tensor
   export ResonatorSingle, resonator_array
   export IntegrationDomains
   export AbstractAssemblyContext, FrequencyAssemblyContext, TimeAssemblyContext
