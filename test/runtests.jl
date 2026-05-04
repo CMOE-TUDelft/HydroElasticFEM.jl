@@ -29,8 +29,8 @@ using Test
   # Time-domain solvers
   # ==========================================================================
 
-  include("Membrane2D/TimeDomain/MemTimeLrmmTests.jl")
-  include("Membrane2D/TimeDomain/MemTimeDampingZonePackageTests.jl")
+  include("Membrane/TimeDomain/MemTimeLrmmTests.jl")
+  include("Membrane/TimeDomain/MemTimeDampingZonePackageTests.jl")
 
   # ==========================================================================
   # Examples (integration tests against analytical solutions)

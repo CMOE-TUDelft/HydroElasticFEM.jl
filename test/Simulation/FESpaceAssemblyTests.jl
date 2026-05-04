@@ -52,7 +52,7 @@ import HydroElasticFEM.Geometry as G
     fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5)
     @test fsurf.fe.order == 1
 
-    mem = P.Membrane2D(L=20.0, mᵨ=1.0, Tᵨ=100.0)
+    mem = P.Membrane(L=20.0, mᵨ=1.0, Tᵨ=100.0)
     @test mem.fe.order == 1
 
     beam = P.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0)
@@ -94,7 +94,7 @@ import HydroElasticFEM.Geometry as G
 
     fluid = P.PotentialFlow(ρw=1025.0, g=9.81, fe=PH.FESpaceConfig(order=order))
     fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=PH.FESpaceConfig(order=order), space_domain_symbol=:Γκ)
-    mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=PH.FESpaceConfig(order=order), space_domain_symbol=:Γη)
+    mem   = P.Membrane(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=PH.FESpaceConfig(order=order), space_domain_symbol=:Γη)
 
     trians = G.TankTriangulations(Dict(:Ω => Ω, :Γκ => Γκ, :Γη => Γη))
 
@@ -168,7 +168,7 @@ import HydroElasticFEM.Geometry as G
 
     fluid = P.PotentialFlow(ρw=1025.0, g=9.81, fe=PH.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Ω)
     fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=PH.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Γκ)
-    mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=PH.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Γη)
+    mem   = P.Membrane(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=PH.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Γη)
 
     trians = G.TankTriangulations(Dict(:Ω => Ω, :Γκ => Γκ, :Γη => Γη))
     X, Y, fmap = FEA.build_fe_spaces([fluid, fsurf, mem], trians, PH.FreqDomainConfig())

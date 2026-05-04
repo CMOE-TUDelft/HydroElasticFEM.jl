@@ -65,7 +65,7 @@ paramsBase = Memb_LRHS_params(
 for imrho in m_rho
   for iTrho in T_rho
 
-    memb2D = Membrane.Membrane2D(
+    memb2D = Membrane.Membrane(
       2*H0,         # L
       imrho*ρw,      # m
       iTrho*ρw,  # T

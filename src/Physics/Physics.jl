@@ -203,12 +203,12 @@ _require_nonempty(val, kind, obj) =
 # ─────────────────────────────────────────────────────────────
 
 # Entity files (struct definition + single-variable weak forms)
-include("PotentialFlow.jl")
-include("FreeSurface.jl")
-include("Membrane2D.jl")
-include("EulerBernoulliBeam.jl")
-include("Structures/Plate/KirchhoffLovePlate3D.jl")
-include("Resonator.jl")
+include("Fluid/PotentialFlow.jl")
+include("Fluid/FreeSurface.jl")
+include("Structures/Membrane.jl")
+include("Structures/EulerBernoulliBeam.jl")
+include("Structures/Plate/KirchhoffLovePlate.jl")
+include("Structures/Resonator.jl")
 
 # Coupling weak forms (cross-terms between pairs of entities)
 include("CouplingTerms.jl")
@@ -376,8 +376,11 @@ export mass, damping, stiffness, rhs
 export has_mass_form, has_damping_form, has_stiffness_form, has_rhs_form
 export active_forms
 export weakform, residual, jacobian, jacobian_t, jacobian_tt
-export PotentialFlow, FreeSurface, Membrane2D, JointRotationalSpring, EulerBernoulliBeam, Resonator
-export KirchhoffLovePlate3D, build_KL_tensor, check_major_symmetry
+export PotentialFlow, FreeSurface, Membrane
+export JointRotationalSpring, EulerBernoulliBeam, Resonator
+export KirchhoffLovePlate, KirchhoffLovePlate3D
+export build_kl_tensor, build_KL_tensor, check_major_symmetry
+export equivalent_beam_rigidity
 export AbstractPotentialFlowBC, RadiationBC, PrescribedInletPotentialBC, DampingZoneBC
 export CouplingTerms
 

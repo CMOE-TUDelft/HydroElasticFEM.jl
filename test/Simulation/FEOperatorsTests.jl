@@ -68,7 +68,7 @@ import HydroElasticFEM.Simulation.FEOperators as WF
   # Physics entities
   fluid = Physics.PotentialFlow(ρw=ρw, g=g_)
   fsurf = Physics.FreeSurface(ρw=ρw, g=g_, βₕ=βₕ)
-  mem   = Physics.Membrane2D(L=20.0, mᵨ=922.5/ρw, Tᵨ=98.1, g=g_)
+  mem   = Physics.Membrane(L=20.0, mᵨ=922.5/ρw, Tᵨ=98.1, g=g_)
 
   # Field mapping
   fmap = Dict(:ϕ => 1, :κ => 2, :η_m => 3)
@@ -105,10 +105,10 @@ import HydroElasticFEM.Simulation.FEOperators as WF
   end
 
   # =========================================================================
-  # Test single-variable Membrane2D weak forms (η_m only)
+  # Test single-variable Membrane weak forms (η_m only)
   # =========================================================================
 
-  @testset "Membrane2D single-variable forms" begin
+  @testset "Membrane single-variable forms" begin
     l((w,u,v)) = ∫(0.0 * w)dΓin
 
     a_mass((ϕ,κ,η),(w,u,v)) = begin

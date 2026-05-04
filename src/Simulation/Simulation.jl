@@ -52,7 +52,7 @@ struct HEFEM_Problem{T<:PH.SimulationConfig,C<:AC.AbstractAssemblyContext}
     triangulations::G.TankTriangulations
     integration_domains::G.IntegrationDomains
     assembly_context::C
-    entities::Vector{P.PhysicsParameters}  # physics entities (e.g. Membrane2D, FreeSurface, etc.)
+    entities::Vector{P.PhysicsParameters}  # physics entities (e.g. Membrane, FreeSurface, etc.)
     field_map::Dict{Symbol,Int}  # maps physics entity symbols to FE space indices
     test_fe_space::MultiFieldFESpace
     trial_fe_space::MultiFieldFESpace

@@ -431,7 +431,7 @@ from `tri`.
 |-----|--------|---------|
 | `:dΩ` | `tri.Ω` | PotentialFlow, Resonator |
 | `:dΓfs` | `tri.Γfs` | Free surface without structures or damping zones |
-| `:dΓ_s` | `tri.Γη` (all structures) | Membrane2D, Beam, PF↔struct coupling |
+| `:dΓ_s` | `tri.Γη` (all structures) | Membrane, Beam, PF↔struct coupling |
 | `:dΓ_in` | `tri.Γin` | Inlet boundary terms |
 | `:dΓ_out` | `tri.Γout` | Outlet boundary terms |
 | `:dΓ_bot` | `tri.Γbot` | Bottom boundary terms |

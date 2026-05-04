@@ -7,6 +7,7 @@ using Test
   include("test_gmsh_domain.jl")
 
   include("CartesianGeometryTests.jl")
+  include("CartesianDomainGenericTests.jl")
   include("test_abstract_domain.jl")
 
 end

@@ -89,6 +89,7 @@ Base.setindex!(d::IntegrationDomains, val, k::Symbol)       = (d.data[k] = val)
 Base.keys(d::IntegrationDomains)                            = keys(d.data)
 
 include("CartesianGeometry.jl")
+include("Cartesian/CartesianDomain.jl")
 include("Cartesian/CartesianDomain3D.jl")
 include("PlateMask.jl")
 include("GmshDomain.jl")
@@ -102,6 +103,7 @@ export GmshDomain
 export validate_gmsh_tags
 export triangulation, boundary_tags, ambient_dimension
 export manifold_dimension, get_boundary
+export CartesianDomain
 export TankDomain3D
 export CartesianDomain3D, f_z, map_fn, verify_cartesian_3d_tags
 export get_plate_triangulation

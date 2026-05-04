@@ -63,7 +63,7 @@ function print_properties(ele::EulerBernoulliBeam)
   print_parameters(ele)
 end
 
-function print_properties(ele::Membrane2D)
+function print_properties(ele::Membrane)
   print_parameters(ele)
 end
 

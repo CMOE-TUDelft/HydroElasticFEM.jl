@@ -49,7 +49,7 @@ end
       fe=FES.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Ω)
   fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5,
       fe=FES.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Γκ)
-  mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1,
+  mem   = P.Membrane(L=20.0, mᵨ=0.9, Tᵨ=98.1,
       fe=FES.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Γη)
 
   # =========================================================================
@@ -63,13 +63,13 @@ end
     # PotentialFlow ↔ FreeSurface: has mass and damping coupling
     @test (fluid, fsurf) in pairs
 
-    # PotentialFlow ↔ Membrane2D (PhysicsParameters): has damping coupling
+    # PotentialFlow ↔ Membrane (PhysicsParameters): has damping coupling
     @test (fluid, mem) in pairs
 
     # No self-coupling
     @test !any(p -> p[1] === p[2], pairs)
 
-    # FreeSurface ↔ Membrane2D: no coupling defined
+    # FreeSurface ↔ Membrane: no coupling defined
     @test !((fsurf, mem) in pairs)
     @test !((mem, fsurf) in pairs)
   end
@@ -136,7 +136,7 @@ end
       fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Ω)
     fsurf_real = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5,
       fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γκ)
-    mem_real   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1,
+    mem_real   = P.Membrane(L=20.0, mᵨ=0.9, Tᵨ=98.1,
       fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γη)
 
     entities = [fluid_real, fsurf_real, mem_real]
@@ -401,7 +401,7 @@ end
       fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Ω)
     fsurf_real = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5,
       fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γκ)
-    mem_real   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1,
+    mem_real   = P.Membrane(L=20.0, mᵨ=0.9, Tᵨ=98.1,
       fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γη)
 
     entities = [fluid_real, fsurf_real, mem_real]

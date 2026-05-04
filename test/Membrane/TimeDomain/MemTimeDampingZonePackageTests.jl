@@ -74,7 +74,7 @@ import HydroElasticFEM.Geometry as G
     space_domain_symbol=:Γκ,
   )
 
-  membrane = P.Membrane2D(
+  membrane = P.Membrane(
     L=Lm,
     mᵨ=0.9,
     Tᵨ=98.1,
