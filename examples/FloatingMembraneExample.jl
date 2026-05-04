@@ -218,7 +218,7 @@ end
     run_plain_implementation(; kwargs...)
 
 Solve the floating-membrane problem with the explicit Gridap formulation that
-matches `src/Membrane2D/FrequencyDomain/mem_freq_rad_fnc.jl`.
+matches `src/Membrane/FrequencyDomain/mem_freq_rad_fnc.jl`.
 
 Keyword arguments override `FloatingMembraneTutorialParams`.
 Returns a named tuple with probe values for the combined surface response and
@@ -397,7 +397,7 @@ function run_structured_implementation(; kwargs...)
     PH.FESpaceConfig(order=p.order, vector_type=Vector{ComplexF64})
   end
 
-  membrane = P.Membrane2D(
+  membrane = P.Membrane(
     L=p.Lm,
     mᵨ=p.mᵨ,
     Tᵨ=p.Tᵨ,
