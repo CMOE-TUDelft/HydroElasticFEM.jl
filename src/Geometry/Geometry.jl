@@ -100,5 +100,6 @@ export GmshDomain
 export validate_gmsh_tags
 export triangulation, boundary_tags, ambient_dimension
 export manifold_dimension, get_boundary
+export TankDomain3D
 
 end # module Geometry

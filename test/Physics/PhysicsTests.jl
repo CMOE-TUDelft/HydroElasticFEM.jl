@@ -30,3 +30,5 @@ end
   @testset "FreeSurface" include("FreeSurfaceTests.jl")
 
 end
+
+@testset "3D sloshing" include("Sloshing3DTests.jl")

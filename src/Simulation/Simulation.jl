@@ -136,7 +136,34 @@ function build_time_context(domains::G.IntegrationDomains,
     AC.TimeAssemblyContext(domains, t₀, αₕ)
 end
 
+function _entity_ambient_dimension(entity::P.PhysicsParameters)
+    if isdefined(P, :ambient_dimension) && applicable(P.ambient_dimension, entity)
+        return P.ambient_dimension(entity)
+    end
+    if applicable(G.ambient_dimension, entity)
+        return G.ambient_dimension(entity)
+    end
+    return nothing
+end
+
+function _check_ambient_dimension_consistency(domain,
+                                              physics::Vector{P.PhysicsParameters})
+    ddom = G.ambient_dimension(domain)
+    for entity in physics
+        dent = _entity_ambient_dimension(entity)
+        isnothing(dent) && continue
+        if dent != ddom
+            error(
+                "Ambient-dimension mismatch: domain has dim=$(ddom), " *
+                "but $(typeof(entity)) has dim=$(dent).",
+            )
+        end
+    end
+    nothing
+end
+
 function _build_problem_parts(domain, physics::Vector{P.PhysicsParameters}, config::PH.SimulationConfig)
+    _check_ambient_dimension_consistency(domain, physics)
     model = G.build_model(domain)
     trians = G.build_triangulations(domain, model)
     degrees = get_integration_degrees(trians, physics)

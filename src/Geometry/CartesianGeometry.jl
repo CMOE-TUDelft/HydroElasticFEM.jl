@@ -638,3 +638,242 @@ function get_boundary(d::TankDomain2D, name::String)
 
   Boundary(model, tags=lmap[name])
 end
+
+# ─────────────────────────────────────────────────────────────
+# TankDomain3D — structured 3D Cartesian rectangular tank
+# ─────────────────────────────────────────────────────────────
+
+"""
+    TankDomain3D <: AbstractDomain
+
+Structured 3D Cartesian rectangular tank on `[0,L]×[0,W]×[0,H]`,
+discretized into `nx × ny × nz` hexahedral elements.
+
+The free surface is at `z = H`; the seabed at `z = 0`; inlet at
+`x = 0`; outlet at `x = L`; lateral walls at `y = 0` and `y = W`.
+No structure sub-domains are defined (use `GmshDomain` for
+fluid–structure problems in 3D).
+
+`TankDomain3D` implements the [`AbstractDomain`](@ref) interface; use
+[`triangulation`](@ref), [`get_boundary`](@ref), [`boundary_tags`](@ref),
+[`ambient_dimension`](@ref), and [`manifold_dimension`](@ref) for generic
+code.
+
+# Fields
+- `L::Float64 = 4.0`  — length of the tank domain [m]
+- `W::Float64 = 2.0`  — width of the tank domain [m]
+- `H::Float64 = 1.0`  — height of the tank domain [m]
+- `nx::Int = 8`       — number of elements in the x-direction
+- `ny::Int = 4`       — number of elements in the y-direction
+- `nz::Int = 2`       — number of elements in the z-direction
+"""
+@with_kw struct TankDomain3D <: AbstractDomain
+    L::Float64 = 4.0
+    W::Float64 = 2.0
+    H::Float64 = 1.0
+    nx::Int = 8
+    ny::Int = 4
+    nz::Int = 2
+end
+
+"""
+    build_model(domain::TankDomain3D)
+
+Build a `CartesianDiscreteModel` from the specifications in `domain`.
+The model spans `[0,L]×[0,W]×[0,H]` with `nx × ny × nz` elements.
+"""
+function build_model(domain::TankDomain3D)
+    CartesianDiscreteModel(
+        (0.0, domain.L, 0.0, domain.W, 0.0, domain.H),
+        (domain.nx, domain.ny, domain.nz),
+    )
+end
+
+# ─────────────────────────────────────────────────────────────
+# Coordinate-based face masks for 3D tank
+# ─────────────────────────────────────────────────────────────
+
+"""
+        _face_mask_3d(d::TankDomain3D, name::String) -> Function
+
+Return a closure `(xs) -> Bool` that selects boundary cells whose centroid
+lies on the named face of the 3D tank.  `name` must be one of:
+`"free_surface"`, `"seabed"`, `"inlet"`, `"outlet"`, `"lateral_walls"`,
+`"structure"`.
+"""
+function _face_mask_3d(d::TankDomain3D, name::String)
+    tol = 1.0e-10
+    if name == "free_surface"
+        return xs -> begin
+            c = _centroid(xs)
+            abs(c[3] - d.H) < tol
+        end
+    elseif name == "seabed"
+        return xs -> begin
+            c = _centroid(xs)
+            abs(c[3] - 0.0) < tol
+        end
+    elseif name == "inlet"
+        return xs -> begin
+            c = _centroid(xs)
+            abs(c[1] - 0.0) < tol
+        end
+    elseif name == "outlet"
+        return xs -> begin
+            c = _centroid(xs)
+            abs(c[1] - d.L) < tol
+        end
+    elseif name == "lateral_walls"
+        return xs -> begin
+            c = _centroid(xs)
+            abs(c[2] - 0.0) < tol || abs(c[2] - d.W) < tol
+        end
+    elseif name == "structure"
+        return xs -> false  # no structure in plain TankDomain3D
+    else
+        error("Unknown 3D face name: \"$name\"")
+    end
+end
+
+"""
+        build_triangulations(domain::TankDomain3D, model) -> TankTriangulations
+
+Label the 3D model, extract sub-triangulations for each standard boundary
+face via coordinate masks, and return a `TankTriangulations` container.
+
+Boundary faces are identified by cell centroid coordinates:
+- `free_surface` : z = H
+- `seabed`       : z = 0
+- `inlet`        : x = 0
+- `outlet`       : x = L
+- `lateral_walls`: y = 0 or y = W
+- `structure`    : empty (no structure in basic 3D tank)
+"""
+function build_triangulations(domain::TankDomain3D, model)
+    Ω = Interior(model)
+    Γ = Boundary(model)
+    xΓ = get_cell_coordinates(Γ)
+
+    top_bits      = lazy_map(_face_mask_3d(domain, "free_surface"),  xΓ)
+    bot_bits      = lazy_map(_face_mask_3d(domain, "seabed"),        xΓ)
+    inlet_bits    = lazy_map(_face_mask_3d(domain, "inlet"),         xΓ)
+    outlet_bits   = lazy_map(_face_mask_3d(domain, "outlet"),        xΓ)
+    lateral_bits  = lazy_map(_face_mask_3d(domain, "lateral_walls"), xΓ)
+
+    Γtop      = Triangulation(Γ, findall(top_bits))
+    Γbot      = Triangulation(Γ, findall(bot_bits))
+    Γin       = Triangulation(Γ, findall(inlet_bits))
+    Γout      = Triangulation(Γ, findall(outlet_bits))
+    Γlateral  = Triangulation(Γ, findall(lateral_bits))
+
+    # Free surface = top; no structures in plain TankDomain3D
+    Γfs = Γtop
+    Γκ  = Γtop
+    Γη  = Triangulation(Γ, Int[])   # empty structure surface
+
+    trian_dict = Dict{Symbol, Any}(
+        :Ω            => Ω,
+        :Γ            => Γ,
+        :Γbot         => Γbot,
+        :Γin          => Γin,
+        :Γout         => Γout,
+        :Γlateral     => Γlateral,
+        :Γfs          => Γfs,
+        :Γκ           => Γκ,
+        :Γη           => Γη,
+        :Γ_structures => Any[],
+        :Γ_dampings   => Any[],
+        :Λη           => nothing,
+        :Λ_joints     => Any[],
+        :joint_domains => JointDomain1D[],
+    )
+    TankTriangulations(trian_dict)
+end
+
+# ─────────────────────────────────────────────────────────────
+# AbstractDomain interface for TankDomain3D
+# ─────────────────────────────────────────────────────────────
+
+"""
+        ambient_dimension(d::TankDomain3D) -> Int
+
+Return 3: all `TankDomain3D` problems live in a 3-D ambient space (x, y, z).
+"""
+ambient_dimension(::TankDomain3D) = 3
+
+"""
+        manifold_dimension(d::TankDomain3D) -> Int
+
+Return 3: the fluid volume is a 3-D manifold.
+"""
+manifold_dimension(::TankDomain3D) = 3
+
+"""
+        boundary_tags(d::TankDomain3D) -> Dict{String, String}
+
+Return a dictionary mapping each [`STANDARD_TAGS`](@ref) name to a
+descriptive string for the 3D Cartesian tank.  The `"structure"` key maps
+to `"structure"` (always empty for `TankDomain3D`); the extra key
+`"lateral_walls"` maps to `"lateral_walls"`.
+"""
+function boundary_tags(d::TankDomain3D)
+    Dict{String, String}(
+        "fluid"         => "fluid",
+        "free_surface"  => "free_surface",
+        "seabed"        => "seabed",
+        "inlet"         => "inlet",
+        "outlet"        => "outlet",
+        "structure"     => "structure",
+        "lateral_walls" => "lateral_walls",
+    )
+end
+
+"""
+        triangulation(d::TankDomain3D) -> Triangulation
+
+Build the Cartesian discrete model from `d` and return the bulk-fluid
+interior triangulation `Ω`.
+
+Note: this method constructs a fresh `CartesianDiscreteModel` every call.
+For performance-critical code use [`build_model`](@ref) /
+[`build_triangulations`](@ref) directly.
+"""
+function triangulation(d::TankDomain3D)
+    model = build_model(d)
+    Interior(model)
+end
+
+"""
+        get_boundary(d::TankDomain3D, name::String) -> Triangulation
+
+Return the sub-triangulation for the standard region `name`.
+
+Supported names: all six [`STANDARD_TAGS`](@ref) plus `"lateral_walls"`.
+
+For `"fluid"` the interior triangulation is returned.
+For `"structure"` an empty sub-triangulation is returned.
+
+Note: builds a fresh model on each call; use [`build_triangulations`](@ref)
+when multiple boundaries are needed.
+"""
+function get_boundary(d::TankDomain3D, name::String)
+    valid = vcat(STANDARD_TAGS, ["lateral_walls"])
+    if !(name in valid)
+        error(
+            "Unknown boundary tag \"$name\" for TankDomain3D. " *
+            "Valid tags are: " * join(valid, ", ") * ".",
+        )
+    end
+    model = build_model(d)
+    if name == "fluid"
+        return Interior(model)
+    end
+    Γ = Boundary(model)
+    xΓ = get_cell_coordinates(Γ)
+    if name == "structure"
+        return Triangulation(Γ, Int[])
+    end
+    mask = _face_mask_3d(d, name)
+    bits = lazy_map(mask, xΓ)
+    Triangulation(Γ, findall(bits))
+end
