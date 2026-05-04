@@ -14,7 +14,7 @@ resonators) using the [Gridap.jl](https://www.github.com/gridap/Gridap.jl) FE fr
 ## Package features
 
 - Frequency-domain and time-domain simulations.
-- Modular and exxpandable physics entities: `PotentialFlow`, `FreeSurface`, `Membrane2D`,
+- Modular and exxpandable physics entities: `PotentialFlow`, `FreeSurface`, `Membrane`,
   `EulerBernoulliBeam`, `ResonatorSingle`.
 - Automated multi-field FE space construction and operator assembly.
 - Automatic differentiation for nonlinear problems.

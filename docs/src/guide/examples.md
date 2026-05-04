@@ -16,7 +16,7 @@ damping-zone radiation condition.
 ## Floating membrane
 
 `examples/FloatingMembraneExample.jl` — couples a `PotentialFlow` fluid with a
-`Membrane2D` structural entity and a `FreeSurface` free-surface condition.
+`Membrane` structural entity and a `FreeSurface` free-surface condition.
 Demonstrates how coupling terms are detected automatically.
 
 ## Euler-Bernoulli beam with joints

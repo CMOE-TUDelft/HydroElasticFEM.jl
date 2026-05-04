@@ -59,7 +59,7 @@ HydroElasticFEM.Physics.FreeSurface
 ## Structures
 
 ```@docs
-HydroElasticFEM.Physics.Membrane2D
+HydroElasticFEM.Physics.Membrane
 HydroElasticFEM.Physics.EulerBernoulliBeam
 HydroElasticFEM.Physics.JointRotationalSpring
 ```
