@@ -247,6 +247,6 @@ function build_triangulations(d::GmshDomain, model)
     :Γ_dampings   => Γ_dampings,
     :Λη           => Λη,
     :Λ_joints     => Any[],
-    :joint_domains => JointDomain1D[],
+    :joint_domains => JointDomain[],
   ))
 end

@@ -106,8 +106,8 @@ function run_example(; kwargs...)
     ny=p.ny,
     map=shifted_gp_map(p.x0, p.mesh_ry, p.ny, p.H0),
     damping_zones=[
-      G.DampingZone1D(L=p.Ld, x₀=[p.x0, 0.0], domain_symbol=:Γd_in),
-      G.DampingZone1D(L=p.Ld, x₀=[p.x0 + p.LΩ - p.Ld, 0.0], domain_symbol=:Γd_out),
+      G.DampingZone(L=p.Ld, x₀=[p.x0, 0.0], domain_symbol=:Γd_in),
+      G.DampingZone(L=p.Ld, x₀=[p.x0 + p.LΩ - p.Ld, 0.0], domain_symbol=:Γd_out),
     ],
   )
 

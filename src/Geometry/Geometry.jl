@@ -5,7 +5,7 @@ Geometry, mesh construction, integration domains and field helpers.
 
 Provides:
 - `AbstractDomain`, `STANDARD_TAGS` — unified geometry interface
-- `TankDomain2D`, `StructureDomain1D`, `DampingZone1D` — Cartesian geometry
+- `TankDomain2D`, `StructureDomain`, `DampingZone` — Cartesian geometry
 - `GmshDomain` — unstructured Gmsh mesh wrapper
 - `build_model`, `build_triangulations` — mesh construction
 - `IntegrationDomains` — dict-based container for Gridap measures/normals
@@ -89,15 +89,16 @@ Base.setindex!(d::IntegrationDomains, val, k::Symbol)       = (d.data[k] = val)
 Base.keys(d::IntegrationDomains)                            = keys(d.data)
 
 include("CartesianGeometry.jl")
-include("Cartesian/CartesianDomain.jl")
-include("Cartesian/CartesianDomain3D.jl")
+include("CartesianDomains.jl")
 include("PlateMask.jl")
 include("GmshDomain.jl")
 include("validate_tags.jl")
 
 export TankTriangulations
 export IntegrationDomains
-export JointDomain1D
+export TankDomain2D
+export StructureDomain, DampingZone
+export JointDomain
 export AbstractDomain, STANDARD_TAGS
 export GmshDomain
 export validate_gmsh_tags

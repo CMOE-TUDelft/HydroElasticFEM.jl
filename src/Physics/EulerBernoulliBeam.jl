@@ -16,7 +16,7 @@ the skeleton facet ``\\Lambda_j`` and ``n_{\\Lambda_j}`` is its outward normal.
 
 The `domain_symbol` and `normal_symbol` must match the keys registered in
 `IntegrationDomains` — this is done automatically by `get_integration_domains`
-when the corresponding `JointDomain1D` is declared in `TankDomain2D`.
+when the corresponding `JointDomain` is declared in `TankDomain2D`.
 
 # Fields
 - `domain_symbol::Symbol` — Key for the joint skeleton `Measure` in
@@ -26,7 +26,7 @@ when the corresponding `JointDomain1D` is declared in `TankDomain2D`.
 - `kᵣ::Float64` — Rotational spring stiffness ``[\\mathrm{N}\\cdot\\mathrm{m}^2/\\rho_w]``.
 
 # See also
-[`JointDomain1D`](@ref HydroElasticFEM.Geometry.JointDomain1D),
+[`JointDomain`](@ref HydroElasticFEM.Geometry.JointDomain),
 [`EulerBernoulliBeam`](@ref)
 """
 struct JointRotationalSpring

@@ -1,44 +1,58 @@
 """
-  StructureDomain1D
+  StructureDomain
 
-Defines a rectangular domain for 1D structural problems on a conforming 2D domain.
-The domain is defined by its length `L` and an optional starting point `x₀` in 2D space.
+Defines an axis-aligned structure sub-domain on a Cartesian free surface.
+
+By default this represents a 1D segment embedded in 2D (`ambient_dim=2`,
+`manifold_dim=1`), but the descriptor is dimension-aware and can be
+parameterized for higher-dimensional embeddings.
 
 Variables:
-- L::Float64 = 1.0: Length of the 1D structure domain
-- x₀::Vector{Float64} = [0.0, 1.0]: Starting point of the structure domain in 2D space
+- L::Float64 = 1.0: Size of the sub-domain along each manifold axis [m]
+- x₀::Vector{Float64} = [0.0, 1.0]: Lower corner/anchor point [m]
+- ambient_dim::Int = 2: Ambient space dimension
+- manifold_dim::Int = 1: Manifold dimension of the structure surface
 """
-@with_kw struct StructureDomain1D
+@with_kw struct StructureDomain
     L::Float64 = 1.0
     x₀::Vector{Float64} = [0.0, 1.0]
+        ambient_dim::Int = 2
+        manifold_dim::Int = 1
     domain_symbol::Symbol = :Γ_s
 end
 
 """
-  DampingZone1D
+  DampingZone
 
-Defines a 1D damping zone for absorbing outgoing waves, with length `L` and a damping coefficient `σ`.
-The damping is applied in the region defined by `x₀` to `x₀ + L` along the x-axis.
+Defines an axis-aligned damping-zone descriptor on a Cartesian free surface.
+
+By default this represents a 1D segment embedded in 2D (`ambient_dim=2`,
+`manifold_dim=1`), but the descriptor is dimension-aware and can be
+parameterized for higher-dimensional embeddings.
 
 Variables:
-- L::Float64 = 0.5: Length of the damping zone
+- L::Float64 = 0.5: Size of the damping zone along each manifold axis [m]
 - σ::Float64 = 1.0: Damping coefficient
-- x₀::Vector{Float64} = [0.0, 1.0]: Starting point of the damping zone in 2D space
+- x₀::Vector{Float64} = [0.0, 1.0]: Lower corner/anchor point [m]
+- ambient_dim::Int = 2: Ambient space dimension
+- manifold_dim::Int = 1: Manifold dimension of the damping-zone surface
 """
-@with_kw struct DampingZone1D
+@with_kw struct DampingZone
     L::Float64 = 0.5
     σ::Float64 = 1.0
     x₀::Vector{Float64} = [0.0, 1.0]
+        ambient_dim::Int = 2
+        manifold_dim::Int = 1
     domain_symbol::Symbol = :Γ_d
 end
 
 """
-    JointDomain1D
+    JointDomain
 
 Declares a rotational-spring joint located at a specific point on a 1D beam
 boundary embedded in the 2D tank mesh.
 
-`JointDomain1D` is purely a geometry-level descriptor.  After you add it to
+`JointDomain` is purely a geometry-level descriptor.  After you add it to
 `TankDomain2D.joint_domains`, `build_triangulations` automatically builds the
 corresponding Gridap skeleton sub-triangulation (one interior facet of
 `Skeleton(Γη)` whose centroid is closest to `location`).  Then
@@ -62,8 +76,8 @@ measure and outward normal, ready to be consumed by
 
 ```julia
 # Beam spanning x ∈ [1.5, 2.5] at y = 1.0 — joint at midpoint x = 2.0
-s1 = StructureDomain1D(L=1.0, x₀=[1.5, 1.0])
-j1 = JointDomain1D(location=[2.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
+s1 = StructureDomain(L=1.0, x₀=[1.5, 1.0])
+j1 = JointDomain(location=[2.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
 
 tank = TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[s1],
@@ -77,7 +91,7 @@ beam = EulerBernoulliBeam(L=1.0, mᵨ=0.5, EIᵨ=100.0,
     joints=[JointRotationalSpring(:dΛj_1, :n_Λ_j_1, kᵣ)])
 ```
 """
-@with_kw struct JointDomain1D
+@with_kw struct JointDomain
         location::Vector{Float64}
         domain_symbol::Symbol
         normal_symbol::Symbol
@@ -101,9 +115,9 @@ The `map` function allows for coordinate transformations if needed.
 - `nx::Int = 16`      — number of elements in the x-direction
 - `ny::Int = 2`       — number of elements in the y-direction
 - `map::Function`     — optional coordinate mapping (default: identity)
-- `structure_domains::Vector{StructureDomain1D}` — structure sub-domains
-- `damping_zones::Vector{DampingZone1D}` — damping sub-zones
-- `joint_domains::Vector{JointDomain1D}` — structural joint descriptors
+- `structure_domains::Vector{StructureDomain}` — structure sub-domains
+- `damping_zones::Vector{DampingZone}` — damping sub-zones
+- `joint_domains::Vector{JointDomain}` — structural joint descriptors
 """
 @with_kw struct TankDomain2D <: AbstractDomain
     L::Float64 = 4.0
@@ -111,9 +125,9 @@ The `map` function allows for coordinate transformations if needed.
     nx::Int = 16
     ny::Int = 2
     map::Function = x->x
-    structure_domains::Vector{StructureDomain1D} = Vector{StructureDomain1D}()
-    damping_zones::Vector{DampingZone1D} = Vector{DampingZone1D}()
-    joint_domains::Vector{JointDomain1D} = Vector{JointDomain1D}()
+    structure_domains::Vector{StructureDomain} = Vector{StructureDomain}()
+    damping_zones::Vector{DampingZone} = Vector{DampingZone}()
+    joint_domains::Vector{JointDomain} = Vector{JointDomain}()
 end
 
 """
@@ -146,39 +160,58 @@ function _centroid(xs)
 end
 
 """
-    surface_mask(zone::StructureDomain1D) -> Function
+    surface_mask(zone::StructureDomain) -> Function
 
 Return a closure `(xs) -> Bool` that tests whether the centroid of
 a surface cell lies within the structure domain.
 
-The zone spans `[x₀[1], x₀[1]+L]` at `y = x₀[2]`.
+For each manifold axis `i = 1:manifold_dim`, the centroid coordinate must
+belong to `[x₀[i], x₀[i]+L]`. Remaining ambient coordinates are constrained to
+`x₀[i]` using approximate equality.
 """
-function surface_mask(zone::StructureDomain1D)
-    x_lo = zone.x₀[1]
-    x_hi = zone.x₀[1] + zone.L
-    y_ref = zone.x₀[2]
+function surface_mask(zone::StructureDomain)
+    _check_surface_zone(zone)
+    x0 = zone.x₀
+    ambient_dim = zone.ambient_dim
+    manifold_dim = zone.manifold_dim
     return function (xs)
         c = _centroid(xs)
-        (x_lo <= c[1] <= x_hi) && (c[2] ≈ y_ref)
+        in_plane = all(x0[i] <= c[i] <= x0[i] + zone.L for i in 1:manifold_dim)
+        on_surface = all(c[i] ≈ x0[i] for i in (manifold_dim + 1):ambient_dim)
+        in_plane && on_surface
     end
 end
 
 """
-    surface_mask(zone::DampingZone1D) -> Function
+    surface_mask(zone::DampingZone) -> Function
 
 Return a closure `(xs) -> Bool` that tests whether the centroid of
 a surface cell lies within the damping zone.
 
-The zone spans `[x₀[1], x₀[1]+L]` at `y = x₀[2]`.
+For each manifold axis `i = 1:manifold_dim`, the centroid coordinate must
+belong to `[x₀[i], x₀[i]+L]`. Remaining ambient coordinates are constrained to
+`x₀[i]` using approximate equality.
 """
-function surface_mask(zone::DampingZone1D)
-    x_lo = zone.x₀[1]
-    x_hi = zone.x₀[1] + zone.L
-    y_ref = zone.x₀[2]
+function surface_mask(zone::DampingZone)
+    _check_surface_zone(zone)
+    x0 = zone.x₀
+    ambient_dim = zone.ambient_dim
+    manifold_dim = zone.manifold_dim
     return function (xs)
         c = _centroid(xs)
-        (x_lo <= c[1] <= x_hi) && (c[2] ≈ y_ref)
+        in_plane = all(x0[i] <= c[i] <= x0[i] + zone.L for i in 1:manifold_dim)
+        on_surface = all(c[i] ≈ x0[i] for i in (manifold_dim + 1):ambient_dim)
+        in_plane && on_surface
     end
+end
+
+function _check_surface_zone(zone)
+    length(zone.x₀) == zone.ambient_dim ||
+        error("length(x₀)=$(length(zone.x₀)) must equal ambient_dim=$(zone.ambient_dim).")
+    zone.manifold_dim >= 1 || error("manifold_dim must be >= 1.")
+    zone.manifold_dim < zone.ambient_dim ||
+        error("manifold_dim must be < ambient_dim for a boundary sub-domain.")
+    nothing
 end
 
 """
@@ -196,18 +229,17 @@ function surface_masks(domain::TankDomain2D)
 end
 
 """
-    joint_mask(joint::JointDomain1D) -> Function
+    joint_mask(joint::JointDomain) -> Function
 
 Return a closure `(xs) -> Bool` that selects skeleton cells whose centroid is
 at `joint.location` within the joint tolerance.
 """
-function joint_mask(joint::JointDomain1D)
-    xj = joint.location[1]
-    yj = joint.location[2]
+function joint_mask(joint::JointDomain)
+    loc = joint.location
     tol = joint.tol
     return function (xs)
         c = _centroid(xs)
-        (abs(c[1] - xj) <= tol) && (abs(c[2] - yj) <= tol)
+        all(abs(c[i] - loc[i]) <= tol for i in 1:length(loc))
     end
 end
 
@@ -785,7 +817,7 @@ function build_triangulations(domain::TankDomain3D, model)
         :Γ_dampings   => Any[],
         :Λη           => nothing,
         :Λ_joints     => Any[],
-        :joint_domains => JointDomain1D[],
+        :joint_domains => JointDomain[],
     )
     TankTriangulations(trian_dict)
 end

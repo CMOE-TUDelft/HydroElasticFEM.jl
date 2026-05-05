@@ -34,11 +34,11 @@ import HydroElasticFEM.Geometry as G
     nx=20,
     ny=4,
     structure_domains=[
-      G.StructureDomain1D(L=Lm, x₀=[Ld + Lm / 2, H0], domain_symbol=:Γm),
+      G.StructureDomain(L=Lm, x₀=[Ld + Lm / 2, H0], domain_symbol=:Γm),
     ],
     damping_zones=[
-      G.DampingZone1D(L=Ld, x₀=[0.0, H0], domain_symbol=:Γd_in),
-      G.DampingZone1D(L=Ld, x₀=[LΩ - Ld, H0], domain_symbol=:Γd_out),
+      G.DampingZone(L=Ld, x₀=[0.0, H0], domain_symbol=:Γd_in),
+      G.DampingZone(L=Ld, x₀=[LΩ - Ld, H0], domain_symbol=:Γd_out),
     ],
   )
 

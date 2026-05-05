@@ -137,14 +137,14 @@ function run_khabakhpasheva_case(params::KhabakhpashevaCaseParams)
         ny = params.ny,
         map = _graded_map(c.H, params.ny),
         structure_domains = [
-            G.StructureDomain1D(L = c.Lb, x₀ = [c.xb0, c.H], domain_symbol = :Γ_beam),
+            G.StructureDomain(L = c.Lb, x₀ = [c.xb0, c.H], domain_symbol = :Γ_beam),
         ],
         damping_zones = [
-            G.DampingZone1D(L = c.Ld, x₀ = [0.0, c.H], domain_symbol = :Γ_d_in),
-            G.DampingZone1D(L = c.Ld, x₀ = [c.xd_out, c.H], domain_symbol = :Γ_d_out),
+            G.DampingZone(L = c.Ld, x₀ = [0.0, c.H], domain_symbol = :Γ_d_in),
+            G.DampingZone(L = c.Ld, x₀ = [c.xd_out, c.H], domain_symbol = :Γ_d_out),
         ],
         joint_domains = [
-            G.JointDomain1D(location = [c.xbj, c.H], domain_symbol = :dΛj_1, normal_symbol = :n_Λ_j_1),
+            G.JointDomain(location = [c.xbj, c.H], domain_symbol = :dΛj_1, normal_symbol = :n_Λ_j_1),
         ],
     )
 

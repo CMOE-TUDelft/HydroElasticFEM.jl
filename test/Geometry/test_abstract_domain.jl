@@ -63,7 +63,7 @@ end
 end
 
 @testset "get_boundary — TankDomain2D structure (with structures)" begin
-  s1   = G.StructureDomain1D(L=1.0, x₀=[1.5, 1.0])
+  s1   = G.StructureDomain(L=1.0, x₀=[1.5, 1.0])
   tank = G.TankDomain2D(L=4.0, H=1.0, nx=40, ny=4, structure_domains=[s1])
   Γη   = G.get_boundary(tank, "structure")
   # 1.0 m structure / 0.1 m element width = 10 cells

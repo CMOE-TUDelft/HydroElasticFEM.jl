@@ -357,7 +357,7 @@ function run_structured_implementation(; kwargs...)
     ny=p.ny,
     map=shifted_gp_map(p.x0, p.H0, p.mesh_ry, p.ny),
     structure_domains=[
-      G.StructureDomain1D(L=p.Lm, x₀=[p.xm0, 0.0], domain_symbol=:Γm),
+      G.StructureDomain(L=p.Lm, x₀=[p.xm0, 0.0], domain_symbol=:Γm),
     ],
   )
 

@@ -18,9 +18,9 @@ HydroElasticFEM.Geometry.TankTriangulations
 
 ```@docs
 HydroElasticFEM.Geometry.TankDomain2D
-HydroElasticFEM.Geometry.StructureDomain1D
-HydroElasticFEM.Geometry.DampingZone1D
-HydroElasticFEM.Geometry.JointDomain1D
+HydroElasticFEM.Geometry.StructureDomain
+HydroElasticFEM.Geometry.DampingZone
+HydroElasticFEM.Geometry.JointDomain
 HydroElasticFEM.Geometry.build_model
 HydroElasticFEM.Geometry.build_triangulations
 HydroElasticFEM.Geometry.get_integration_domains
@@ -28,7 +28,7 @@ HydroElasticFEM.Geometry.get_integration_domains
 
 ## Setting up structural joints
 
-Joints are declared at the geometry level using `JointDomain1D` inside
+Joints are declared at the geometry level using `JointDomain` inside
 `TankDomain2D`, then automatically converted into skeleton triangulations and
 integration-domain keys by `build_triangulations` and `get_integration_domains`.
 
@@ -39,8 +39,8 @@ attached to the `EulerBernoulliBeam` via the same symbol keys.
 using HydroElasticFEM
 
 # ── 1. Geometry: beam at y = 1, x ∈ [0, 4] with a joint at x = 2 ──
-beam_dom = StructureDomain1D(L=4.0, x₀=[0.0, 1.0])
-joint    = JointDomain1D(
+beam_dom = StructureDomain(L=4.0, x₀=[0.0, 1.0])
+joint    = JointDomain(
     location      = [2.0, 1.0],   # joint position in 2D (must lie on the beam)
     domain_symbol = :dΛj_1,       # key for the skeleton Measure
     normal_symbol = :n_Λ_j_1,     # key for the skeleton normal
@@ -72,11 +72,11 @@ result  = simulate(problem)
 ```
 
 !!! tip
-    The `domain_symbol`/`normal_symbol` pair in `JointDomain1D` **must match**
+    The `domain_symbol`/`normal_symbol` pair in `JointDomain` **must match**
     those in the corresponding `JointRotationalSpring`.  Any mismatch will
     cause a `KeyError` at assembly time.
 
 !!! note
-    Multiple joints are supported — add one `JointDomain1D` per joint location
+    Multiple joints are supported — add one `JointDomain` per joint location
     to `joint_domains` and one `JointRotationalSpring` per joint to
     `EulerBernoulliBeam.joints`.  Each pair must use unique symbol names.

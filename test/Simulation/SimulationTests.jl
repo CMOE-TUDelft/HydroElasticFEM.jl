@@ -33,7 +33,7 @@ end
 
   order = 1
 
-  mem_domain = G.StructureDomain1D(L=20.0, x₀=[15.0, 10.0])
+  mem_domain = G.StructureDomain(L=20.0, x₀=[15.0, 10.0])
   tank = G.TankDomain2D(L=50.0, H=10.0, nx=20, ny=4,
       structure_domains=[mem_domain])
 
@@ -271,8 +271,8 @@ end
       nx=20,
       ny=4,
       damping_zones=[
-        G.DampingZone1D(L=5.0, x₀=[0.0, 10.0], domain_symbol=:Γ_d_in),
-        G.DampingZone1D(L=5.0, x₀=[45.0, 10.0], domain_symbol=:Γ_d_out),
+        G.DampingZone(L=5.0, x₀=[0.0, 10.0], domain_symbol=:Γ_d_in),
+        G.DampingZone(L=5.0, x₀=[45.0, 10.0], domain_symbol=:Γ_d_out),
       ],
     )
 

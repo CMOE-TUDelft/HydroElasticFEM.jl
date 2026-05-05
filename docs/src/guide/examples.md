@@ -26,7 +26,7 @@ DG weak form.  For an example of a **beam with rotational-spring joints**,
 see the [Setting up structural joints](@ref) section of the Geometry API
 reference, which walks through the end-to-end setup:
 
-1. Declare a `JointDomain1D` (location + symbol keys) inside `TankDomain2D`.
+1. Declare a `JointDomain` (location + symbol keys) inside `TankDomain2D`.
 2. Call `build_triangulations` and `get_integration_domains` — the joint
    skeleton facet and its measure/normal are built automatically.
 3. Pass a `JointRotationalSpring` (matching symbols + `kᵣ`) to
