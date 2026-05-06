@@ -17,7 +17,9 @@ HydroElasticFEM.Geometry.TankTriangulations
 ## Cartesian geometry
 
 ```@docs
+HydroElasticFEM.Geometry.TankDomain
 HydroElasticFEM.Geometry.TankDomain2D
+HydroElasticFEM.Geometry.TankDomain3D
 HydroElasticFEM.Geometry.StructureDomain
 HydroElasticFEM.Geometry.DampingZone
 HydroElasticFEM.Geometry.JointDomain
@@ -28,9 +30,10 @@ HydroElasticFEM.Geometry.get_integration_domains
 
 ## Setting up structural joints
 
-Joints are declared at the geometry level using `JointDomain` inside
-`TankDomain2D`, then automatically converted into skeleton triangulations and
-integration-domain keys by `build_triangulations` and `get_integration_domains`.
+Joints are declared at the geometry level using `JointDomain` inside a
+2D `TankDomain` (or `TankDomain2D`), then automatically converted into
+skeleton triangulations and integration-domain keys by
+`build_triangulations` and `get_integration_domains`.
 
 On the physics side, each joint maps one-to-one to a `JointRotationalSpring`
 attached to the `EulerBernoulliBeam` via the same symbol keys.
@@ -46,7 +49,7 @@ joint    = JointDomain(
     normal_symbol = :n_Λ_j_1,     # key for the skeleton normal
 )
 
-tank = TankDomain2D(
+tank = TankDomain(
     L=8.0, H=1.0, nx=80, ny=4,
     structure_domains = [beam_dom],
     joint_domains     = [joint],     # ← declare joint here

@@ -20,9 +20,9 @@ The package requires Julia ≥ 1.10 and depends on
 using HydroElasticFEM
 
 # 1. Define geometry
-domain = TankDomain2D(
-    Lx = 10.0, Lz = 1.0,
-    nx = 40,   nz = 10,
+domain = TankDomain(
+    L = 10.0, H = 1.0,
+    nx = 40,  ny = 10,
 )
 
 # 2. Define physics entities
@@ -45,6 +45,12 @@ tconfig = TimeConfig(Δt = 0.01, tf = 10.0,
 tdconfig = TimeDomainConfig()
 problem  = build_problem(domain, [fluid, fsurf], tdconfig; tconfig)
 result   = simulate(problem, tconfig)
+```
+
+For a 3D Cartesian setup, use:
+
+```julia
+domain3d = TankDomain(L = 10.0, W = 5.0, H = 1.0, nx = 20, ny = 10, nz = 4)
 ```
 
 ## Package layout

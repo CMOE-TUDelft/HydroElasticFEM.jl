@@ -5,7 +5,7 @@ Geometry, mesh construction, integration domains and field helpers.
 
 Provides:
 - `AbstractDomain`, `STANDARD_TAGS` — unified geometry interface
-- `TankDomain2D`, `StructureDomain`, `DampingZone` — Cartesian geometry
+- `TankDomain{D}`, `StructureDomain`, `DampingZone` — Cartesian geometry
 - `GmshDomain` — unstructured Gmsh mesh wrapper
 - `build_model`, `build_triangulations` — mesh construction
 - `IntegrationDomains` — dict-based container for Gridap measures/normals
@@ -33,8 +33,8 @@ Allows flexible access to triangulations by symbol keys.
 - `:Γbot` — Bottom boundary
 - `:Γin` — Inlet (left wall) boundary
 - `:Γout` — Outlet (right wall) boundary
-- `:Γ_structures` — `Vector`: one triangulation per structure domain, ordered as in `TankDomain2D.structure_domains`
-- `:Γ_dampings`   — `Vector`: one triangulation per damping zone, ordered as in `TankDomain2D.damping_zones`
+- `:Γ_structures` — `Vector`: one triangulation per structure domain, ordered as in `TankDomain{2}.structure_domains`
+- `:Γ_dampings`   — `Vector`: one triangulation per damping zone, ordered as in `TankDomain{2}.damping_zones`
 - `:Γfs` — Free surface: surface cells that belong to no structure and no damping zone
 - `:Γκ`  — Non-structure surface (free surface ∪ damping zones)
 - `:Γη`  — All-structure surface (union of all structure triangulations)
@@ -73,7 +73,7 @@ changing this type.
 - `:dΓin`, `:dΓout`  — inlet / outlet radiation boundaries
 - `:dΓd_1`, `:dΓd_2` — damping zone measures
 - `:δ_p`    — vector of DiracDelta functionals (resonator points)
-- `:dΛj_1`, `:n_Λ_j_1` — joint skeleton measures/normals (from `TankDomain2D.joint_domains`)
+- `:dΛj_1`, `:n_Λ_j_1` — joint skeleton measures/normals (from `TankDomain{2}.joint_domains`)
 """
 struct IntegrationDomains
     data::Dict{Symbol, Any}

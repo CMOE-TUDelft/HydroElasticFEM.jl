@@ -16,8 +16,8 @@ Variables:
 @with_kw struct StructureDomain
     L::Float64 = 1.0
     x₀::Vector{Float64} = [0.0, 1.0]
-        ambient_dim::Int = 2
-        manifold_dim::Int = 1
+    ambient_dim::Int = 2
+    manifold_dim::Int = 1
     domain_symbol::Symbol = :Γ_s
 end
 
@@ -41,8 +41,8 @@ Variables:
     L::Float64 = 0.5
     σ::Float64 = 1.0
     x₀::Vector{Float64} = [0.0, 1.0]
-        ambient_dim::Int = 2
-        manifold_dim::Int = 1
+    ambient_dim::Int = 2
+    manifold_dim::Int = 1
     domain_symbol::Symbol = :Γ_d
 end
 
@@ -53,7 +53,7 @@ Declares a rotational-spring joint located at a specific point on a 1D beam
 boundary embedded in the 2D tank mesh.
 
 `JointDomain` is purely a geometry-level descriptor.  After you add it to
-`TankDomain2D.joint_domains`, `build_triangulations` automatically builds the
+`TankDomain{2}.joint_domains`, `build_triangulations` automatically builds the
 corresponding Gridap skeleton sub-triangulation (one interior facet of
 `Skeleton(Γη)` whose centroid is closest to `location`).  Then
 `get_integration_domains` populates `IntegrationDomains` with the resulting
@@ -79,7 +79,7 @@ measure and outward normal, ready to be consumed by
 s1 = StructureDomain(L=1.0, x₀=[1.5, 1.0])
 j1 = JointDomain(location=[2.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
 
-tank = TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
+tank = TankDomain(L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[s1],
     joint_domains=[j1])
 model  = build_model(tank)
@@ -92,10 +92,10 @@ beam = EulerBernoulliBeam(L=1.0, mᵨ=0.5, EIᵨ=100.0,
 ```
 """
 @with_kw struct JointDomain
-        location::Vector{Float64}
-        domain_symbol::Symbol
-        normal_symbol::Symbol
-        tol::Float64 = 1.0e-6
+    location::Vector{Float64}
+    domain_symbol::Symbol
+    normal_symbol::Symbol
+    tol::Float64 = 1.0e-6
 end
 
 struct TankDomain{D, C, SZ, DZ, JZ} <: AbstractDomain
@@ -264,60 +264,39 @@ function _tank_legacy_dimensions(domain::TankDomain{3})
     )
 end
 
-function Base.getproperty(domain::TankDomain{2}, name::Symbol)
-    if name in (:L, :H, :nx, :ny, :map)
+_tank_legacy_property_names(::Val{2}) = (:L, :H, :nx, :ny, :map)
+_tank_legacy_property_names(::Val{3}) = (:L, :W, :H, :nx, :ny, :nz, :map)
+
+function _tank_public_property_names(::Val{D}) where {D}
+    (
+        :cartesian,
+        :structure_domains,
+        :damping_zones,
+        :joint_domains,
+        _tank_legacy_property_names(Val(D))...,
+    )
+end
+
+function Base.getproperty(domain::TankDomain{D}, name::Symbol) where {D}
+    if name in _tank_legacy_property_names(Val(D))
         return getproperty(_tank_legacy_dimensions(domain), name)
     end
     getfield(domain, name)
 end
 
-function Base.getproperty(domain::TankDomain{3}, name::Symbol)
-    if name in (:L, :W, :H, :nx, :ny, :nz, :map)
-        return getproperty(_tank_legacy_dimensions(domain), name)
-    end
-    getfield(domain, name)
-end
-
-function Base.propertynames(::TankDomain{2}, private::Bool = false)
-    public = (
-        :cartesian,
-        :structure_domains,
-        :damping_zones,
-        :joint_domains,
-        :L,
-        :H,
-        :nx,
-        :ny,
-        :map,
-    )
-    public
-end
-
-function Base.propertynames(::TankDomain{3}, private::Bool = false)
-    public = (
-        :cartesian,
-        :structure_domains,
-        :damping_zones,
-        :joint_domains,
-        :L,
-        :W,
-        :H,
-        :nx,
-        :ny,
-        :nz,
-        :map,
-    )
-    public
+function Base.propertynames(::TankDomain{D}, private::Bool = false) where {D}
+    _tank_public_property_names(Val(D))
 end
 
 """
-  build_model(domain::TankDomain{2})
+    build_model(domain::TankDomain{D})
 
-Build a `CartesianDiscreteModel` from the specifications in `domain`.
-The model is constructed on the rectangular domain defined by `L` and `H`,
-discretized into `nx` by `ny` elements.
+Build a `CartesianDiscreteModel` from the wrapped `CartesianDomain`.
+
+For `D=2`, the model spans `[0,L]×[0,H]` with `nx×ny` elements.
+For `D=3`, the model spans `[0,L]×[0,W]×[0,H]` with `nx×ny×nz` elements.
 """
-function build_model(domain::TankDomain{2})
+function build_model(domain::TankDomain{D}) where {D}
     build_model(_cartesian_domain(domain))
 end
 
@@ -806,18 +785,18 @@ function _label_tank_model!(model)
 end
 
 """
-    ambient_dimension(d::TankDomain{2}) -> Int
+    ambient_dimension(d::TankDomain{D}) -> Int
 
-Return 2: all `TankDomain{2}` problems live in a 2-D ambient space (x, z).
+Return the ambient dimension `D`.
 """
-ambient_dimension(::TankDomain{2}) = 2
+ambient_dimension(::TankDomain{D}) where {D} = D
 
 """
-    manifold_dimension(d::TankDomain{2}) -> Int
+    manifold_dimension(d::TankDomain{D}) -> Int
 
-Return 2: the fluid volume is a 2-D manifold.
+Return the manifold dimension `D` for volume meshes.
 """
-manifold_dimension(::TankDomain{2}) = 2
+manifold_dimension(::TankDomain{D}) where {D} = D
 
 """
     boundary_tags(d::TankDomain{2}) -> Dict{String, String}
@@ -830,6 +809,10 @@ coordinate masks in [`get_boundary`](@ref) and [`build_triangulations`](@ref)).
 """
 function boundary_tags(d::TankDomain{2})
   _tank_label_map()
+end
+
+function boundary_tags(d::TankDomain{D}) where {D}
+    boundary_tags(_cartesian_domain(d))
 end
 
 """
@@ -846,6 +829,10 @@ function triangulation(d::TankDomain{2})
   model = build_model(d)
   _label_tank_model!(model)
   Interior(model)
+end
+
+function triangulation(d::TankDomain{D}) where {D}
+        triangulation(_cartesian_domain(d))
 end
 
 """
@@ -892,96 +879,24 @@ function get_boundary(d::TankDomain{2}, name::String)
   Boundary(model, tags=lmap[name])
 end
 
-# ─────────────────────────────────────────────────────────────
-# TankDomain3D — structured 3D Cartesian rectangular tank
-# ─────────────────────────────────────────────────────────────
-
-"""
-    build_model(domain::TankDomain{3})
-
-Build a `CartesianDiscreteModel` from the specifications in `domain`.
-The model spans `[0,L]×[0,W]×[0,H]` with `nx × ny × nz` elements.
-"""
-function build_model(domain::TankDomain{3})
-    build_model(_cartesian_domain(domain))
-end
-
-"""
-        build_triangulations(domain::TankDomain{3}, model) -> TankTriangulations
-
-Label the 3D model, extract sub-triangulations for each standard boundary
-face via coordinate masks, and return a `TankTriangulations` container.
-
-Boundary faces are identified by cell centroid coordinates:
-- `free_surface` : z = H
-- `seabed`       : z = 0
-- `inlet`        : x = 0
-- `outlet`       : x = L
-- `lateral_walls`: y = 0 or y = W
-- `structure`    : empty (no structure in basic 3D tank)
-"""
-function build_triangulations(domain::TankDomain{3}, model)
-    d = _cartesian_domain(domain)
-    _cartesian_boundary_triangulations(Val(3), model, d.mins, d.maxs)
-end
-
-# ─────────────────────────────────────────────────────────────
-# AbstractDomain interface for TankDomain{3}
-# ─────────────────────────────────────────────────────────────
-
-"""
-        ambient_dimension(d::TankDomain{3}) -> Int
-
-Return 3: all `TankDomain{3}` problems live in a 3-D ambient space (x, y, z).
-"""
-ambient_dimension(::TankDomain{3}) = 3
-
-"""
-        manifold_dimension(d::TankDomain{3}) -> Int
-
-Return 3: the fluid volume is a 3-D manifold.
-"""
-manifold_dimension(::TankDomain{3}) = 3
-
-"""
-        boundary_tags(d::TankDomain{3}) -> Dict{String, String}
-
-Return a dictionary mapping each [`STANDARD_TAGS`](@ref) name to a
-descriptive string for the 3D Cartesian tank.  The `"structure"` key maps
-to `"structure"` (always empty for `TankDomain{3}`); the extra key
-`"lateral_walls"` maps to `"lateral_walls"`.
-"""
-function boundary_tags(d::TankDomain{3})
-    boundary_tags(_cartesian_domain(d))
-end
-
-"""
-        triangulation(d::TankDomain{3}) -> Triangulation
-
-Build the Cartesian discrete model from `d` and return the bulk-fluid
-interior triangulation `Ω`.
-
-Note: this method constructs a fresh `CartesianDiscreteModel` every call.
-For performance-critical code use [`build_model`](@ref) /
-[`build_triangulations`](@ref) directly.
-"""
-function triangulation(d::TankDomain{3})
-    triangulation(_cartesian_domain(d))
-end
-
-"""
-        get_boundary(d::TankDomain{3}, name::String) -> Triangulation
-
-Return the sub-triangulation for the standard region `name`.
-
-Supported names: all six [`STANDARD_TAGS`](@ref) plus `"lateral_walls"`.
-
-For `"fluid"` the interior triangulation is returned.
-For `"structure"` an empty sub-triangulation is returned.
-
-Note: builds a fresh model on each call; use [`build_triangulations`](@ref)
-when multiple boundaries are needed.
-"""
-function get_boundary(d::TankDomain{3}, name::String)
+function get_boundary(d::TankDomain{D}, name::String) where {D}
     get_boundary(_cartesian_domain(d), name)
+end
+
+# ─────────────────────────────────────────────────────────────
+# Generic D-dimensional tank triangulations (Cartesian fallback)
+# ─────────────────────────────────────────────────────────────
+
+"""
+    build_triangulations(domain::TankDomain{D}, model) -> TankTriangulations
+
+Cartesian fallback for `TankDomain{D}`.
+
+For dimensions where no explicit `TankDomain{D}` specialization exists, this
+delegates to `_cartesian_boundary_triangulations(Val(D), ...)` using the
+wrapped [`CartesianDomain`](@ref).
+"""
+function build_triangulations(domain::TankDomain{D}, model) where {D}
+    d = _cartesian_domain(domain)
+    _cartesian_boundary_triangulations(Val(D), model, d.mins, d.maxs)
 end
