@@ -159,6 +159,33 @@ function _centroid(xs)
     (1 / n) * sum(xs)
 end
 
+_always_false_mask() = xs -> false
+
+function _centroid_axis_eq_mask(axis::Int, value; tol = 1.0e-10)
+    xs -> abs(_centroid(xs)[axis] - value) < tol
+end
+
+function _centroid_axis_either_eq_mask(axis::Int, value_a, value_b; tol = 1.0e-10)
+    return function (xs)
+        c = _centroid(xs)
+        abs(c[axis] - value_a) < tol || abs(c[axis] - value_b) < tol
+    end
+end
+
+function _surface_zone_mask(x0, L, ambient_dim::Int, manifold_dim::Int)
+    return function (xs)
+        c = _centroid(xs)
+        in_plane = all(x0[i] <= c[i] <= x0[i] + L for i in 1:manifold_dim)
+        on_surface = all(c[i] ≈ x0[i] for i in (manifold_dim + 1):ambient_dim)
+        in_plane && on_surface
+    end
+end
+
+function _surface_zone_mask(zone)
+    _check_surface_zone(zone)
+    _surface_zone_mask(zone.x₀, zone.L, zone.ambient_dim, zone.manifold_dim)
+end
+
 """
     surface_mask(zone::StructureDomain) -> Function
 
@@ -170,16 +197,7 @@ belong to `[x₀[i], x₀[i]+L]`. Remaining ambient coordinates are constrained 
 `x₀[i]` using approximate equality.
 """
 function surface_mask(zone::StructureDomain)
-    _check_surface_zone(zone)
-    x0 = zone.x₀
-    ambient_dim = zone.ambient_dim
-    manifold_dim = zone.manifold_dim
-    return function (xs)
-        c = _centroid(xs)
-        in_plane = all(x0[i] <= c[i] <= x0[i] + zone.L for i in 1:manifold_dim)
-        on_surface = all(c[i] ≈ x0[i] for i in (manifold_dim + 1):ambient_dim)
-        in_plane && on_surface
-    end
+    _surface_zone_mask(zone)
 end
 
 """
@@ -193,16 +211,7 @@ belong to `[x₀[i], x₀[i]+L]`. Remaining ambient coordinates are constrained 
 `x₀[i]` using approximate equality.
 """
 function surface_mask(zone::DampingZone)
-    _check_surface_zone(zone)
-    x0 = zone.x₀
-    ambient_dim = zone.ambient_dim
-    manifold_dim = zone.manifold_dim
-    return function (xs)
-        c = _centroid(xs)
-        in_plane = all(x0[i] <= c[i] <= x0[i] + zone.L for i in 1:manifold_dim)
-        on_surface = all(c[i] ≈ x0[i] for i in (manifold_dim + 1):ambient_dim)
-        in_plane && on_surface
-    end
+    _surface_zone_mask(zone)
 end
 
 function _check_surface_zone(zone)
@@ -248,6 +257,136 @@ end
 # Triangulations
 # ─────────────────────────────────────────────────────────────
 
+function _unique_domain_symbols(zones, kind)
+    syms = [z.domain_symbol for z in zones]
+    seen = Set{Symbol}()
+    for sym in syms
+        if sym in seen
+            error("Duplicate domain_symbol :$sym found in $kind. Each $(kind == "structure_domains" ? "structure" : "damping zone") must have a unique domain_symbol.")
+        end
+        push!(seen, sym)
+    end
+    syms
+end
+
+function _partition_surface_zones(Γ, xΓ, zones, kind)
+    syms = _unique_domain_symbols(zones, kind)
+    bits = [lazy_map(surface_mask(z), xΓ) for z in zones]
+    trians = Any[Triangulation(Γ, findall(b)) for b in bits]
+    return (triangulations = trians, symbols = syms, bits = bits)
+end
+
+function _partition_surface_by_zones(Γ, xΓ, structure_zones, damping_zones)
+    structures = _partition_surface_zones(Γ, xΓ, structure_zones, "structure_domains")
+    dampings = _partition_surface_zones(Γ, xΓ, damping_zones, "damping_zones")
+
+    n = length(xΓ)
+    any_structure = _or_bits(structures.bits, n)
+    any_damping = _or_bits(dampings.bits, n)
+    any_zone = any_structure .| any_damping
+
+    return (
+        structures = structures,
+        dampings = dampings,
+        Γfs = Triangulation(Γ, findall(!, any_zone)),
+        Γκ = Triangulation(Γ, findall(!, any_structure)),
+        Γη = Triangulation(Γ, findall(any_structure)),
+        any_structure = any_structure,
+    )
+end
+
+function _partition_joint_skeletons(Γη, joints)
+    if isempty(joints)
+        return (Λη = nothing, Λ_joints = Any[], symbols = Symbol[])
+    end
+
+    Λη = Skeleton(Γη)
+    xΛη = get_cell_coordinates(Λη)
+    joint_bits_all = falses(length(xΛη))
+    non_joint_bits = trues(length(xΛη))
+    Λ_joints = Any[]
+    joint_domain_syms = Symbol[]
+    seen_joint_domain_syms = Set{Symbol}()
+    seen_joint_normal_syms = Set{Symbol}()
+
+    for joint in joints
+        if joint.domain_symbol in seen_joint_domain_syms
+            error("Duplicate joint domain_symbol :$(joint.domain_symbol) found in joint_domains. Each joint must have a unique domain_symbol.")
+        end
+        if joint.normal_symbol in seen_joint_normal_syms
+            error("Duplicate joint normal_symbol :$(joint.normal_symbol) found in joint_domains. Each joint must have a unique normal_symbol.")
+        end
+        push!(seen_joint_domain_syms, joint.domain_symbol)
+        push!(seen_joint_normal_syms, joint.normal_symbol)
+
+        bits = lazy_map(joint_mask(joint), xΛη)
+        joint_idxs = findall(bits)
+        if isempty(joint_idxs)
+            error("Joint at location $(joint.location) did not match any structure skeleton cell. Check location and tolerance.")
+        end
+
+        overlap_bits = joint_bits_all .& bits
+        if any(overlap_bits)
+            overlap_idxs = findall(overlap_bits)
+            error("Joint domain_symbol :$(joint.domain_symbol) overlaps previously assigned joint skeleton facet(s) at index/indices $(overlap_idxs). Each skeleton facet may belong to at most one joint.")
+        end
+
+        joint_bits_all .= joint_bits_all .| bits
+        non_joint_bits .= non_joint_bits .& .!bits
+        push!(Λ_joints, Triangulation(Λη, joint_idxs))
+        push!(joint_domain_syms, joint.domain_symbol)
+    end
+
+    Λη_no_joints = Triangulation(Λη, findall(non_joint_bits))
+    if (num_cells(Λη_no_joints) + count(joint_bits_all)) != length(xΛη)
+        error("Joint/non-joint skeleton partition is inconsistent for Γη.")
+    end
+
+    return (Λη = Λη_no_joints, Λ_joints = Λ_joints, symbols = joint_domain_syms)
+end
+
+function _add_triangulations_by_symbol!(trian_dict, symbols, trians, label)
+    for (sym, tri) in zip(symbols, trians)
+        if haskey(trian_dict, sym)
+            error("domain_symbol :$sym for $label triangulation would overwrite an existing triangulation key in TankTriangulations. All keys must be unique.")
+        end
+        trian_dict[sym] = tri
+    end
+    trian_dict
+end
+
+function _tank_triangulation_dict(;
+    Ω,
+    Γ,
+    Γbot,
+    Γin,
+    Γout,
+    Γ_structures,
+    Γ_dampings,
+    Γfs,
+    Γκ,
+    Γη,
+    Λη,
+    Λ_joints,
+    joint_domains,
+)
+    Dict{Symbol, Any}(
+        :Ω => Ω,
+        :Γ => Γ,
+        :Γbot => Γbot,
+        :Γin => Γin,
+        :Γout => Γout,
+        :Γ_structures => Γ_structures,
+        :Γ_dampings => Γ_dampings,
+        :Γfs => Γfs,
+        :Γκ => Γκ,
+        :Γη => Γη,
+        :Λη => Λη,
+        :Λ_joints => Λ_joints,
+        :joint_domains => joint_domains,
+    )
+end
+
 """
     build_triangulations(domain::TankDomain2D, model) -> TankTriangulations
 
@@ -267,12 +406,7 @@ Labelling convention (Cartesian 2D, entity ids):
 """
 function build_triangulations(domain::TankDomain2D, model)
     # — Label model faces ————————————————————————————————
-    labels = get_face_labeling(model)
-    add_tag_from_tags!(labels, "surface", [3, 4, 6])
-    add_tag_from_tags!(labels, "bottom",  [1, 2, 5])
-    add_tag_from_tags!(labels, "inlet",   [7])
-    add_tag_from_tags!(labels, "outlet",  [8])
-    add_tag_from_tags!(labels, "water",   [9])
+    _label_tank_model!(model)
 
     # — Base triangulations ——————————————————————————————
     Ω    = Interior(model)
@@ -283,152 +417,64 @@ function build_triangulations(domain::TankDomain2D, model)
 
     # — Build boolean masks on surface cell coordinates ——
     xΓ = get_cell_coordinates(Γ)
-    smasks, dmasks = surface_masks(domain)
-
-    s_bits = [lazy_map(m, xΓ) for m in smasks]  # per-structure
-    d_bits = [lazy_map(m, xΓ) for m in dmasks]  # per-damping
-
-    # Build structure triangulations and map to their domain_symbol
-    Γ_structures = Vector{Any}(undef, length(s_bits))
-    structure_syms = Symbol[]
-    structure_trians = Dict{Symbol, Any}()
-    seen_structure_syms = Set{Symbol}()
-    for (i, b) in enumerate(s_bits)
-        tri = Triangulation(Γ, findall(b))
-        Γ_structures[i] = tri
-        sym = domain.structure_domains[i].domain_symbol
-        if sym in seen_structure_syms
-            error("Duplicate domain_symbol :$sym found in structure_domains. Each structure must have a unique domain_symbol.")
-        end
-        push!(seen_structure_syms, sym)
-        structure_trians[sym] = tri
-        push!(structure_syms, sym)
-    end
-
-    # Damping triangulations and map to their domain_symbol
-    Γ_dampings = Vector{Any}(undef, length(d_bits))
-    damping_syms = Symbol[]
-    damping_trians = Dict{Symbol, Any}()
-    seen_damping_syms = Set{Symbol}()
-    for (i, b) in enumerate(d_bits)
-        tri = Triangulation(Γ, findall(b))
-        Γ_dampings[i] = tri
-        sym = domain.damping_zones[i].domain_symbol
-        if sym in seen_damping_syms
-            error("Duplicate domain_symbol :$sym found in damping_zones. Each damping zone must have a unique domain_symbol.")
-        end
-        push!(seen_damping_syms, sym)
-        damping_trians[sym] = tri
-        push!(damping_syms, sym)
-    end
-
-    # — Composed masks ——————————————————————————————————
-    n = length(xΓ)
-    any_structure = _or_bits(s_bits, n)
-    any_damping   = _or_bits(d_bits, n)
-    any_zone      = any_structure .| any_damping
-
-    # Free surface = surface cells in no zone at all
-    Γfs = Triangulation(Γ, findall(!, any_zone))
-    # κ surface = everything except structures (free surface + damping)
-    Γκ  = Triangulation(Γ, findall(!, any_structure))
-    # η surface = all structures
-    Γη  = Triangulation(Γ, findall(any_structure))
+    surface_partition = _partition_surface_by_zones(
+        Γ,
+        xΓ,
+        domain.structure_domains,
+        domain.damping_zones,
+    )
+    Γfs = surface_partition.Γfs
+    Γκ = surface_partition.Γκ
+    Γη = surface_partition.Γη
 
     if !isempty(domain.joint_domains) && isempty(domain.structure_domains)
         error("Joint domains require at least one structure domain in TankDomain2D.")
     end
 
     # Joint skeleton triangulations from the structure skeleton
-    Λ_joints = Any[]
-    Λη_no_joints = nothing
-    joint_domain_syms = Symbol[]
     if !isempty(domain.joint_domains)
-        Λη = Skeleton(Γη)
-        xΛη = get_cell_coordinates(Λη)
-        joint_bits_all = falses(length(xΛη))
-        non_joint_bits = trues(length(xΛη))
-        seen_joint_domain_syms = Set{Symbol}()
-        seen_joint_normal_syms = Set{Symbol}()
-        for joint in domain.joint_domains
-            if joint.domain_symbol in seen_joint_domain_syms
-                error("Duplicate joint domain_symbol :$(joint.domain_symbol) found in joint_domains. Each joint must have a unique domain_symbol.")
-            end
-            if joint.normal_symbol in seen_joint_normal_syms
-                error("Duplicate joint normal_symbol :$(joint.normal_symbol) found in joint_domains. Each joint must have a unique normal_symbol.")
-            end
-            push!(seen_joint_domain_syms, joint.domain_symbol)
-            push!(seen_joint_normal_syms, joint.normal_symbol)
-
-            bits = lazy_map(joint_mask(joint), xΛη)
-            joint_idxs = findall(bits)
-            if isempty(joint_idxs)
-                error("Joint at location $(joint.location) did not match any structure skeleton cell. Check location and tolerance.")
-            end
-
-            overlap_bits = joint_bits_all .& bits
-            if any(overlap_bits)
-                overlap_idxs = findall(overlap_bits)
-                error("Joint domain_symbol :$(joint.domain_symbol) overlaps previously assigned joint skeleton facet(s) at index/indices $(overlap_idxs). Each skeleton facet may belong to at most one joint.")
-            end
-
-            joint_bits_all .= joint_bits_all .| bits
-            non_joint_bits .= non_joint_bits .& .!bits
-            Λj = Triangulation(Λη, joint_idxs)
-            push!(Λ_joints, Λj)
-            push!(joint_domain_syms, joint.domain_symbol)
-        end
-
-        # Beam DG skeleton excludes joint facets via the complementary mask
-        # to avoid double counting with explicit rotational-spring terms.
-        Λη_no_joints = Triangulation(Λη, findall(non_joint_bits))
-
-        # Partition sanity check: non-joint + joint facets must cover Λη.
-        if (num_cells(Λη_no_joints) + count(joint_bits_all)) != length(xΛη)
-            error("Joint/non-joint skeleton partition is inconsistent for Γη.")
-        end
+        joint_partition = _partition_joint_skeletons(Γη, domain.joint_domains)
     elseif !isempty(domain.structure_domains)
         # No joints: use full structure skeleton.
-        Λη_no_joints = Skeleton(Γη)
+        joint_partition = (Λη = Skeleton(Γη), Λ_joints = Any[], symbols = Symbol[])
+    else
+        joint_partition = (Λη = nothing, Λ_joints = Any[], symbols = Symbol[])
     end
 
     # Compose dictionary for TankTriangulations
-    trian_dict = Dict(
-        :Ω => Ω,
-        :Γ => Γ,
-        :Γbot => Γbot,
-        :Γin => Γin,
-        :Γout => Γout,
-        :Γ_structures => Γ_structures,
-        :Γ_dampings => Γ_dampings,
-        :Γfs => Γfs,
-        :Γκ => Γκ,
-        :Γη => Γη,
-        :Λη => Λη_no_joints,
-        :Λ_joints => Λ_joints,
-        :joint_domains => domain.joint_domains,
+    trian_dict = _tank_triangulation_dict(
+        Ω = Ω,
+        Γ = Γ,
+        Γbot = Γbot,
+        Γin = Γin,
+        Γout = Γout,
+        Γ_structures = surface_partition.structures.triangulations,
+        Γ_dampings = surface_partition.dampings.triangulations,
+        Γfs = Γfs,
+        Γκ = Γκ,
+        Γη = Γη,
+        Λη = joint_partition.Λη,
+        Λ_joints = joint_partition.Λ_joints,
+        joint_domains = domain.joint_domains,
     )
-    # Add each structure triangulation under its domain_symbol, error if duplicate
-    for sym in structure_syms
-        if haskey(trian_dict, sym)
-            error("domain_symbol :$sym for structure triangulation would overwrite an existing triangulation key in TankTriangulations. All keys must be unique.")
-        end
-        trian_dict[sym] = structure_trians[sym]
-    end
-    # Add each damping triangulation under its domain_symbol, error if duplicate
-    for sym in damping_syms
-        if haskey(trian_dict, sym)
-            error("domain_symbol :$sym for damping triangulation would overwrite an existing triangulation key in TankTriangulations. All keys must be unique.")
-        end
-        trian_dict[sym] = damping_trians[sym]
-    end
-    # Add each joint skeleton triangulation under its domain_symbol, error if duplicate
-    for (i, sym) in enumerate(joint_domain_syms)
-        if haskey(trian_dict, sym)
-            error("domain_symbol :$sym for joint triangulation would overwrite an existing triangulation key in TankTriangulations. All keys must be unique.")
-        end
-        trian_dict[sym] = Λ_joints[i]
-    end
+    _add_triangulations_by_symbol!(
+        trian_dict,
+        surface_partition.structures.symbols,
+        surface_partition.structures.triangulations,
+        "structure",
+    )
+    _add_triangulations_by_symbol!(
+        trian_dict,
+        surface_partition.dampings.symbols,
+        surface_partition.dampings.triangulations,
+        "damping",
+    )
+    _add_triangulations_by_symbol!(
+        trian_dict,
+        joint_partition.symbols,
+        joint_partition.Λ_joints,
+        "joint",
+    )
     return TankTriangulations(trian_dict)
 end
 
@@ -662,10 +708,8 @@ function get_boundary(d::TankDomain2D, name::String)
       return Triangulation(Γ, Int[])
     end
     xΓ = get_cell_coordinates(Γ)
-    smasks, _ = surface_masks(d)
-    n = length(xΓ)
-    any_structure = _or_bits([lazy_map(m, xΓ) for m in smasks], n)
-    return Triangulation(Γ, findall(any_structure))
+    structures = _partition_surface_zones(Γ, xΓ, d.structure_domains, "structure_domains")
+    return Triangulation(Γ, findall(_or_bits(structures.bits, length(xΓ))))
   end
 
   Boundary(model, tags=lmap[name])
@@ -734,34 +778,18 @@ lies on the named face of the 3D tank.  `name` must be one of:
 `"structure"`.
 """
 function _face_mask_3d(d::TankDomain3D, name::String)
-    tol = 1.0e-10
     if name == "free_surface"
-        return xs -> begin
-            c = _centroid(xs)
-            abs(c[3] - d.H) < tol
-        end
+        return _centroid_axis_eq_mask(3, d.H)
     elseif name == "seabed"
-        return xs -> begin
-            c = _centroid(xs)
-            abs(c[3] - 0.0) < tol
-        end
+        return _centroid_axis_eq_mask(3, 0.0)
     elseif name == "inlet"
-        return xs -> begin
-            c = _centroid(xs)
-            abs(c[1] - 0.0) < tol
-        end
+        return _centroid_axis_eq_mask(1, 0.0)
     elseif name == "outlet"
-        return xs -> begin
-            c = _centroid(xs)
-            abs(c[1] - d.L) < tol
-        end
+        return _centroid_axis_eq_mask(1, d.L)
     elseif name == "lateral_walls"
-        return xs -> begin
-            c = _centroid(xs)
-            abs(c[2] - 0.0) < tol || abs(c[2] - d.W) < tol
-        end
+        return _centroid_axis_either_eq_mask(2, 0.0, d.W)
     elseif name == "structure"
-        return xs -> false  # no structure in plain TankDomain3D
+        return _always_false_mask()  # no structure in plain TankDomain3D
     else
         error("Unknown 3D face name: \"$name\"")
     end

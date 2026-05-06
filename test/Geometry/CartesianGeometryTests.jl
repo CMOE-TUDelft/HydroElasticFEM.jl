@@ -60,6 +60,19 @@ end
   @test mask([VectorValue(0.6, 1.0), VectorValue(0.8, 1.0)]) == false
 end
 
+@testset "surface_mask - shared centroid semantics" begin
+  # Structure and damping zones use the same centroid-based surface-zone mask.
+  structure = G.StructureDomain(L=1.0, x₀=[1.0, 1.0])
+  damping = G.DampingZone(L=1.0, x₀=[1.0, 1.0])
+  cell_inside_by_centroid = [VectorValue(0.75, 1.0), VectorValue(1.75, 1.0)]
+  cell_outside_by_centroid = [VectorValue(0.0, 1.0), VectorValue(1.0, 1.0)]
+
+  @test G.surface_mask(structure)(cell_inside_by_centroid)
+  @test G.surface_mask(damping)(cell_inside_by_centroid)
+  @test !G.surface_mask(structure)(cell_outside_by_centroid)
+  @test !G.surface_mask(damping)(cell_outside_by_centroid)
+end
+
 @testset "surface_masks - full domain" begin
   s1 = G.StructureDomain(L=1.0, x₀=[2.0, 1.0])
   s2 = G.StructureDomain(L=1.5, x₀=[5.0, 1.0])
@@ -125,6 +138,39 @@ end
   # Each damping zone gets 5 cells (0.5 / 0.1)
   @test num_cells(trian[:Γ_dampings][1]) == 5
   @test num_cells(trian[:Γ_dampings][2]) == 5
+end
+
+@testset "build_triangulations — symbol collision checks" begin
+  s1 = G.StructureDomain(L=0.5, x₀=[1.0, 1.0], domain_symbol=:Γ_same)
+  s2 = G.StructureDomain(L=0.5, x₀=[2.0, 1.0], domain_symbol=:Γ_same)
+  duplicate_structures = G.TankDomain2D(
+    L=4.0, H=1.0, nx=40, ny=4,
+    structure_domains=[s1, s2],
+  )
+  @test_throws ErrorException G.build_triangulations(
+    duplicate_structures,
+    G.build_model(duplicate_structures),
+  )
+
+  d1 = G.DampingZone(L=0.5, x₀=[0.0, 1.0], domain_symbol=:Γ_same)
+  d2 = G.DampingZone(L=0.5, x₀=[3.5, 1.0], domain_symbol=:Γ_same)
+  duplicate_dampings = G.TankDomain2D(
+    L=4.0, H=1.0, nx=40, ny=4,
+    damping_zones=[d1, d2],
+  )
+  @test_throws ErrorException G.build_triangulations(
+    duplicate_dampings,
+    G.build_model(duplicate_dampings),
+  )
+
+  reserved_symbol = G.TankDomain2D(
+    L=4.0, H=1.0, nx=40, ny=4,
+    structure_domains=[G.StructureDomain(L=1.0, x₀=[1.5, 1.0], domain_symbol=:Γfs)],
+  )
+  @test_throws ErrorException G.build_triangulations(
+    reserved_symbol,
+    G.build_model(reserved_symbol),
+  )
 end
 
 @testset "build_triangulations — no structures or damping" begin

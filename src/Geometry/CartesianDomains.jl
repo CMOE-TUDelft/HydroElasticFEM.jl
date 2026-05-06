@@ -105,20 +105,17 @@ function _face_mask(
   tol = 1.0e-10
   iz = _vertical_axis(Val(D))
   if name == "free_surface"
-    return xs -> abs(_centroid(xs)[iz] - d.maxs[iz]) < tol
+    return _centroid_axis_eq_mask(iz, d.maxs[iz]; tol = tol)
   elseif name == "seabed"
-    return xs -> abs(_centroid(xs)[iz] - d.mins[iz]) < tol
+    return _centroid_axis_eq_mask(iz, d.mins[iz]; tol = tol)
   elseif name == "inlet"
-    return xs -> abs(_centroid(xs)[1] - d.mins[1]) < tol
+    return _centroid_axis_eq_mask(1, d.mins[1]; tol = tol)
   elseif name == "outlet"
-    return xs -> abs(_centroid(xs)[1] - d.maxs[1]) < tol
+    return _centroid_axis_eq_mask(1, d.maxs[1]; tol = tol)
   elseif name == "structure"
-    return xs -> false
+    return _always_false_mask()
   elseif D == 3 && name == "lateral_walls"
-    return xs -> begin
-      c = _centroid(xs)
-      abs(c[2] - d.mins[2]) < tol || abs(c[2] - d.maxs[2]) < tol
-    end
+    return _centroid_axis_either_eq_mask(2, d.mins[2], d.maxs[2]; tol = tol)
   else
     error("Unknown boundary tag \"$name\" for CartesianDomain{$D}")
   end
@@ -265,27 +262,15 @@ boundary_tags(d::CartesianDomain3D) = d.tags
 function _surface_mask_3d(d::CartesianDomain3D, name::String)
   tol = 1.0e-10
   if name == "surface" || name == "free_surface"
-    return xs -> begin
-      c = _centroid(xs)
-      abs(c[3] - d.H) < tol
-    end
+    return _centroid_axis_eq_mask(3, d.H; tol = tol)
   elseif name == "seabed"
-    return xs -> begin
-      c = _centroid(xs)
-      abs(c[3] - 0.0) < tol
-    end
+    return _centroid_axis_eq_mask(3, 0.0; tol = tol)
   elseif name == "inlet"
-    return xs -> begin
-      c = _centroid(xs)
-      abs(c[1] - 0.0) < tol
-    end
+    return _centroid_axis_eq_mask(1, 0.0; tol = tol)
   elseif name == "outlet"
-    return xs -> begin
-      c = _centroid(xs)
-      abs(c[1] - d.LΩ) < tol
-    end
+    return _centroid_axis_eq_mask(1, d.LΩ; tol = tol)
   elseif name == "structure"
-    return xs -> false
+    return _always_false_mask()
   else
     error("Unknown boundary name \"$name\" for CartesianDomain3D")
   end
