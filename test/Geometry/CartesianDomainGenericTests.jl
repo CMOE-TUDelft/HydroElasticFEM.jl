@@ -18,6 +18,15 @@ import HydroElasticFEM.Geometry as G
   @test num_cells(Γfs) == 20
   @test num_cells(Γin) == 4
   @test num_cells(Γout) == 4
+  @test_throws ErrorException G.get_boundary(d2, "surface")
+
+  trians = G.build_triangulations(d2, G.build_model(d2))
+  @test num_cells(trians[:Ω]) == 20 * 4
+  @test num_cells(trians[:Γfs]) == 20
+  @test num_cells(trians[:Γin]) == 4
+  @test num_cells(trians[:Γout]) == 4
+  @test num_cells(trians[:Γη]) == 0
+  @test !haskey(trians, :Γlateral)
 end
 
 @testset "CartesianDomain generic 3D" begin
@@ -34,4 +43,51 @@ end
 
   @test num_cells(Γfs) == 8 * 3
   @test num_cells(Γlat) == 2 * 8 * 2
+
+  trians = G.build_triangulations(d3, G.build_model(d3))
+  @test num_cells(trians[:Ω]) == 8 * 3 * 2
+  @test num_cells(trians[:Γfs]) == 8 * 3
+  @test num_cells(trians[:Γin]) == 3 * 2
+  @test num_cells(trians[:Γout]) == 3 * 2
+  @test num_cells(trians[:Γbot]) == 8 * 3
+  @test num_cells(trians[:Γlateral]) == 2 * 8 * 2
+  @test num_cells(trians[:Γη]) == 0
+end
+
+@testset "TankDomain3D delegates to generic Cartesian path" begin
+  tank = G.TankDomain3D(L = 8.0, W = 3.0, H = 2.0, nx = 8, ny = 3, nz = 2)
+
+  @test G.ambient_dimension(tank) == 3
+  @test G.manifold_dimension(tank) == 3
+  @test G.boundary_tags(tank) == G.boundary_tags(
+    G.CartesianDomain(L = 8.0, W = 3.0, H = 2.0, nx = 8, ny = 3, nz = 2),
+  )
+
+  Γfs = G.get_boundary(tank, "free_surface")
+  Γlat = G.get_boundary(tank, "lateral_walls")
+  @test num_cells(Γfs) == 8 * 3
+  @test num_cells(Γlat) == 2 * 8 * 2
+
+  trians = G.build_triangulations(tank, G.build_model(tank))
+  @test num_cells(trians[:Ω]) == 8 * 3 * 2
+  @test num_cells(trians[:Γfs]) == 8 * 3
+  @test num_cells(trians[:Γlateral]) == 2 * 8 * 2
+  @test num_cells(trians[:Γη]) == 0
+end
+
+@testset "CartesianDomain3D benchmark wrapper uses structured boundaries" begin
+  d = G.CartesianDomain3D(LΩ = 8.0, BΩ = 3.0, H = 2.0, nx_total = 8, ny_total = 3, nz = 2)
+
+  @test G.ambient_dimension(d) == 3
+  @test G.manifold_dimension(d) == 3
+  @test haskey(G.boundary_tags(d), "lateral_walls")
+
+  @test num_cells(G.get_boundary(d, "surface")) == 8 * 3
+  @test num_cells(G.get_boundary(d, "free_surface")) == 8 * 3
+  @test num_cells(G.get_boundary(d, "lateral_walls")) == 2 * 8 * 2
+
+  trians = G.build_triangulations(d, G.build_model(d))
+  @test num_cells(trians[:Ω]) == 8 * 3 * 2
+  @test num_cells(trians[:Γfs]) == 8 * 3
+  @test num_cells(trians[:Γlateral]) == 2 * 8 * 2
 end

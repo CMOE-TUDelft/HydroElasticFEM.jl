@@ -69,7 +69,7 @@ end
 ambient_dimension(::CartesianDomain{D}) where {D} = D
 manifold_dimension(::CartesianDomain{D}) where {D} = D
 
-function boundary_tags(::CartesianDomain{2})
+function _cartesian_boundary_tags(::Val{2})
   Dict{String, String}(
     "fluid" => "fluid",
     "free_surface" => "free_surface",
@@ -80,7 +80,7 @@ function boundary_tags(::CartesianDomain{2})
   )
 end
 
-function boundary_tags(::CartesianDomain{3})
+function _cartesian_boundary_tags(::Val{3})
   Dict{String, String}(
     "fluid" => "fluid",
     "free_surface" => "free_surface",
@@ -92,59 +92,128 @@ function boundary_tags(::CartesianDomain{3})
   )
 end
 
+boundary_tags(::CartesianDomain{D}) where {D} = _cartesian_boundary_tags(Val(D))
+
 triangulation(d::CartesianDomain) = Interior(build_model(d))
 
 _vertical_axis(::Val{2}) = 2
 _vertical_axis(::Val{3}) = 3
 
+_cartesian_valid_tags(::Val{2}) = STANDARD_TAGS
+_cartesian_valid_tags(::Val{3}) = vcat(STANDARD_TAGS, ["lateral_walls"])
+
+_normalize_cartesian_tag(::Val{2}, name::String) = name
+_normalize_cartesian_tag(::Val{3}, name::String) =
+  name == "surface" ? "free_surface" : name
+
 function _face_mask(
   ::Val{D},
-  d::CartesianDomain{D},
+  mins::NTuple{D, Float64},
+  maxs::NTuple{D, Float64},
   name::String,
 ) where {D}
   tol = 1.0e-10
   iz = _vertical_axis(Val(D))
   if name == "free_surface"
-    return _centroid_axis_eq_mask(iz, d.maxs[iz]; tol = tol)
+    return _centroid_axis_eq_mask(iz, maxs[iz]; tol = tol)
   elseif name == "seabed"
-    return _centroid_axis_eq_mask(iz, d.mins[iz]; tol = tol)
+    return _centroid_axis_eq_mask(iz, mins[iz]; tol = tol)
   elseif name == "inlet"
-    return _centroid_axis_eq_mask(1, d.mins[1]; tol = tol)
+    return _centroid_axis_eq_mask(1, mins[1]; tol = tol)
   elseif name == "outlet"
-    return _centroid_axis_eq_mask(1, d.maxs[1]; tol = tol)
+    return _centroid_axis_eq_mask(1, maxs[1]; tol = tol)
   elseif name == "structure"
     return _always_false_mask()
   elseif D == 3 && name == "lateral_walls"
-    return _centroid_axis_either_eq_mask(2, d.mins[2], d.maxs[2]; tol = tol)
+    return _centroid_axis_either_eq_mask(2, mins[2], maxs[2]; tol = tol)
   else
     error("Unknown boundary tag \"$name\" for CartesianDomain{$D}")
   end
 end
 
-function _valid_tags(::Val{2})
-  STANDARD_TAGS
+function _face_mask(::Val{D}, d::CartesianDomain{D}, name::String) where {D}
+  _face_mask(Val(D), d.mins, d.maxs, name)
 end
 
-function _valid_tags(::Val{3})
-  vcat(STANDARD_TAGS, ["lateral_walls"])
-end
-
-function get_boundary(d::CartesianDomain{D}, name::String) where {D}
-  valid = _valid_tags(Val(D))
-  name in valid || error(
+function _cartesian_boundary_from_model(
+  ::Val{D},
+  model,
+  mins::NTuple{D, Float64},
+  maxs::NTuple{D, Float64},
+  name::String,
+) where {D}
+  normalized_name = _normalize_cartesian_tag(Val(D), name)
+  valid = _cartesian_valid_tags(Val(D))
+  normalized_name in valid || error(
     "Unknown boundary tag \"$name\" for CartesianDomain{$D}. " *
-    "Valid tags: " * join(valid, ", "),
+    "Valid tags: " * join(valid, ", ") *
+    (D == 3 ? ", surface" : ""),
   )
 
-  model = build_model(d)
-  if name == "fluid"
+  if normalized_name == "fluid"
     return Interior(model)
   end
 
   Γ = Boundary(model)
   xΓ = get_cell_coordinates(Γ)
-  bits = lazy_map(_face_mask(Val(D), d, name), xΓ)
+  bits = lazy_map(_face_mask(Val(D), mins, maxs, normalized_name), xΓ)
   Triangulation(Γ, findall(bits))
+end
+
+function get_boundary(d::CartesianDomain{D}, name::String) where {D}
+  _cartesian_boundary_from_model(Val(D), build_model(d), d.mins, d.maxs, name)
+end
+
+function _empty_boundary(Γ)
+  Triangulation(Γ, Int[])
+end
+
+function _cartesian_boundary_triangulations(
+  ::Val{D},
+  model,
+  mins::NTuple{D, Float64},
+  maxs::NTuple{D, Float64},
+) where {D}
+  Ω = Interior(model)
+  Γ = Boundary(model)
+
+  Γfs = _cartesian_boundary_from_model(Val(D), model, mins, maxs, "free_surface")
+  Γbot = _cartesian_boundary_from_model(Val(D), model, mins, maxs, "seabed")
+  Γin = _cartesian_boundary_from_model(Val(D), model, mins, maxs, "inlet")
+  Γout = _cartesian_boundary_from_model(Val(D), model, mins, maxs, "outlet")
+  Γη = _empty_boundary(Γ)
+
+  data = _tank_triangulation_dict(
+    Ω = Ω,
+    Γ = Γ,
+    Γbot = Γbot,
+    Γin = Γin,
+    Γout = Γout,
+    Γ_structures = Any[],
+    Γ_dampings = Any[],
+    Γfs = Γfs,
+    Γκ = Γfs,
+    Γη = Γη,
+    Λη = nothing,
+    Λ_joints = Any[],
+    joint_domains = JointDomain[],
+  )
+
+  if D == 3
+    data[:Γlateral] = _cartesian_boundary_from_model(
+      Val(D),
+      model,
+      mins,
+      maxs,
+      "lateral_walls",
+    )
+  end
+
+  TankTriangulations(data)
+end
+
+function build_triangulations(d::CartesianDomain{D}, model) where {D}
+  _cartesian_boundary_triangulations(Val(D), model, d.mins, d.maxs)
 end
 
 """
@@ -221,10 +290,14 @@ Build a graded 3D Cartesian fluid domain for the Yago benchmark.
 """
 function CartesianDomain3D(; LΩ, BΩ, H, nx_total, ny_total, nz,
                            grading_base=2.5)
-  dom = (0.0, LΩ, -BΩ / 2, BΩ / 2, 0.0, H)
-  part = (nx_total, ny_total, nz)
   map = x -> map_fn(x, H, nz; grading_base=grading_base)
-  model = CartesianDiscreteModel(dom, part; map=map)
+  domain = CartesianDomain{3, typeof(map)}(
+    (0.0, -Float64(BΩ) / 2, 0.0),
+    (Float64(LΩ), Float64(BΩ) / 2, Float64(H)),
+    (Int(nx_total), Int(ny_total), Int(nz)),
+    map,
+  )
+  model = build_model(domain)
 
   surface_tag, inlet_tag = verify_cartesian_3d_tags(model)
   labels = get_face_labeling(model)
@@ -239,6 +312,7 @@ function CartesianDomain3D(; LΩ, BΩ, H, nx_total, ny_total, nz,
     "seabed" => "seabed",
     "outlet" => "outlet",
     "structure" => "structure",
+    "lateral_walls" => "lateral_walls",
   )
 
   return CartesianDomain3D(
@@ -256,25 +330,9 @@ end
 
 ambient_dimension(::CartesianDomain3D) = 3
 manifold_dimension(::CartesianDomain3D) = 3
+build_model(d::CartesianDomain3D) = d.model
 triangulation(d::CartesianDomain3D) = Interior(d.model)
 boundary_tags(d::CartesianDomain3D) = d.tags
-
-function _surface_mask_3d(d::CartesianDomain3D, name::String)
-  tol = 1.0e-10
-  if name == "surface" || name == "free_surface"
-    return _centroid_axis_eq_mask(3, d.H; tol = tol)
-  elseif name == "seabed"
-    return _centroid_axis_eq_mask(3, 0.0; tol = tol)
-  elseif name == "inlet"
-    return _centroid_axis_eq_mask(1, 0.0; tol = tol)
-  elseif name == "outlet"
-    return _centroid_axis_eq_mask(1, d.LΩ; tol = tol)
-  elseif name == "structure"
-    return _always_false_mask()
-  else
-    error("Unknown boundary name \"$name\" for CartesianDomain3D")
-  end
-end
 
 """
     get_boundary(d::CartesianDomain3D, name::String)
@@ -282,18 +340,13 @@ end
 Return interior or boundary triangulation for the requested tag name.
 """
 function get_boundary(d::CartesianDomain3D, name::String)
-  if name == "fluid"
-    return Interior(d.model)
-  end
+  mins = (0.0, -d.BΩ / 2, 0.0)
+  maxs = (d.LΩ, d.BΩ / 2, d.H)
+  _cartesian_boundary_from_model(Val(3), d.model, mins, maxs, name)
+end
 
-  valid = ["surface", "free_surface", "inlet", "outlet", "seabed", "structure"]
-  name in valid || error(
-    "Unknown boundary tag \"$name\" for CartesianDomain3D. Valid tags: " *
-    join(valid, ", "),
-  )
-
-  Γ = Boundary(d.model)
-  xΓ = get_cell_coordinates(Γ)
-  bits = lazy_map(_surface_mask_3d(d, name), xΓ)
-  return Triangulation(Γ, findall(bits))
+function build_triangulations(d::CartesianDomain3D, model)
+  mins = (0.0, -d.BΩ / 2, 0.0)
+  maxs = (d.LΩ, d.BΩ / 2, d.H)
+  _cartesian_boundary_triangulations(Val(3), model, mins, maxs)
 end

@@ -130,6 +130,16 @@ The `map` function allows for coordinate transformations if needed.
     joint_domains::Vector{JointDomain} = Vector{JointDomain}()
 end
 
+function _cartesian_domain(domain::TankDomain2D)
+    CartesianDomain(
+        L = domain.L,
+        H = domain.H,
+        nx = domain.nx,
+        ny = domain.ny,
+        map = domain.map,
+    )
+end
+
 """
   build_model(domain::TankDomain2D)
 
@@ -138,10 +148,7 @@ The model is constructed on the rectangular domain defined by `L` and `H`,
 discretized into `nx` by `ny` elements.
 """
 function build_model(domain::TankDomain2D)
-    x_min, x_max = 0.0, domain.L
-    y_min, y_max = 0.0, domain.H
-    model = CartesianDiscreteModel((x_min, x_max, y_min, y_max), (domain.nx, domain.ny),map=domain.map)
-    return model
+    build_model(_cartesian_domain(domain))
 end
 
 
@@ -752,6 +759,17 @@ code.
     nz::Int = 2
 end
 
+function _cartesian_domain(domain::TankDomain3D)
+    CartesianDomain(
+        L = domain.L,
+        W = domain.W,
+        H = domain.H,
+        nx = domain.nx,
+        ny = domain.ny,
+        nz = domain.nz,
+    )
+end
+
 """
     build_model(domain::TankDomain3D)
 
@@ -759,40 +777,7 @@ Build a `CartesianDiscreteModel` from the specifications in `domain`.
 The model spans `[0,L]×[0,W]×[0,H]` with `nx × ny × nz` elements.
 """
 function build_model(domain::TankDomain3D)
-    CartesianDiscreteModel(
-        (0.0, domain.L, 0.0, domain.W, 0.0, domain.H),
-        (domain.nx, domain.ny, domain.nz),
-    )
-end
-
-# ─────────────────────────────────────────────────────────────
-# Coordinate-based face masks for 3D tank
-# ─────────────────────────────────────────────────────────────
-
-"""
-        _face_mask_3d(d::TankDomain3D, name::String) -> Function
-
-Return a closure `(xs) -> Bool` that selects boundary cells whose centroid
-lies on the named face of the 3D tank.  `name` must be one of:
-`"free_surface"`, `"seabed"`, `"inlet"`, `"outlet"`, `"lateral_walls"`,
-`"structure"`.
-"""
-function _face_mask_3d(d::TankDomain3D, name::String)
-    if name == "free_surface"
-        return _centroid_axis_eq_mask(3, d.H)
-    elseif name == "seabed"
-        return _centroid_axis_eq_mask(3, 0.0)
-    elseif name == "inlet"
-        return _centroid_axis_eq_mask(1, 0.0)
-    elseif name == "outlet"
-        return _centroid_axis_eq_mask(1, d.L)
-    elseif name == "lateral_walls"
-        return _centroid_axis_either_eq_mask(2, 0.0, d.W)
-    elseif name == "structure"
-        return _always_false_mask()  # no structure in plain TankDomain3D
-    else
-        error("Unknown 3D face name: \"$name\"")
-    end
+    build_model(_cartesian_domain(domain))
 end
 
 """
@@ -810,44 +795,8 @@ Boundary faces are identified by cell centroid coordinates:
 - `structure`    : empty (no structure in basic 3D tank)
 """
 function build_triangulations(domain::TankDomain3D, model)
-    Ω = Interior(model)
-    Γ = Boundary(model)
-    xΓ = get_cell_coordinates(Γ)
-
-    top_bits      = lazy_map(_face_mask_3d(domain, "free_surface"),  xΓ)
-    bot_bits      = lazy_map(_face_mask_3d(domain, "seabed"),        xΓ)
-    inlet_bits    = lazy_map(_face_mask_3d(domain, "inlet"),         xΓ)
-    outlet_bits   = lazy_map(_face_mask_3d(domain, "outlet"),        xΓ)
-    lateral_bits  = lazy_map(_face_mask_3d(domain, "lateral_walls"), xΓ)
-
-    Γtop      = Triangulation(Γ, findall(top_bits))
-    Γbot      = Triangulation(Γ, findall(bot_bits))
-    Γin       = Triangulation(Γ, findall(inlet_bits))
-    Γout      = Triangulation(Γ, findall(outlet_bits))
-    Γlateral  = Triangulation(Γ, findall(lateral_bits))
-
-    # Free surface = top; no structures in plain TankDomain3D
-    Γfs = Γtop
-    Γκ  = Γtop
-    Γη  = Triangulation(Γ, Int[])   # empty structure surface
-
-    trian_dict = Dict{Symbol, Any}(
-        :Ω            => Ω,
-        :Γ            => Γ,
-        :Γbot         => Γbot,
-        :Γin          => Γin,
-        :Γout         => Γout,
-        :Γlateral     => Γlateral,
-        :Γfs          => Γfs,
-        :Γκ           => Γκ,
-        :Γη           => Γη,
-        :Γ_structures => Any[],
-        :Γ_dampings   => Any[],
-        :Λη           => nothing,
-        :Λ_joints     => Any[],
-        :joint_domains => JointDomain[],
-    )
-    TankTriangulations(trian_dict)
+    d = _cartesian_domain(domain)
+    _cartesian_boundary_triangulations(Val(3), model, d.mins, d.maxs)
 end
 
 # ─────────────────────────────────────────────────────────────
@@ -877,15 +826,7 @@ to `"structure"` (always empty for `TankDomain3D`); the extra key
 `"lateral_walls"` maps to `"lateral_walls"`.
 """
 function boundary_tags(d::TankDomain3D)
-    Dict{String, String}(
-        "fluid"         => "fluid",
-        "free_surface"  => "free_surface",
-        "seabed"        => "seabed",
-        "inlet"         => "inlet",
-        "outlet"        => "outlet",
-        "structure"     => "structure",
-        "lateral_walls" => "lateral_walls",
-    )
+    boundary_tags(_cartesian_domain(d))
 end
 
 """
@@ -899,8 +840,7 @@ For performance-critical code use [`build_model`](@ref) /
 [`build_triangulations`](@ref) directly.
 """
 function triangulation(d::TankDomain3D)
-    model = build_model(d)
-    Interior(model)
+    triangulation(_cartesian_domain(d))
 end
 
 """
@@ -917,23 +857,5 @@ Note: builds a fresh model on each call; use [`build_triangulations`](@ref)
 when multiple boundaries are needed.
 """
 function get_boundary(d::TankDomain3D, name::String)
-    valid = vcat(STANDARD_TAGS, ["lateral_walls"])
-    if !(name in valid)
-        error(
-            "Unknown boundary tag \"$name\" for TankDomain3D. " *
-            "Valid tags are: " * join(valid, ", ") * ".",
-        )
-    end
-    model = build_model(d)
-    if name == "fluid"
-        return Interior(model)
-    end
-    Γ = Boundary(model)
-    xΓ = get_cell_coordinates(Γ)
-    if name == "structure"
-        return Triangulation(Γ, Int[])
-    end
-    mask = _face_mask_3d(d, name)
-    bits = lazy_map(mask, xΓ)
-    Triangulation(Γ, findall(bits))
+    get_boundary(_cartesian_domain(d), name)
 end
