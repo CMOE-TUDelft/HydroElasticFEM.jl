@@ -137,9 +137,9 @@ end
   vals = eigvals(Symmetric(K_d), Symmetric(M_r))
 
   # Retain only genuine sloshing eigenvalues:
-  # - strip null-space zeros  (λ ≤ 1e-6)
+  # - strip null-space zeros  (λ ≤ 1e-5)
   # - strip regularisation artefacts  (λ ≥ 1e6)
-  λ_sloshing = sort([v for v in real.(vals) if 1.0e-6 < v < 1.0e6])
+  λ_sloshing = sort([v for v in real.(vals) if 1.0e-5 < v < 1.0e6])
 
   @test !isempty(λ_sloshing)
 

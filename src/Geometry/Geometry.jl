@@ -96,6 +96,7 @@ include("validate_tags.jl")
 
 export TankTriangulations
 export IntegrationDomains
+export TankDomain
 export TankDomain2D
 export StructureDomain, DampingZone
 export JointDomain

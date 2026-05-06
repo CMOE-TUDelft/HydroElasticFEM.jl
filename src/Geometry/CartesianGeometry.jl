@@ -98,46 +98,216 @@ beam = EulerBernoulliBeam(L=1.0, mᵨ=0.5, EIᵨ=100.0,
         tol::Float64 = 1.0e-6
 end
 
-"""
-  TankDomain2D <: AbstractDomain
-
-Defines a rectangular domain for 2D problems, with dimensions `L` and `H`
-`[0,L]×[0,H]`, discretized into `nx` by `ny` elements.
-
-The `map` function allows for coordinate transformations if needed.
-`TankDomain2D` implements the [`AbstractDomain`](@ref) interface; use
-[`triangulation`](@ref), [`get_boundary`](@ref), [`boundary_tags`](@ref),
-[`ambient_dimension`](@ref), and [`manifold_dimension`](@ref) for generic code.
-
-# Fields
-- `L::Float64 = 4.0`  — length of the tank domain [m]
-- `H::Float64 = 1.0`  — height of the tank domain [m]
-- `nx::Int = 16`      — number of elements in the x-direction
-- `ny::Int = 2`       — number of elements in the y-direction
-- `map::Function`     — optional coordinate mapping (default: identity)
-- `structure_domains::Vector{StructureDomain}` — structure sub-domains
-- `damping_zones::Vector{DampingZone}` — damping sub-zones
-- `joint_domains::Vector{JointDomain}` — structural joint descriptors
-"""
-@with_kw struct TankDomain2D <: AbstractDomain
-    L::Float64 = 4.0
-    H::Float64 = 1.0
-    nx::Int = 16
-    ny::Int = 2
-    map::Function = x->x
-    structure_domains::Vector{StructureDomain} = Vector{StructureDomain}()
-    damping_zones::Vector{DampingZone} = Vector{DampingZone}()
-    joint_domains::Vector{JointDomain} = Vector{JointDomain}()
+struct TankDomain{D, C, SZ, DZ, JZ} <: AbstractDomain
+    cartesian::C
+    structure_domains::SZ
+    damping_zones::DZ
+    joint_domains::JZ
 end
 
-function _cartesian_domain(domain::TankDomain2D)
-    CartesianDomain(
-        L = domain.L,
-        H = domain.H,
-        nx = domain.nx,
-        ny = domain.ny,
-        map = domain.map,
+const TankDomain2D = TankDomain{2}
+const TankDomain3D = TankDomain{3}
+
+function _validate_tank_domain_inputs(
+    ::Val{2},
+    structure_domains,
+    damping_zones,
+    joint_domains,
+)
+    nothing
+end
+
+function _validate_tank_domain_inputs(
+    ::Val{3},
+    structure_domains,
+    damping_zones,
+    joint_domains,
+)
+    isempty(structure_domains) ||
+        error("TankDomain3D does not yet support structure_domains.")
+    isempty(damping_zones) ||
+        error("TankDomain3D does not yet support damping_zones.")
+    isempty(joint_domains) ||
+        error("TankDomain3D does not yet support joint_domains.")
+    nothing
+end
+
+function TankDomain(
+    cartesian;
+    structure_domains = StructureDomain[],
+    damping_zones = DampingZone[],
+    joint_domains = JointDomain[],
+)
+    D = ambient_dimension(cartesian)
+    _validate_tank_domain_inputs(
+        Val(D),
+        structure_domains,
+        damping_zones,
+        joint_domains,
     )
+    TankDomain{
+        D,
+        typeof(cartesian),
+        typeof(structure_domains),
+        typeof(damping_zones),
+        typeof(joint_domains),
+    }(
+        cartesian,
+        structure_domains,
+        damping_zones,
+        joint_domains,
+    )
+end
+
+function TankDomain(;
+    L = 4.0,
+    H = 1.0,
+    nx = 16,
+    ny = 2,
+    W = nothing,
+    nz = nothing,
+    map = x -> x,
+    structure_domains = StructureDomain[],
+    damping_zones = DampingZone[],
+    joint_domains = JointDomain[],
+)
+    cartesian = CartesianDomain(
+        L = L,
+        H = H,
+        nx = nx,
+        ny = ny,
+        W = W,
+        nz = nz,
+        map = map,
+    )
+    TankDomain(
+        cartesian;
+        structure_domains = structure_domains,
+        damping_zones = damping_zones,
+        joint_domains = joint_domains,
+    )
+end
+
+function TankDomain2D(;
+    L = 4.0,
+    H = 1.0,
+    nx = 16,
+    ny = 2,
+    map = x -> x,
+    structure_domains = StructureDomain[],
+    damping_zones = DampingZone[],
+    joint_domains = JointDomain[],
+)
+    TankDomain(
+        L = L,
+        H = H,
+        nx = nx,
+        ny = ny,
+        map = map,
+        structure_domains = structure_domains,
+        damping_zones = damping_zones,
+        joint_domains = joint_domains,
+    )
+end
+
+function TankDomain3D(;
+    L = 4.0,
+    W = 2.0,
+    H = 1.0,
+    nx = 8,
+    ny = 4,
+    nz = 2,
+    map = x -> x,
+    structure_domains = StructureDomain[],
+    damping_zones = DampingZone[],
+    joint_domains = JointDomain[],
+)
+    TankDomain(
+        L = L,
+        W = W,
+        H = H,
+        nx = nx,
+        ny = ny,
+        nz = nz,
+        map = map,
+        structure_domains = structure_domains,
+        damping_zones = damping_zones,
+        joint_domains = joint_domains,
+    )
+end
+
+function _cartesian_domain(domain::TankDomain)
+    getfield(domain, :cartesian)
+end
+
+function _tank_legacy_dimensions(domain::TankDomain{2})
+    cartesian = _cartesian_domain(domain)
+    (
+        L = cartesian.maxs[1] - cartesian.mins[1],
+        H = cartesian.maxs[2] - cartesian.mins[2],
+        nx = cartesian.parts[1],
+        ny = cartesian.parts[2],
+        map = cartesian.map,
+    )
+end
+
+function _tank_legacy_dimensions(domain::TankDomain{3})
+    cartesian = _cartesian_domain(domain)
+    (
+        L = cartesian.maxs[1] - cartesian.mins[1],
+        W = cartesian.maxs[2] - cartesian.mins[2],
+        H = cartesian.maxs[3] - cartesian.mins[3],
+        nx = cartesian.parts[1],
+        ny = cartesian.parts[2],
+        nz = cartesian.parts[3],
+        map = cartesian.map,
+    )
+end
+
+function Base.getproperty(domain::TankDomain{2}, name::Symbol)
+    if name in (:L, :H, :nx, :ny, :map)
+        return getproperty(_tank_legacy_dimensions(domain), name)
+    end
+    getfield(domain, name)
+end
+
+function Base.getproperty(domain::TankDomain{3}, name::Symbol)
+    if name in (:L, :W, :H, :nx, :ny, :nz, :map)
+        return getproperty(_tank_legacy_dimensions(domain), name)
+    end
+    getfield(domain, name)
+end
+
+function Base.propertynames(::TankDomain{2}, private::Bool = false)
+    public = (
+        :cartesian,
+        :structure_domains,
+        :damping_zones,
+        :joint_domains,
+        :L,
+        :H,
+        :nx,
+        :ny,
+        :map,
+    )
+    public
+end
+
+function Base.propertynames(::TankDomain{3}, private::Bool = false)
+    public = (
+        :cartesian,
+        :structure_domains,
+        :damping_zones,
+        :joint_domains,
+        :L,
+        :W,
+        :H,
+        :nx,
+        :ny,
+        :nz,
+        :map,
+    )
+    public
 end
 
 """
@@ -725,50 +895,6 @@ end
 # ─────────────────────────────────────────────────────────────
 # TankDomain3D — structured 3D Cartesian rectangular tank
 # ─────────────────────────────────────────────────────────────
-
-"""
-    TankDomain3D <: AbstractDomain
-
-Structured 3D Cartesian rectangular tank on `[0,L]×[0,W]×[0,H]`,
-discretized into `nx × ny × nz` hexahedral elements.
-
-The free surface is at `z = H`; the seabed at `z = 0`; inlet at
-`x = 0`; outlet at `x = L`; lateral walls at `y = 0` and `y = W`.
-No structure sub-domains are defined (use `GmshDomain` for
-fluid–structure problems in 3D).
-
-`TankDomain3D` implements the [`AbstractDomain`](@ref) interface; use
-[`triangulation`](@ref), [`get_boundary`](@ref), [`boundary_tags`](@ref),
-[`ambient_dimension`](@ref), and [`manifold_dimension`](@ref) for generic
-code.
-
-# Fields
-- `L::Float64 = 4.0`  — length of the tank domain [m]
-- `W::Float64 = 2.0`  — width of the tank domain [m]
-- `H::Float64 = 1.0`  — height of the tank domain [m]
-- `nx::Int = 8`       — number of elements in the x-direction
-- `ny::Int = 4`       — number of elements in the y-direction
-- `nz::Int = 2`       — number of elements in the z-direction
-"""
-@with_kw struct TankDomain3D <: AbstractDomain
-    L::Float64 = 4.0
-    W::Float64 = 2.0
-    H::Float64 = 1.0
-    nx::Int = 8
-    ny::Int = 4
-    nz::Int = 2
-end
-
-function _cartesian_domain(domain::TankDomain3D)
-    CartesianDomain(
-        L = domain.L,
-        W = domain.W,
-        H = domain.H,
-        nx = domain.nx,
-        ny = domain.ny,
-        nz = domain.nz,
-    )
-end
 
 """
     build_model(domain::TankDomain3D)
