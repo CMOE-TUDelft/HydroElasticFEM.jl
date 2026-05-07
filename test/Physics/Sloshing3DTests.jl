@@ -76,7 +76,6 @@ end
   problem = SM.build_problem(tank, P.PhysicsParameters[pf, fs], config)
 
   result = @test_nowarn SM.simulate(problem)
-  result = SM.simulate(problem)
 
   # Two-field solution (ϕ, κ)
   @test length(result.solution) == 2
