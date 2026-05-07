@@ -44,21 +44,14 @@ export LiuCaseParams, run_liu_case, run_liu_two_cases, generate_liu_mesh
 # Gmsh mesh generator for the Liu domain
 # ──────────────────────────────────────────────────────────────────────────
 
-# Library path captured at module load time (required to be const for ccall).
-# GridapGmsh v4.9.3 wrapper lacks the name parameter added in libgmsh >= 4.13,
-# causing a segfault. Call the C function directly with the v4.15 signature.
-const _GMSH_LIB = _gmsh_api.lib
-
+# Two-step approach: addPhysicalGroup (all gmsh versions) then setPhysicalName.
+# The single-call form with a name argument was added in libgmsh 4.13 and is
+# not available in the Julia wrapper bundled with GridapGmsh < 0.4.
 function _add_physical_group(dim::Int32, tags::Vector{Int32}, name::String)
-  tag  = Int32(-1)
-  ierr = Ref{Cint}()
-  result = ccall(
-    (:gmshModelAddPhysicalGroup, _GMSH_LIB), Cint,
-    (Cint, Ptr{Cint}, Csize_t, Cint, Ptr{Cchar}, Ptr{Cint}),
-    dim, tags, length(tags), tag, name, ierr,
-  )
-  ierr[] != 0 && error("gmsh addPhysicalGroup failed")
-  return result
+  gmsh = _gmsh_api
+  tag = gmsh.model.addPhysicalGroup(Int(dim), Int.(tags))
+  gmsh.model.setPhysicalName(Int(dim), tag, name)
+  return Int32(tag)
 end
 
 """
