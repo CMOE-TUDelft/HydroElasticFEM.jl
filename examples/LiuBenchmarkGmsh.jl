@@ -145,11 +145,12 @@ end
 # ──────────────────────────────────────────────────────────────────────────
 
 @with_kw struct LiuCaseParams
-  name::String     = "LiuBenchmark"
-  ω::Float64       = 0.4       # angular frequency [rad/s]
-  lc_beam::Float64 = -1.0      # negative → use Lb/50
-  vtk_output::Bool = false
-  make_plot::Bool  = true
+  name::String                      = "LiuBenchmark"
+  ω::Float64                        = 0.4       # angular frequency [rad/s]
+  lc_beam::Float64                  = -1.0      # negative → use Lb/50
+  vtk_output::Bool                  = false
+  make_plot::Bool                   = true
+  output_dir::Union{String,Nothing} = nothing   # nothing → default PKG_ROOT path
 end
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -264,8 +265,11 @@ function run_liu_case(params::LiuCaseParams)
   damp = _damping(c, wave)
 
   # ── 1. Generate mesh ─────────────────────────────────────────────────────
-  msh_dir = joinpath(PKG_ROOT, "data", "VTK", "examples",
-                     "LiuBenchmarkGmsh", params.name)
+  msh_dir = if params.output_dir !== nothing
+    joinpath(params.output_dir, params.name)
+  else
+    joinpath(PKG_ROOT, "data", "VTK", "examples", "LiuBenchmarkGmsh", params.name)
+  end
   isdir(msh_dir) || mkpath(msh_dir)
   msh_file = joinpath(msh_dir, "liu_mesh.msh")
 

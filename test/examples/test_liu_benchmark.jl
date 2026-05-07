@@ -78,28 +78,31 @@ else
   # Reference: peak |η|/η₀ ≈ 1.2, min ≈ 0.75
   # ──────────────────────────────────────────────────────────────────────
   @testset "Case ω = 0.4 rad/s" begin
-    params = LiuCaseParams(
-      name       = "test_omega04",
-      ω          = 0.4,
-      lc_beam    = lc_coarse,
-      vtk_output = false,
-      make_plot  = false,
-    )
+    mktempdir() do tmp
+      params = LiuCaseParams(
+        name       = "test_omega04",
+        ω          = 0.4,
+        lc_beam    = lc_coarse,
+        vtk_output = false,
+        make_plot  = false,
+        output_dir = tmp,
+      )
 
-    xs, eta_rel, meta = run_liu_case(params)
+      xs, eta_rel, meta = run_liu_case(params)
 
-    @test length(xs) >= 100
-    @test all(isfinite, eta_rel)
-    @test all(eta_rel .>= 0.0)
+      @test length(xs) >= 100
+      @test all(isfinite, eta_rel)
+      @test all(eta_rel .>= 0.0)
 
-    peak = maximum(eta_rel)
-    mini = minimum(eta_rel)
+      peak = maximum(eta_rel)
+      mini = minimum(eta_rel)
 
-    # Physical plausibility: beam responds to the incident wave
-    @test peak >= 1.0
-    @test peak <= 1.4
-    @test mini >= 0.5
-    @test mini <= 1.0
+      # Physical plausibility: beam responds to the incident wave
+      @test peak >= 1.0
+      @test peak <= 1.4
+      @test mini >= 0.5
+      @test mini <= 1.0
+    end
   end
 
   # ──────────────────────────────────────────────────────────────────────
@@ -107,27 +110,30 @@ else
   # Reference: peak |η|/η₀ ≈ 1.1, min ≈ 0.05
   # ──────────────────────────────────────────────────────────────────────
   @testset "Case ω = 0.8 rad/s" begin
-    params = LiuCaseParams(
-      name       = "test_omega08",
-      ω          = 0.8,
-      lc_beam    = lc_coarse,
-      vtk_output = false,
-      make_plot  = false,
-    )
+    mktempdir() do tmp
+      params = LiuCaseParams(
+        name       = "test_omega08",
+        ω          = 0.8,
+        lc_beam    = lc_coarse,
+        vtk_output = false,
+        make_plot  = false,
+        output_dir = tmp,
+      )
 
-    xs, eta_rel, meta = run_liu_case(params)
+      xs, eta_rel, meta = run_liu_case(params)
 
-    @test length(xs) >= 100
-    @test all(isfinite, eta_rel)
-    @test all(eta_rel .>= 0.0)
+      @test length(xs) >= 100
+      @test all(isfinite, eta_rel)
+      @test all(eta_rel .>= 0.0)
 
-    peak = maximum(eta_rel)
-    mini = minimum(eta_rel)
+      peak = maximum(eta_rel)
+      mini = minimum(eta_rel)
 
-    # Stronger oscillation with near-zero troughs
-    @test peak >= 0.8
-    @test peak <= 1.3
-    @test mini <= 0.3
+      # Stronger oscillation with near-zero troughs
+      @test peak >= 0.8
+      @test peak <= 1.3
+      @test mini <= 0.3
+    end
   end
 
 end
