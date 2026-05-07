@@ -54,7 +54,7 @@ function _add_physical_group(dim::Int32, tags::Vector{Int32}, name::String)
   ierr = Ref{Cint}()
   result = ccall(
     (:gmshModelAddPhysicalGroup, _GMSH_LIB), Cint,
-    (Cint, Ptr{Cint}, Csize_t, Cint, Ptr{Cchar}, Ptr{Cint}),
+    (Cint, Ptr{Cint}, Csize_t, Cint, Cstring, Ptr{Cint}),
     dim, tags, length(tags), tag, name, ierr,
   )
   ierr[] != 0 && error("gmsh addPhysicalGroup failed")
