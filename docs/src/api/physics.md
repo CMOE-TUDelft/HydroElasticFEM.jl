@@ -62,6 +62,12 @@ HydroElasticFEM.Physics.FreeSurface
 HydroElasticFEM.Physics.Membrane
 HydroElasticFEM.Physics.EulerBernoulliBeam
 HydroElasticFEM.Physics.JointRotationalSpring
+HydroElasticFEM.Physics.KirchhoffLovePlate
+HydroElasticFEM.Physics.KirchhoffLovePlate3D
+HydroElasticFEM.Physics.build_kl_tensor
+HydroElasticFEM.Physics.build_KL_tensor
+HydroElasticFEM.Physics.check_major_symmetry
+HydroElasticFEM.Physics.equivalent_beam_rigidity
 ```
 
 ## Resonators

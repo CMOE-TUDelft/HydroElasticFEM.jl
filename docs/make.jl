@@ -27,7 +27,7 @@ makedocs(
             "Parameter Handler" => "api/parameter_handler.md",
         ],
     ],
-    checkdocs = :none,
+    checkdocs = :exports,
     doctest   = true,
 )
 
