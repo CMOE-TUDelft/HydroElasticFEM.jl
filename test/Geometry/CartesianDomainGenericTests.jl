@@ -127,8 +127,13 @@ end
   )
 end
 
-@testset "CartesianDomain3D benchmark wrapper uses structured boundaries" begin
-  d = G.CartesianDomain3D(LΩ = 8.0, BΩ = 3.0, H = 2.0, nx_total = 8, ny_total = 3, nz = 2)
+@testset "CartesianDomain explicit graded 3D bounds uses structured boundaries" begin
+  d = G.CartesianDomain(
+    mins = (0.0, -1.5, 0.0),
+    maxs = (8.0, 1.5, 2.0),
+    parts = (8, 3, 2),
+    map = x -> G.map_fn(x, 2.0, 2; grading_base = 2.5),
+  )
 
   @test G.ambient_dimension(d) == 3
   @test G.manifold_dimension(d) == 3

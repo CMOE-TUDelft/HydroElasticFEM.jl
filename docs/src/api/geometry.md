@@ -37,10 +37,8 @@ HydroElasticFEM.Geometry.get_integration_domains
 ## 3D Cartesian helpers
 
 ```@docs
-HydroElasticFEM.Geometry.CartesianDomain3D
 HydroElasticFEM.Geometry.f_z
 HydroElasticFEM.Geometry.map_fn
-HydroElasticFEM.Geometry.verify_cartesian_3d_tags
 HydroElasticFEM.Geometry.get_plate_triangulation
 ```
 

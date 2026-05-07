@@ -105,7 +105,7 @@ export validate_gmsh_tags
 export triangulation, boundary_tags, ambient_dimension
 export manifold_dimension, get_boundary
 export CartesianDomain
-export CartesianDomain3D, f_z, map_fn, verify_cartesian_3d_tags
+export f_z, map_fn
 export get_plate_triangulation
 
 end # module Geometry

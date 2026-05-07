@@ -33,7 +33,6 @@ module HydroElasticFEM
   export TankDomain
   export StructureDomain, DampingZone, JointDomain
   export CartesianDomain
-  export CartesianDomain3D
   export GmshDomain
   export triangulation, boundary_tags, ambient_dimension
   export manifold_dimension, get_boundary

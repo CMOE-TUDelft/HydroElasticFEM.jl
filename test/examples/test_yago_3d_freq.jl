@@ -9,13 +9,11 @@ include(joinpath(@__DIR__, "..", "..", "examples", "YagoBenchmark3DFreq.jl"))
 using .YagoBenchmark3DFreq
 
 @testset "Yago 3D freq - graded mesh" begin
-  domain = G.CartesianDomain3D(
-    LΩ = 3000.0,
-    BΩ = 1080.0,
-    H = 58.5,
-    nx_total = 20,
-    ny_total = 36,
-    nz = 1,
+  domain = G.CartesianDomain(
+    mins = (0.0, -540.0, 0.0),
+    maxs = (3000.0, 540.0, 58.5),
+    parts = (20, 36, 1),
+    map = x -> G.map_fn(x, 58.5, 1; grading_base = 2.5),
   )
 
   Ω = G.triangulation(domain)
@@ -26,13 +24,11 @@ using .YagoBenchmark3DFreq
 end
 
 @testset "Yago 3D freq - plate mask" begin
-  domain = G.CartesianDomain3D(
-    LΩ = 3000.0,
-    BΩ = 1080.0,
-    H = 58.5,
-    nx_total = 20,
-    ny_total = 36,
-    nz = 1,
+  domain = G.CartesianDomain(
+    mins = (0.0, -540.0, 0.0),
+    maxs = (3000.0, 540.0, 58.5),
+    parts = (20, 36, 1),
+    map = x -> G.map_fn(x, 58.5, 1; grading_base = 2.5),
   )
 
   Γ = G.get_boundary(domain, "surface")

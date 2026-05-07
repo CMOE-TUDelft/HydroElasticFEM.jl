@@ -109,19 +109,18 @@ function run_yago_3d_freq(; nx=32, ny=4, nz=3, order=4, λfactor=0.4,
 
   nx_total = c.nLΩ * nx
   ny_total = c.nBΩ * ny
-  domain = G.CartesianDomain3D(
-    LΩ = c.LΩ,
-    BΩ = c.BΩ,
-    H = c.H,
-    nx_total = nx_total,
-    ny_total = ny_total,
-    nz = nz,
-    grading_base = 2.5,
+  domain = G.CartesianDomain(
+    mins = (0.0, -c.BΩ / 2, 0.0),
+    maxs = (c.LΩ, c.BΩ / 2, c.H),
+    parts = (nx_total, ny_total, nz),
+    map = x -> G.map_fn(x, c.H, nz; grading_base = 2.5),
   )
 
-  Ω = G.triangulation(domain)
-  Γ = G.get_boundary(domain, "surface")
-  Γᵢₙ = G.get_boundary(domain, "inlet")
+  model = G.build_model(domain)
+  trians = G.build_triangulations(domain, model)
+  Ω = trians[:Ω]
+  Γ = trians[:Γfs]
+  Γᵢₙ = trians[:Γin]
   Γb, Γf, Λb = G.get_plate_triangulation(Γ, c.xb₀, c.xb₁, c.yb₀, c.yb₁)
 
   nΛb = get_normal_vector(Λb)

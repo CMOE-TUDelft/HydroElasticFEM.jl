@@ -24,13 +24,37 @@ struct CartesianDomain{D, F <: Function} <: AbstractDomain
 end
 
 """
-  CartesianDomain(; L, H, nx, ny, W=nothing, nz=nothing, map=x->x)
+  CartesianDomain(; L, H, nx, ny, W=nothing, nz=nothing,
+                    mins=nothing, maxs=nothing, parts=nothing, map=x->x)
 
-Build a generic Cartesian domain:
-- 2D when `W` and `nz` are not provided
-- 3D when both `W` and `nz` are provided
+Build a generic Cartesian domain.
+
+- Shorthand 2D: provide `L, H, nx, ny`
+- Shorthand 3D: provide `L, W, H, nx, ny, nz`
+- Explicit bounds: provide `mins, maxs, parts`
+
+The explicit form is intended for shifted, centered, or graded structured
+meshes that do not fit the box-at-origin shorthand.
 """
-function CartesianDomain(; L, H, nx, ny, W = nothing, nz = nothing, map = x -> x)
+function CartesianDomain(; L = nothing, H = nothing, nx = nothing, ny = nothing,
+                         W = nothing, nz = nothing, mins = nothing,
+                         maxs = nothing, parts = nothing, map = x -> x)
+  if !isnothing(mins) || !isnothing(maxs) || !isnothing(parts)
+    isnothing(mins) && error("`mins` must be provided with explicit CartesianDomain construction.")
+    isnothing(maxs) && error("`maxs` must be provided with explicit CartesianDomain construction.")
+    isnothing(parts) && error("`parts` must be provided with explicit CartesianDomain construction.")
+
+    D = length(mins)
+    length(maxs) == D || error("length(maxs) must match length(mins).")
+    length(parts) == D || error("length(parts) must match length(mins).")
+    return CartesianDomain{D, typeof(map)}(
+      Tuple(Float64.(mins)),
+      Tuple(Float64.(maxs)),
+      Tuple(Int.(parts)),
+      map,
+    )
+  end
+
   if isnothing(W) && isnothing(nz)
     return CartesianDomain{2, typeof(map)}(
       (0.0, 0.0),
@@ -51,7 +75,7 @@ function CartesianDomain(; L, H, nx, ny, W = nothing, nz = nothing, map = x -> x
 
   error(
     "CartesianDomain expects either 2D args (L,H,nx,ny) or " *
-    "3D args (L,W,H,nx,ny,nz).",
+    "3D args (L,W,H,nx,ny,nz), or explicit (mins,maxs,parts).",
   )
 end
 
@@ -237,116 +261,3 @@ Coordinate map for graded 3D Cartesian meshes.
 map_fn(x, H, nz; grading_base=2.5) =
   VectorValue(x[1], x[2], f_z(x[3], H, nz, grading_base))
 
-"""
-    verify_cartesian_3d_tags(model)
-
-Print all raw Gridap Cartesian face tags and verify the expected tag ids
-for the top surface and inlet used by the Yago benchmark setup.
-
-Returns `(surface_tag, inlet_tag)`.
-"""
-function verify_cartesian_3d_tags(model)
-  labels = get_face_labeling(model)
-  println("[CartesianDomain3D] Raw Gridap face tags:")
-  for (i, name) in enumerate(labels.tag_to_name)
-    println("  tag $i -> $name")
-  end
-
-  @assert "interior" in labels.tag_to_name
-
-  surface_tag = 22
-  inlet_tag = 25
-  @assert surface_tag <= length(labels.tag_to_name)
-  @assert inlet_tag <= length(labels.tag_to_name)
-
-  return surface_tag, inlet_tag
-end
-
-"""
-    CartesianDomain3D <: AbstractDomain
-
-3D Cartesian fluid domain with geometrically graded vertical mesh.
-
-Physical labels are created for at least `"surface"` and `"inlet"` using
-Gridap internal Cartesian tags. Additional standard boundaries are extracted
-by coordinate masks in `get_boundary`.
-"""
-struct CartesianDomain3D <: AbstractDomain
-  LΩ::Float64
-  BΩ::Float64
-  H::Float64
-  nx_total::Int
-  ny_total::Int
-  nz::Int
-  grading_base::Float64
-  model
-  tags::Dict{String, Any}
-end
-
-"""
-    CartesianDomain3D(; LΩ, BΩ, H, nx_total, ny_total, nz, grading_base=2.5)
-
-Build a graded 3D Cartesian fluid domain for the Yago benchmark.
-"""
-function CartesianDomain3D(; LΩ, BΩ, H, nx_total, ny_total, nz,
-                           grading_base=2.5)
-  map = x -> map_fn(x, H, nz; grading_base=grading_base)
-  domain = CartesianDomain{3, typeof(map)}(
-    (0.0, -Float64(BΩ) / 2, 0.0),
-    (Float64(LΩ), Float64(BΩ) / 2, Float64(H)),
-    (Int(nx_total), Int(ny_total), Int(nz)),
-    map,
-  )
-  model = build_model(domain)
-
-  surface_tag, inlet_tag = verify_cartesian_3d_tags(model)
-  labels = get_face_labeling(model)
-  add_tag_from_tags!(labels, "surface", [surface_tag])
-  add_tag_from_tags!(labels, "inlet", [inlet_tag])
-
-  tags = Dict{String, Any}(
-    "fluid" => "fluid",
-    "surface" => "surface",
-    "free_surface" => "surface",
-    "inlet" => "inlet",
-    "seabed" => "seabed",
-    "outlet" => "outlet",
-    "structure" => "structure",
-    "lateral_walls" => "lateral_walls",
-  )
-
-  return CartesianDomain3D(
-    Float64(LΩ),
-    Float64(BΩ),
-    Float64(H),
-    Int(nx_total),
-    Int(ny_total),
-    Int(nz),
-    Float64(grading_base),
-    model,
-    tags,
-  )
-end
-
-ambient_dimension(::CartesianDomain3D) = 3
-manifold_dimension(::CartesianDomain3D) = 3
-build_model(d::CartesianDomain3D) = d.model
-triangulation(d::CartesianDomain3D) = Interior(d.model)
-boundary_tags(d::CartesianDomain3D) = d.tags
-
-"""
-    get_boundary(d::CartesianDomain3D, name::String)
-
-Return interior or boundary triangulation for the requested tag name.
-"""
-function get_boundary(d::CartesianDomain3D, name::String)
-  mins = (0.0, -d.BΩ / 2, 0.0)
-  maxs = (d.LΩ, d.BΩ / 2, d.H)
-  _cartesian_boundary_from_model(Val(3), d.model, mins, maxs, name)
-end
-
-function build_triangulations(d::CartesianDomain3D, model)
-  mins = (0.0, -d.BΩ / 2, 0.0)
-  maxs = (d.LΩ, d.BΩ / 2, d.H)
-  _cartesian_boundary_triangulations(Val(3), model, mins, maxs)
-end
