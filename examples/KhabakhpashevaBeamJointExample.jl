@@ -130,7 +130,7 @@ function run_khabakhpasheva_case(params::KhabakhpashevaCaseParams)
     num = _numerics(c, params, wave.ω)
     damp = _damping(c, wave)
 
-    tank = G.TankDomain2D(
+    tank = G.TankDomain(
         L = c.LΩ,
         H = c.H,
         nx = num.nx_total,

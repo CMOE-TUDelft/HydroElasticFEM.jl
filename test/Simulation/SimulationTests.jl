@@ -34,7 +34,7 @@ end
   order = 1
 
   mem_domain = G.StructureDomain(L=20.0, x₀=[15.0, 10.0])
-  tank = G.TankDomain2D(L=50.0, H=10.0, nx=20, ny=4,
+  tank = G.TankDomain(L=50.0, H=10.0, nx=20, ny=4,
       structure_domains=[mem_domain])
 
   model = G.build_model(tank)
@@ -265,7 +265,7 @@ end
     ω = state.ω[1]
     config = SM.FreqDomainConfig(ω=ω)
 
-    tank_damp = G.TankDomain2D(
+    tank_damp = G.TankDomain(
       L=50.0,
       H=10.0,
       nx=20,

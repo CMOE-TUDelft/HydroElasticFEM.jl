@@ -10,7 +10,7 @@ import HydroElasticFEM.ParameterHandler as PH
 # =========================================================================
 # 3D sloshing tests
 #
-# Validates TankDomain3D geometry, 3D PotentialFlow + FreeSurface assembly,
+# Validates TankDomain{3} geometry, 3D PotentialFlow + FreeSurface assembly,
 # and the fundamental sloshing eigenfrequency against the analytical
 # dispersion relation:
 #
@@ -19,9 +19,9 @@ import HydroElasticFEM.ParameterHandler as PH
 # All units SI: meters, kg, seconds, radians, Pascals.
 # =========================================================================
 
-@testset "TankDomain3D geometry" begin
+@testset "TankDomain{3} geometry" begin
 
-  tank = G.TankDomain3D(L = 10.0, W = 5.0, H = 1.0, nx = 4, ny = 2, nz = 2)
+  tank = G.TankDomain(L = 10.0, W = 5.0, H = 1.0, nx = 4, ny = 2, nz = 2)
 
   @test G.ambient_dimension(tank) == 3
   @test G.manifold_dimension(tank) == 3
@@ -49,13 +49,13 @@ import HydroElasticFEM.ParameterHandler as PH
   # lateral walls: 2 faces × nx*nz quads
   @test num_cells(trians[:Γlateral]) == 2 * 4 * 2
 
-  # structure surface is empty (no structures in TankDomain3D)
+  # structure surface is empty (no structures in TankDomain{3})
   @test num_cells(trians[:Γη]) == 0
 end
 
 @testset "PotentialFlow + FreeSurface 3D assembly" begin
 
-  tank = G.TankDomain3D(L = 10.0, W = 5.0, H = 1.0, nx = 4, ny = 2, nz = 2)
+  tank = G.TankDomain(L = 10.0, W = 5.0, H = 1.0, nx = 4, ny = 2, nz = 2)
 
   fe3 = PH.FESpaceConfig(order = 1, vector_type = Vector{ComplexF64})
   pf  = P.PotentialFlow(dim = 3, fe = fe3)
@@ -102,7 +102,7 @@ end
 
   # Fine enough mesh for ≤ 0.5 % FEM eigenvalue error with P1 elements.
   # Error estimate (1D analysis): Δω/ω ≈ (k·h_x)² / 12 ≈ 0.2 % with h_x = 0.5 m.
-  tank   = G.TankDomain3D(L = L, W = W, H = H, nx = 20, ny = 2, nz = 4)
+  tank   = G.TankDomain(L = L, W = W, H = H, nx = 20, ny = 2, nz = 4)
   model  = G.build_model(tank)
   trians = G.build_triangulations(tank, model)
 

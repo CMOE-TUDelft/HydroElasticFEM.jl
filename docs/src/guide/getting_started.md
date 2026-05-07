@@ -53,6 +53,8 @@ For a 3D Cartesian setup, use:
 domain3d = TankDomain(L = 10.0, W = 5.0, H = 1.0, nx = 20, ny = 10, nz = 4)
 ```
 
+`TankDomain` is dimension-driven: omit `W`/`nz` for 2D, provide both for 3D.
+
 ## Package layout
 
 | Module | Purpose |

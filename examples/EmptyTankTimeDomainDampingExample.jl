@@ -99,7 +99,7 @@ function run_example(; kwargs...)
   βₜ = 0.25
   αₕ = γₜ / (βₜ * p.Δt) / g * (1.0 - p.βₕ) / p.βₕ
 
-  tank = G.TankDomain2D(
+  tank = G.TankDomain(
     L=p.LΩ,
     H=p.H0,
     nx=p.nx,

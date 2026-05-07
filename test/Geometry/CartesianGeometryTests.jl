@@ -2,14 +2,14 @@ using Test
 using Gridap
 import HydroElasticFEM.Geometry as G
 
-@testset "TankDomain2D" begin
+@testset "TankDomain{2}" begin
 
   structure_a = G.StructureDomain(L=1.0, x₀=[0.5,1.0], domain_symbol=:Γ_s_a)
   structure_b = G.StructureDomain(L=2.0, x₀=[0.5,1.0], domain_symbol=:Γ_s_b)
   damping_a = G.DampingZone(L=0.5, x₀=[0.0,1.0], domain_symbol=:Γ_d_a)
   damping_b = G.DampingZone(L=0.5, x₀=[3.5,1.0], domain_symbol=:Γ_d_b)
   joint_a = G.JointDomain(location=[1.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
-  tank = G.TankDomain2D(L=10.0, H=1.0, nx=20, ny=2,
+  tank = G.TankDomain(L=10.0, H=1.0, nx=20, ny=2,
     structure_domains=[structure_a, structure_b],
     damping_zones=[damping_a, damping_b],
     joint_domains=[joint_a])
@@ -30,7 +30,7 @@ import HydroElasticFEM.Geometry as G
 end
 
 @testset "build_model" begin
-  tank = G.TankDomain2D()
+  tank = G.TankDomain()
   model = G.build_model(tank)
   @test model isa Gridap.Geometry.CartesianDiscreteModel
 end
@@ -78,7 +78,7 @@ end
   s2 = G.StructureDomain(L=1.5, x₀=[5.0, 1.0])
   d1 = G.DampingZone(L=0.5, x₀=[0.0, 1.0])
   d2 = G.DampingZone(L=0.5, x₀=[9.5, 1.0])
-  tank = G.TankDomain2D(L=10.0, H=1.0, nx=20, ny=2,
+  tank = G.TankDomain(L=10.0, H=1.0, nx=20, ny=2,
     structure_domains=[s1, s2], damping_zones=[d1, d2])
 
   smasks, dmasks = G.surface_masks(tank)
@@ -108,7 +108,7 @@ end
   s1 = G.StructureDomain(L=1.0, x₀=[1.5, 1.0])
   d1 = G.DampingZone(L=0.5, x₀=[0.0, 1.0], domain_symbol=:Γ_d_in)
   d2 = G.DampingZone(L=0.5, x₀=[3.5, 1.0], domain_symbol=:Γ_d_out)
-  tank = G.TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
+  tank = G.TankDomain(L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[s1], damping_zones=[d1, d2])
 
   model = G.build_model(tank)
@@ -143,7 +143,7 @@ end
 @testset "build_triangulations — symbol collision checks" begin
   s1 = G.StructureDomain(L=0.5, x₀=[1.0, 1.0], domain_symbol=:Γ_same)
   s2 = G.StructureDomain(L=0.5, x₀=[2.0, 1.0], domain_symbol=:Γ_same)
-  duplicate_structures = G.TankDomain2D(
+  duplicate_structures = G.TankDomain(
     L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[s1, s2],
   )
@@ -154,7 +154,7 @@ end
 
   d1 = G.DampingZone(L=0.5, x₀=[0.0, 1.0], domain_symbol=:Γ_same)
   d2 = G.DampingZone(L=0.5, x₀=[3.5, 1.0], domain_symbol=:Γ_same)
-  duplicate_dampings = G.TankDomain2D(
+  duplicate_dampings = G.TankDomain(
     L=4.0, H=1.0, nx=40, ny=4,
     damping_zones=[d1, d2],
   )
@@ -163,7 +163,7 @@ end
     G.build_model(duplicate_dampings),
   )
 
-  reserved_symbol = G.TankDomain2D(
+  reserved_symbol = G.TankDomain(
     L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[G.StructureDomain(L=1.0, x₀=[1.5, 1.0], domain_symbol=:Γfs)],
   )
@@ -174,7 +174,7 @@ end
 end
 
 @testset "build_triangulations — no structures or damping" begin
-  tank = G.TankDomain2D(L=4.0, H=1.0, nx=20, ny=2)
+  tank = G.TankDomain(L=4.0, H=1.0, nx=20, ny=2)
   model = G.build_model(tank)
   trian   = G.build_triangulations(tank, model)
 
@@ -189,7 +189,7 @@ end
 @testset "build_triangulations — joint skeletons from location" begin
   s1 = G.StructureDomain(L=1.0, x₀=[1.5, 1.0])
   j1 = G.JointDomain(location=[2.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
-  tank = G.TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
+  tank = G.TankDomain(L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[s1],
     joint_domains=[j1])
 
@@ -206,7 +206,7 @@ end
   s1 = G.StructureDomain(L=1.0, x₀=[1.5, 1.0])
   d1 = G.DampingZone(L=0.5, x₀=[0.0, 1.0], domain_symbol=:Γ_d_in)
   d2 = G.DampingZone(L=0.5, x₀=[3.5, 1.0], domain_symbol=:Γ_d_out)
-  tank = G.TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
+  tank = G.TankDomain(L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[s1], damping_zones=[d1, d2])
   model = G.build_model(tank)
   trians   = G.build_triangulations(tank, model)
@@ -250,7 +250,7 @@ end
 @testset "get_integration_domains — automatic joint keys" begin
   s1 = G.StructureDomain(L=1.0, x₀=[1.5, 1.0])
   j1 = G.JointDomain(location=[2.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
-  tank = G.TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
+  tank = G.TankDomain(L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[s1],
     joint_domains=[j1])
 

@@ -31,9 +31,8 @@ module HydroElasticFEM
   # Re-export Geometry public API
   export AbstractDomain, STANDARD_TAGS
   export TankDomain
-  export TankDomain2D, StructureDomain, DampingZone, JointDomain
+  export StructureDomain, DampingZone, JointDomain
   export CartesianDomain
-  export TankDomain3D
   export CartesianDomain3D
   export GmshDomain
   export triangulation, boundary_tags, ambient_dimension

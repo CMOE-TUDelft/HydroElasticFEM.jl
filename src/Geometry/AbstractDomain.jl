@@ -37,7 +37,8 @@ Unified interface for geometry domains used in HydroElasticFEM simulations.
 Every concrete subtype must implement the five required methods below.
 Two concrete implementations are provided:
 
-- [`TankDomain2D`](@ref) — structured Cartesian rectangular tank
+- [`TankDomain`](@ref)   — structured Cartesian tank on a wrapped
+  [`CartesianDomain`](@ref)
 - [`GmshDomain`](@ref)   — unstructured mesh loaded from a `.msh` file
 
 ## Required interface

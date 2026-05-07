@@ -16,7 +16,7 @@ module Geometry
 using Parameters
 using Gridap
 
-# AbstractDomain interface must be loaded first: TankDomain2D subtypes it.
+# AbstractDomain interface must be loaded first: TankDomain subtypes it.
 include("AbstractDomain.jl")
 
 
@@ -97,7 +97,6 @@ include("validate_tags.jl")
 export TankTriangulations
 export IntegrationDomains
 export TankDomain
-export TankDomain2D
 export StructureDomain, DampingZone
 export JointDomain
 export AbstractDomain, STANDARD_TAGS
@@ -106,7 +105,6 @@ export validate_gmsh_tags
 export triangulation, boundary_tags, ambient_dimension
 export manifold_dimension, get_boundary
 export CartesianDomain
-export TankDomain3D
 export CartesianDomain3D, f_z, map_fn, verify_cartesian_3d_tags
 export get_plate_triangulation
 

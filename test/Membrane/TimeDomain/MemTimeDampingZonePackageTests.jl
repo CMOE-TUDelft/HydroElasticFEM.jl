@@ -28,7 +28,7 @@ import HydroElasticFEM.Geometry as G
   vz_in(x, t) = η₀ * ω * sin(0.2 * x[1] - ω * t + ph0)
   inlet_v(x, t) = 0.1 * cos(0.2 * x[1] - ω * t + ph0)
 
-  tank = G.TankDomain2D(
+  tank = G.TankDomain(
     L=LΩ,
     H=H0,
     nx=20,

@@ -58,7 +58,8 @@ corresponding Gridap skeleton sub-triangulation (one interior facet of
 `Skeleton(Γη)` whose centroid is closest to `location`).  Then
 `get_integration_domains` populates `IntegrationDomains` with the resulting
 measure and outward normal, ready to be consumed by
-[`EulerBernoulliBeam`](@ref) via the matching `JointRotationalSpring`.
+[`HydroElasticFEM.Physics.EulerBernoulliBeam`](@ref) via the matching
+`JointRotationalSpring`.
 
 # Fields
 - `location::Vector{Float64}` — 2D coordinates `[x, y]` of the joint point
@@ -98,15 +99,28 @@ beam = EulerBernoulliBeam(L=1.0, mᵨ=0.5, EIᵨ=100.0,
     tol::Float64 = 1.0e-6
 end
 
+"""
+    TankDomain{D} <: AbstractDomain
+
+Cartesian tank domain wrapper over [`HydroElasticFEM.Geometry.CartesianDomain`](@ref).
+
+`TankDomain` is the canonical structured-tank geometry type. The dimension is
+selected by the wrapped Cartesian domain or, for the keyword constructor, by
+the provided geometric arguments:
+
+- 2D: provide `L, H, nx, ny`
+- 3D: provide `L, W, H, nx, ny, nz`
+
+Only `TankDomain{2}` currently supports `structure_domains`, `damping_zones`,
+and `joint_domains`. `TankDomain{3}` currently models a plain tank without
+embedded structural/damping/joint subdomains.
+"""
 struct TankDomain{D, C, SZ, DZ, JZ} <: AbstractDomain
     cartesian::C
     structure_domains::SZ
     damping_zones::DZ
     joint_domains::JZ
 end
-
-const TankDomain2D = TankDomain{2}
-const TankDomain3D = TankDomain{3}
 
 function _validate_tank_domain_inputs(
     ::Val{2},
@@ -124,11 +138,11 @@ function _validate_tank_domain_inputs(
     joint_domains,
 )
     isempty(structure_domains) ||
-        error("TankDomain3D does not yet support structure_domains.")
+        error("TankDomain{3} does not yet support structure_domains.")
     isempty(damping_zones) ||
-        error("TankDomain3D does not yet support damping_zones.")
+        error("TankDomain{3} does not yet support damping_zones.")
     isempty(joint_domains) ||
-        error("TankDomain3D does not yet support joint_domains.")
+        error("TankDomain{3} does not yet support joint_domains.")
     nothing
 end
 
@@ -182,54 +196,6 @@ function TankDomain(;
     )
     TankDomain(
         cartesian;
-        structure_domains = structure_domains,
-        damping_zones = damping_zones,
-        joint_domains = joint_domains,
-    )
-end
-
-function TankDomain2D(;
-    L = 4.0,
-    H = 1.0,
-    nx = 16,
-    ny = 2,
-    map = x -> x,
-    structure_domains = StructureDomain[],
-    damping_zones = DampingZone[],
-    joint_domains = JointDomain[],
-)
-    TankDomain(
-        L = L,
-        H = H,
-        nx = nx,
-        ny = ny,
-        map = map,
-        structure_domains = structure_domains,
-        damping_zones = damping_zones,
-        joint_domains = joint_domains,
-    )
-end
-
-function TankDomain3D(;
-    L = 4.0,
-    W = 2.0,
-    H = 1.0,
-    nx = 8,
-    ny = 4,
-    nz = 2,
-    map = x -> x,
-    structure_domains = StructureDomain[],
-    damping_zones = DampingZone[],
-    joint_domains = JointDomain[],
-)
-    TankDomain(
-        L = L,
-        W = W,
-        H = H,
-        nx = nx,
-        ny = ny,
-        nz = nz,
-        map = map,
         structure_domains = structure_domains,
         damping_zones = damping_zones,
         joint_domains = joint_domains,

@@ -16,7 +16,7 @@ the skeleton facet ``\\Lambda_j`` and ``n_{\\Lambda_j}`` is its outward normal.
 
 The `domain_symbol` and `normal_symbol` must match the keys registered in
 `IntegrationDomains` — this is done automatically by `get_integration_domains`
-when the corresponding `JointDomain` is declared in `TankDomain2D`.
+when the corresponding `JointDomain` is declared in a 2D `TankDomain`.
 
 # Fields
 - `domain_symbol::Symbol` — Key for the joint skeleton `Measure` in

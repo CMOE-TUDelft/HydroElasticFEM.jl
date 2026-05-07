@@ -10,16 +10,22 @@ HydroElasticFEM.Geometry
 ## Integration domains
 
 ```@docs
+HydroElasticFEM.Geometry.STANDARD_TAGS
+HydroElasticFEM.Geometry.AbstractDomain
 HydroElasticFEM.Geometry.IntegrationDomains
 HydroElasticFEM.Geometry.TankTriangulations
+HydroElasticFEM.Geometry.ambient_dimension
+HydroElasticFEM.Geometry.manifold_dimension
+HydroElasticFEM.Geometry.boundary_tags
+HydroElasticFEM.Geometry.triangulation
+HydroElasticFEM.Geometry.get_boundary
 ```
 
 ## Cartesian geometry
 
 ```@docs
+HydroElasticFEM.Geometry.CartesianDomain
 HydroElasticFEM.Geometry.TankDomain
-HydroElasticFEM.Geometry.TankDomain2D
-HydroElasticFEM.Geometry.TankDomain3D
 HydroElasticFEM.Geometry.StructureDomain
 HydroElasticFEM.Geometry.DampingZone
 HydroElasticFEM.Geometry.JointDomain
@@ -28,10 +34,27 @@ HydroElasticFEM.Geometry.build_triangulations
 HydroElasticFEM.Geometry.get_integration_domains
 ```
 
+## 3D Cartesian helpers
+
+```@docs
+HydroElasticFEM.Geometry.CartesianDomain3D
+HydroElasticFEM.Geometry.f_z
+HydroElasticFEM.Geometry.map_fn
+HydroElasticFEM.Geometry.verify_cartesian_3d_tags
+HydroElasticFEM.Geometry.get_plate_triangulation
+```
+
+## Gmsh geometry
+
+```@docs
+HydroElasticFEM.Geometry.GmshDomain
+HydroElasticFEM.Geometry.validate_gmsh_tags
+```
+
 ## Setting up structural joints
 
 Joints are declared at the geometry level using `JointDomain` inside a
-2D `TankDomain` (or `TankDomain2D`), then automatically converted into
+2D `TankDomain`, then automatically converted into
 skeleton triangulations and integration-domain keys by
 `build_triangulations` and `get_integration_domains`.
 

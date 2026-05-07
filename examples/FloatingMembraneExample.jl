@@ -89,7 +89,7 @@ end
 
 Return the vertical mesh-grading map for the structured tank, including the
 horizontal shift `x0` and the `[0, H0]` vertical convention used by
-`TankDomain2D`.
+`TankDomain`.
 """
 function shifted_gp_map(x0, H0, mesh_ry, ny)
   x -> VectorValue(
@@ -350,7 +350,7 @@ function run_structured_implementation(; kwargs...)
   xm1 = p.xm0 + p.Lm
   probe_membrane = membrane_indicator(p.probe_x, p.xm0, xm1)
 
-  tank = G.TankDomain2D(
+  tank = G.TankDomain(
     L=p.LΩ,
     H=p.H0,
     nx=p.nx,
