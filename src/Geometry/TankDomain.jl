@@ -5,17 +5,20 @@
 """
   StructureDomain
 
-Defines an axis-aligned structure sub-domain on a Cartesian free surface.
+Descriptor for an axis-aligned structure sub-domain on the Cartesian free
+surface (e.g. a floating beam or plate segment).
 
-By default this represents a 1D segment embedded in 2D (`ambient_dim=2`,
-`manifold_dim=1`), but the descriptor is dimension-aware and can be
-parameterized for higher-dimensional embeddings.
+At `build_triangulations` time, a centroid-based mask selects the surface
+cells whose centroid lies inside this descriptor's bounding box.  The
+selected cells become the per-structure triangulation (stored under
+`domain_symbol` in `TankTriangulations`) and contribute to `Γη`.
 
-Variables:
-- L::Float64 = 1.0: Size of the sub-domain along each manifold axis [m]
-- x₀::Vector{Float64} = [0.0, 1.0]: Lower corner/anchor point [m]
-- ambient_dim::Int = 2: Ambient space dimension
-- manifold_dim::Int = 1: Manifold dimension of the structure surface
+## Fields
+- `L::Float64`               — length of the sub-domain [m]
+- `x₀::Vector{Float64}`      — lower corner / anchor point [m]
+- `ambient_dim::Int`         — ambient space dimension (default 2)
+- `manifold_dim::Int`        — manifold dimension of the surface (default 1)
+- `domain_symbol::Symbol`    — key used in `TankTriangulations` (default `:Γ_s`)
 """
 @with_kw struct StructureDomain
   L::Float64 = 1.0
@@ -28,18 +31,22 @@ end
 """
   DampingZone
 
-Defines an axis-aligned damping-zone descriptor on a Cartesian free surface.
+Descriptor for an axis-aligned numerical wave absorber on the Cartesian free
+surface.
 
-By default this represents a 1D segment embedded in 2D (`ambient_dim=2`,
-`manifold_dim=1`), but the descriptor is dimension-aware and can be
-parameterized for higher-dimensional embeddings.
+At `build_triangulations` time, a centroid-based mask selects the surface
+cells inside this zone.  Damping-zone cells are excluded from the open
+free-surface triangulation `Γfs` but included in `Γκ` (the wave-equation
+free-surface that includes damping), so the damping operator can apply a
+spatially varying coefficient.
 
-Variables:
-- L::Float64 = 0.5: Size of the damping zone along each manifold axis [m]
-- σ::Float64 = 1.0: Damping coefficient
-- x₀::Vector{Float64} = [0.0, 1.0]: Lower corner/anchor point [m]
-- ambient_dim::Int = 2: Ambient space dimension
-- manifold_dim::Int = 1: Manifold dimension of the damping-zone surface
+## Fields
+- `L::Float64`               — length of the zone [m]
+- `σ::Float64`               — peak damping coefficient (used by `DampingZoneBC`)
+- `x₀::Vector{Float64}`      — lower corner / anchor point [m]
+- `ambient_dim::Int`         — ambient space dimension (default 2)
+- `manifold_dim::Int`        — manifold dimension (default 1)
+- `domain_symbol::Symbol`    — key used in `TankTriangulations` (default `:Γ_d`)
 """
 @with_kw struct DampingZone
   L::Float64 = 0.5
@@ -106,18 +113,33 @@ end
 """
     TankDomain{D} <: AbstractDomain
 
-Cartesian tank domain wrapper over [`HydroElasticFEM.Geometry.CartesianDomain`](@ref).
+Structured Cartesian tank domain with embedded sub-domain descriptors.
 
-`TankDomain` is the canonical structured-tank geometry type. The dimension is
-selected by the wrapped Cartesian domain or, for the keyword constructor, by
-the provided geometric arguments:
+`TankDomain` wraps a [`CartesianDomain`](@ref) and extends it with three
+optional lists of sub-domain descriptors:
 
+- `structure_domains` — beam / plate segments on the free surface
+- `damping_zones`     — numerical wave absorbers on the free surface
+- `joint_domains`     — rotational-spring joints between beam segments
+
+At `build_triangulations` time, the top-surface `Boundary` is partitioned
+into named sub-triangulations using coordinate masks derived from each
+descriptor.  This partition is the bridge between the geometric description
+and the Gridap `Measure` objects consumed by weak forms.
+
+The dimension `D` is inferred from the keyword arguments:
 - 2D: provide `L, H, nx, ny`
 - 3D: provide `L, W, H, nx, ny, nz`
 
 Only `TankDomain{2}` currently supports `structure_domains`, `damping_zones`,
-and `joint_domains`. `TankDomain{3}` currently models a plain tank without
-embedded structural/damping/joint subdomains.
+and `joint_domains`; `TankDomain{3}` models a plain tank.
+
+## Compatibility properties
+
+`TankDomain` exposes the wrapped Cartesian dimensions as direct properties for
+backwards compatibility: `domain.L`, `domain.H`, `domain.nx`, `domain.ny`
+(2D) and additionally `domain.W`, `domain.nz` (3D).  These are read-only
+derived values; the canonical data lives in `domain.cartesian`.
 """
 struct TankDomain{D, C, SZ, DZ, JZ} <: AbstractDomain
   cartesian::C
@@ -541,14 +563,23 @@ end
 """
     build_triangulations(domain::TankDomain{2}, model) -> TankTriangulations
 
-Label the model, extract base triangulations (`Ω`, `Γ`, `Γin`, `Γout`),
-then partition the top surface `Γ` using the masks derived from the
-structure domains and damping zones in `domain`.
+Build the full set of named sub-triangulations from a pre-labelled `model`.
 
-Returns a [`TankTriangulations`](@ref) holding every sub-triangulation
-needed for simulation assembly.
+## Surface partition
 
-Labelling convention (Cartesian 2D, entity ids):
+The top-surface `Boundary` is partitioned into three disjoint regions by
+applying centroid masks derived from `domain.structure_domains` and
+`domain.damping_zones`:
+
+- `Γη`  — cells covered by at least one `StructureDomain`
+- `Γκ`  — cells *not* covered by any `StructureDomain` (open water + damping)
+- `Γfs` — cells covered by neither structure nor damping (pure open water)
+
+Each descriptor also produces its own named triangulation stored under its
+`domain_symbol` key.  If `joint_domains` are present, the `Skeleton(Γη)` is
+further split into per-joint facets plus a remainder `Λη`.
+
+## Labelling convention (Cartesian 2D, entity ids)
 - `"surface"` → entities 3, 4, 6 (top side + top corners)
 - `"bottom"`  → entities 1, 2, 5 (bottom side + bottom corners)
 - `"inlet"`   → entity 7 (left wall)

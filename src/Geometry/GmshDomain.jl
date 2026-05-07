@@ -10,20 +10,33 @@ using GridapGmsh
 Wraps a [`GridapGmsh`](https://github.com/gridap/GridapGmsh.jl) discrete model
 loaded from a `.msh` file.
 
-All boundary conditions are identified exclusively by their Gmsh physical-group
-name.  The constructor enforces that every [`STANDARD_TAGS`](@ref) name is
-present in the mesh before the object is created.
+## Why boundaries are tag-based
+
+`GmshDomain` identifies every boundary exclusively by its Gmsh
+*physical-group name*, not by coordinate ranges or entity indices.  This is
+deliberate: unstructured meshes have no canonical notion of "the top face"
+that is robust across mesh refinements, domain shapes, and element
+reorderings.  Physical groups encode geometric intent in the mesh file itself,
+which means the same Julia assembly code works unchanged for any mesh that
+follows the naming convention.  Filtering by coordinates in Julia would couple
+physics code to mesh-specific geometry decisions and break under refinement or
+remeshing.
+
+The six [`STANDARD_TAGS`](@ref) (`"fluid"`, `"free_surface"`, `"seabed"`,
+`"inlet"`, `"outlet"`, `"structure"`) must be defined as physical groups in
+the `.msh` file before calling the constructor; it raises an `ArgumentError`
+if any are missing.  Use [`validate_gmsh_tags`](@ref) to check a mesh file
+without constructing the domain.
 
 ## Constructor
 
     GmshDomain(msh_file; dim=2, verbose=false)
 
 ## Fields (read-only)
-- `model`      — the underlying `UnstructuredDiscreteModel`
-- `msh_file`   — absolute path of the source `.msh` file
-- `tags`       — `Dict{String,String}` mapping every physical-group name to
-                 itself (standard and extra tags)
-- `dim`        — ambient spatial dimension (2 or 3)
+- `model`    — the underlying `UnstructuredDiscreteModel`
+- `msh_file` — absolute path of the source `.msh` file
+- `tags`     — `Dict{String,String}` of all detected physical-group names
+- `dim`      — ambient spatial dimension (2 or 3)
 
 ## Example
 

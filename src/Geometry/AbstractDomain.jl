@@ -32,36 +32,55 @@ const STANDARD_TAGS = [
 """
     abstract type AbstractDomain
 
-Unified interface for geometry domains used in HydroElasticFEM simulations.
+Unified interface for geometry domains in HydroElasticFEM simulations.
 
-Every concrete subtype must implement the five required methods below.
+The interface exists so that physics assembly code can be written once and
+work with any mesh source.  A function that accepts `AbstractDomain` works
+with both a structured Cartesian tank and an unstructured Gmsh mesh without
+modification.
+
 Two concrete implementations are provided:
 
-- [`TankDomain`](@ref)   — structured Cartesian tank on a wrapped
-  [`CartesianDomain`](@ref)
-- [`GmshDomain`](@ref)   — unstructured mesh loaded from a `.msh` file
+- [`TankDomain`](@ref) — structured Cartesian tank built entirely in Julia.
+  Sub-domains (structures, damping zones, joints) are declared as descriptors
+  and partitioned from the top surface using coordinate masks at
+  `build_triangulations` time.
+
+- [`GmshDomain`](@ref) — unstructured mesh loaded from a `.msh` file.
+  Sub-domains are identified by Gmsh *physical-group names* that were assigned
+  in the mesh file; no coordinate filtering is performed in Julia.
+
+Both types feed the same three-step simulation pipeline:
+```julia
+model  = build_model(domain)           # step 1: Gridap DiscreteModel
+trians = build_triangulations(domain, model)  # step 2: named sub-triangulations
+dom    = get_integration_domains(trians)      # step 3: Measures + normals
+```
+All three steps must share the same `model` instance.
 
 ## Required interface
 
-| Method                              | Returns                        |
-|-------------------------------------|--------------------------------|
-| `triangulation(d)`                  | Gridap `Triangulation` (bulk)  |
-| `boundary_tags(d)`                  | `Dict{String,Any}`             |
-| `ambient_dimension(d)`              | `Int` (2 or 3)                 |
-| `manifold_dimension(d)`             | `Int` (same as ambient for vol)|
-| `get_boundary(d, name)`             | Gridap `BoundaryTriangulation` |
+| Method                    | Returns                              |
+|---------------------------|--------------------------------------|
+| `triangulation(d)`        | Gridap `Triangulation` (bulk fluid)  |
+| `boundary_tags(d)`        | `Dict{String,String}` (tag → label)  |
+| `ambient_dimension(d)`    | `Int` (2 or 3)                       |
+| `manifold_dimension(d)`   | `Int` (equals ambient for volumes)   |
+| `get_boundary(d, name)`   | Gridap `BoundaryTriangulation`       |
 
-All six [`STANDARD_TAGS`](@ref) must be accessible via `get_boundary`.
+All six [`STANDARD_TAGS`](@ref) (`"fluid"`, `"free_surface"`, `"seabed"`,
+`"inlet"`, `"outlet"`, `"structure"`) must be accessible via `get_boundary`
+and present in `boundary_tags`.
 
 ## Example
 
 ```julia
-# Works with any AbstractDomain subtype
-function describe_domain(d::AbstractDomain)
-    println("dim = ", ambient_dimension(d))
-    println("tags = ", keys(boundary_tags(d)))
+# Polymorphic helper — works with TankDomain or GmshDomain
+function print_summary(d::AbstractDomain)
+    println("dim   = ", ambient_dimension(d))
+    println("tags  = ", join(sort(collect(keys(boundary_tags(d)))), ", "))
     Γfs = get_boundary(d, "free_surface")
-    println("free-surface cells = ", num_cells(Γfs))
+    println("Γfs cells = ", num_cells(Γfs))
 end
 ```
 """

@@ -5,13 +5,22 @@
 """
     CartesianDomain{D} <: AbstractDomain
 
-Generic axis-aligned Cartesian domain for 2D or 3D fluid problems.
+Low-level axis-aligned Cartesian domain for 2D or 3D fluid problems.
+
+`CartesianDomain` is the building block: it stores the bounding box, cell
+counts, and an optional coordinate map, and knows how to construct a
+`CartesianDiscreteModel`.  It has no knowledge of embedded structures,
+damping zones, or joints.
+
+**Most users should use [`TankDomain`](@ref) instead.**
+`TankDomain` wraps a `CartesianDomain` and adds the sub-domain descriptors
+(`StructureDomain`, `DampingZone`, `JointDomain`) and the surface-mask
+partition that maps those descriptors into Gridap triangulations.
+Use `CartesianDomain` directly only when you need a plain rectangular fluid
+region with no embedded structural components.
 
 `CartesianDomain{2}` uses coordinates `(x, z)` (horizontal, vertical).
 `CartesianDomain{3}` uses coordinates `(x, y, z)`.
-
-This type is functional and dispatch-driven: dimension-specific behavior is
-selected with `Val(D)` dispatch so the same API works for both 2D and 3D.
 
 ## Fields
 - `mins::NTuple{D,Float64}` — lower bounds for each axis [m]
@@ -19,18 +28,13 @@ selected with `Val(D)` dispatch so the same API works for both 2D and 3D.
 - `parts::NTuple{D,Int}`    — number of cells along each axis
 - `map::Function`           — optional coordinate map (default: identity)
 
-## Constructors
-
-Use the keyword constructor [`CartesianDomain(; ...)`](@ref) instead of the
-inner constructor.
-
 ## Example
 
 ```julia
 # 2D box [0,4] × [0,1], 80 × 10 cells
 d = CartesianDomain(L=4.0, H=1.0, nx=80, ny=10)
 
-# 3D box [0,8] × [-2,2] × [0,2], graded in z
+# 3D box with graded vertical cells
 d = CartesianDomain(
     mins=(0.0,-2.0,0.0), maxs=(8.0,2.0,2.0), parts=(40,20,10),
     map = x -> G.map_fn(x, 2.0, 10))
