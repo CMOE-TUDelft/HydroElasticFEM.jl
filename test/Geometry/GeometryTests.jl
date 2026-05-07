@@ -6,7 +6,7 @@ using Test
   # state after extensive Gridap use on macOS ARM64.
   include("test_gmsh_domain.jl")
 
-  include("CartesianGeometryTests.jl")
+  include("TankDomainTests.jl")
   include("CartesianDomainGenericTests.jl")
   include("test_abstract_domain.jl")
 

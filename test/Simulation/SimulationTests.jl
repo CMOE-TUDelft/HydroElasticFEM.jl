@@ -26,7 +26,7 @@ end
 
 # =========================================================================
 # Shared mesh setup: 50m × 10m tank, membrane from x=15 to x=35
-# Uses CartesianGeometry functions from the Geometry module.
+# Uses TankDomain functions from the Geometry module.
 # =========================================================================
 
 @testset "Simulation" begin
