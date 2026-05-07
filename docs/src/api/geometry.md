@@ -32,6 +32,9 @@ HydroElasticFEM.Geometry.JointDomain
 HydroElasticFEM.Geometry.build_model
 HydroElasticFEM.Geometry.build_triangulations
 HydroElasticFEM.Geometry.get_integration_domains
+HydroElasticFEM.Geometry.surface_mask
+HydroElasticFEM.Geometry.surface_masks
+HydroElasticFEM.Geometry.joint_mask
 ```
 
 ## 3D Cartesian helpers
