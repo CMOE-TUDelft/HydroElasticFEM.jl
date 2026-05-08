@@ -161,3 +161,79 @@ end
   # converges to the analytical value but is under-resolved at this resolution.
   @test abs(w_h - w_ref) / w_ref < 0.05
 end
+
+@testset "KirchhoffLovePlate — 1D manifold (beam reduction)" begin
+  # manifold_dim=1: only C[1,1,1,1] = E*I/ρ is active; all other entries 0.
+  # Reproduces the Euler-Bernoulli bending rigidity per unit fluid density.
+  E = 10.92e6;  h = 0.01;  ρ = 1.0
+  C1 = P.build_kl_tensor(2, 1, E, 0.3, h, ρ)
+  @test C1[1, 1, 1, 1] ≈ E * h^3 / (12 * ρ)  rtol=1e-12
+  @test C1[1, 2, 1, 2] == 0.0
+  @test C1[2, 2, 2, 2] == 0.0
+end
+
+@testset "KirchhoffLovePlate — build_kl_tensor argument validation" begin
+  @test_throws ErrorException P.build_kl_tensor(4, 2, 1e9, 0.3, 0.01, 1.0)  # bad ambient_dim
+  @test_throws ErrorException P.build_kl_tensor(2, 0, 1e9, 0.3, 0.01, 1.0)  # bad manifold_dim
+  @test_throws ErrorException P.build_kl_tensor(2, 3, 1e9, 0.3, 0.01, 1.0)  # manifold > ambient
+end
+
+@testset "KirchhoffLovePlate — constitutive tensor ρ scaling" begin
+  # Doubling ρ halves every tensor component.
+  E = 10.92e6;  ν = 0.3;  h = 0.01
+  C1 = P.build_kl_tensor(2, 2, E, ν, h, 1.0)
+  C2 = P.build_kl_tensor(2, 2, E, ν, h, 2.0)
+  for i in 1:2, j in 1:2, k in 1:2, l in 1:2
+    @test C1[i, j, k, l] ≈ 2 * C2[i, j, k, l]  atol=1e-12
+  end
+end
+
+@testset "KirchhoffLovePlate — check_major_symmetry" begin
+  C = P.build_KL_tensor(10.92e6, 0.3, 0.01, 1025.0)
+  @test P.check_major_symmetry(C; dim=3)
+  @test P.check_major_symmetry(C; dim=2)
+end
+
+@testset "KirchhoffLovePlate — equivalent_beam_rigidity" begin
+  E = 10.92e6;  ν = 0.3;  h = 0.01;  ρ = 1025.0
+  plate   = P.KirchhoffLovePlate(E=E, ν=ν, hb=h, ρ=ρ)
+  D_rho   = E * h^3 / (12 * (1 - ν^2) * ρ)
+  @test P.equivalent_beam_rigidity(plate)            ≈ D_rho      rtol=1e-12
+  @test P.equivalent_beam_rigidity(plate; width=3.0) ≈ 3 * D_rho  rtol=1e-12
+end
+
+@testset "KirchhoffLovePlate — mass form integral" begin
+  # Assemble l(v) = mass(plate, dom, ηₜₜ=1, y) on a free (no Dirichlet) space.
+  # By Lagrange partition of unity: Σᵢ bᵢ = ∫ m_ρ · 1 dΓ = m_ρ · L² (exact).
+  L = 1.0;  n = 4;  order = 2
+  E = 10.92e6;  ν = 0.3;  h = 0.01;  ρ = 1.0;  ρb = 500.0
+  m_ρ = ρb * h / ρ
+
+  prob  = _build_plate_problem(L=L, n=n, order=order)
+  reffe = ReferenceFE(lagrangian, Float64, order)
+  V     = TestFESpace(prob.model, reffe;
+                      conformity=:H1, vector_type=Vector{Float64})
+  Y     = MultiFieldFESpace([V])
+
+  plate = P.KirchhoffLovePlate(
+    E=E, ν=ν, hb=h, ρ=ρ, ρb=ρb, g=0.0,
+    ambient_dim=2, manifold_dim=2,
+    fe=FES.FESpaceConfig(order=order, vector_type=Vector{Float64}),
+  )
+
+  sym  = P.variable_symbol(plate)
+  fmap = Dict(sym => 1)
+  one_fn(x) = 1.0
+
+  l((v,)) = P.mass(plate, prob.dom,
+                   FO.FieldMap((one_fn,), fmap),
+                   FO.FieldMap((v,), fmap))
+
+  b = assemble_vector(l, Y)
+  @test sum(b) ≈ m_ρ * L^2  rtol=1e-10
+end
+
+@testset "KirchhoffLovePlate — print_parameters" begin
+  plate = P.KirchhoffLovePlate(E=11.9e9, ν=0.13, hb=2.0, ρ=1025.0)
+  @test_nowarn P.print_parameters(plate)
+end
