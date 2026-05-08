@@ -10,7 +10,7 @@
 #    The scalar C[1,1,1,1] = D/ρ where D = E·h³/(12(1-ν²)).
 #
 # C. REGISTERED in Physics.jl via
-#    include("Structures/Plate/KirchhoffLovePlate.jl") and exported in
+#    include("Structures/KirchhoffLovePlate.jl") and exported in
 #    HydroElasticFEM.jl.  Inherits Structure <: PhysicsParameters so the
 #    PotentialFlow↔Structure coupling damping in CouplingTerms.jl applies
 #    automatically — no additional coupling code is needed.
