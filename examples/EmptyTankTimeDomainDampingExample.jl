@@ -99,15 +99,15 @@ function run_example(; kwargs...)
   βₜ = 0.25
   αₕ = γₜ / (βₜ * p.Δt) / g * (1.0 - p.βₕ) / p.βₕ
 
-  tank = G.TankDomain2D(
+  tank = G.TankDomain(
     L=p.LΩ,
     H=p.H0,
     nx=p.nx,
     ny=p.ny,
     map=shifted_gp_map(p.x0, p.mesh_ry, p.ny, p.H0),
     damping_zones=[
-      G.DampingZone1D(L=p.Ld, x₀=[p.x0, 0.0], domain_symbol=:Γd_in),
-      G.DampingZone1D(L=p.Ld, x₀=[p.x0 + p.LΩ - p.Ld, 0.0], domain_symbol=:Γd_out),
+      G.DampingZone(L=p.Ld, x₀=[p.x0, 0.0], domain_symbol=:Γd_in),
+      G.DampingZone(L=p.Ld, x₀=[p.x0 + p.LΩ - p.Ld, 0.0], domain_symbol=:Γd_out),
     ],
   )
 

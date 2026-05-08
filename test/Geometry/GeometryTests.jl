@@ -2,6 +2,12 @@ using Test
 
 @testset "Geometry" begin
 
-  include("CartesianGeometryTests.jl")
+  # Run GmshDomain tests first: gmsh's C++ allocator is sensitive to heap
+  # state after extensive Gridap use on macOS ARM64.
+  include("test_gmsh_domain.jl")
+
+  include("TankDomainTests.jl")
+  include("CartesianDomainGenericTests.jl")
+  include("test_abstract_domain.jl")
 
 end

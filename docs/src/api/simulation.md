@@ -37,6 +37,7 @@ HydroElasticFEM.Simulation.FEOperators
 ```@docs
 HydroElasticFEM.Simulation.FEOperators.FieldMap
 HydroElasticFEM.Simulation.FEOperators.detect_couplings
+HydroElasticFEM.Simulation.FEOperators.build_fe_operator
 HydroElasticFEM.Simulation.FEOperators.build_frequency_fe_operator
 HydroElasticFEM.Simulation.FEOperators.build_time_fe_operator
 ```

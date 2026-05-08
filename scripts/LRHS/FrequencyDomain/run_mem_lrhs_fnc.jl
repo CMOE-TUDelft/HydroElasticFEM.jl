@@ -37,7 +37,7 @@ rm(resDir*"/warmup"; recursive=true, force=true)
 H0 = 10
 
 # Membrane parameters
-memb2D = Membrane.Membrane2D(
+memb2D = Membrane.Membrane(
   2*H0,         # L
   0.9*ρw,      # m
   98.1 * ρw,  # T

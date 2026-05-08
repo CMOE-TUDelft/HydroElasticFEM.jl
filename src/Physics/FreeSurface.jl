@@ -19,6 +19,7 @@ term `βₕ·g·u·κ`; coupling with the velocity potential `ϕ` (from
     g::Float64  = 9.81
     βₕ::Float64 = 0.5
     fe::FESpaceConfig = FESpaceConfig()
+    dim::Int    = 2
     symbol::Symbol = :κ
     space_domain_symbol::Symbol = :Γκ
 end
@@ -32,6 +33,7 @@ function print_parameters(fs::FreeSurface)
 end
 
 variable_symbol(s::FreeSurface) = s.symbol
+ambient_dimension(fs::FreeSurface) = fs.dim
 
 function stabilization_parameter(fs::FreeSurface, ctx::AC.FrequencyAssemblyContext)
     AC.has_stabilization(ctx) || error("Frequency-domain free-surface stabilization requires `αₕ` in the assembly context.")

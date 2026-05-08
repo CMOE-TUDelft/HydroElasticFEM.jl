@@ -89,7 +89,7 @@ end
 
 Return the vertical mesh-grading map for the structured tank, including the
 horizontal shift `x0` and the `[0, H0]` vertical convention used by
-`TankDomain2D`.
+`TankDomain`.
 """
 function shifted_gp_map(x0, H0, mesh_ry, ny)
   x -> VectorValue(
@@ -218,7 +218,7 @@ end
     run_plain_implementation(; kwargs...)
 
 Solve the floating-membrane problem with the explicit Gridap formulation that
-matches `src/Membrane2D/FrequencyDomain/mem_freq_rad_fnc.jl`.
+matches `src/Membrane/FrequencyDomain/mem_freq_rad_fnc.jl`.
 
 Keyword arguments override `FloatingMembraneTutorialParams`.
 Returns a named tuple with probe values for the combined surface response and
@@ -350,14 +350,14 @@ function run_structured_implementation(; kwargs...)
   xm1 = p.xm0 + p.Lm
   probe_membrane = membrane_indicator(p.probe_x, p.xm0, xm1)
 
-  tank = G.TankDomain2D(
+  tank = G.TankDomain(
     L=p.LΩ,
     H=p.H0,
     nx=p.nx,
     ny=p.ny,
     map=shifted_gp_map(p.x0, p.H0, p.mesh_ry, p.ny),
     structure_domains=[
-      G.StructureDomain1D(L=p.Lm, x₀=[p.xm0, 0.0], domain_symbol=:Γm),
+      G.StructureDomain(L=p.Lm, x₀=[p.xm0, 0.0], domain_symbol=:Γm),
     ],
   )
 
@@ -397,7 +397,7 @@ function run_structured_implementation(; kwargs...)
     PH.FESpaceConfig(order=p.order, vector_type=Vector{ComplexF64})
   end
 
-  membrane = P.Membrane2D(
+  membrane = P.Membrane(
     L=p.Lm,
     mᵨ=p.mᵨ,
     Tᵨ=p.Tᵨ,

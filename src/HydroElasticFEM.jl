@@ -28,9 +28,25 @@ module HydroElasticFEM
   # print_properties()
   # map_vertical_GP_for_const_dep()
 
+  # Re-export Geometry public API
+  export AbstractDomain, STANDARD_TAGS
+  export TankDomain
+  export StructureDomain, DampingZone, JointDomain
+  export CartesianDomain
+  export GmshDomain
+  export triangulation, boundary_tags, ambient_dimension
+  export manifold_dimension, get_boundary
+  export get_plate_triangulation
+  export validate_gmsh_tags
+  export build_model, build_triangulations, get_integration_domains
+  export TankTriangulations, IntegrationDomains
+
   # Re-export Physics public API
   export PhysicsParameters, print_parameters
-  export PotentialFlow, FreeSurface, Membrane2D, EulerBernoulliBeam
+  export PotentialFlow, FreeSurface, Membrane, EulerBernoulliBeam
+  export KirchhoffLovePlate, KirchhoffLovePlate3D
+  export build_kl_tensor, build_KL_tensor
+  export equivalent_beam_rigidity
   export ResonatorSingle, resonator_array
   export IntegrationDomains
   export AbstractAssemblyContext, FrequencyAssemblyContext, TimeAssemblyContext

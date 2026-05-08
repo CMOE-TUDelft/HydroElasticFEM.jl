@@ -295,7 +295,7 @@ Tests (Phase 3):
 | Struct-based config (`TankDomain2D`) instead of keyword args | Enables serialisation, testing, and re-use of identical geometry across frequency/time-domain runs. |
 | `TankGeometry` stores triangulations **and** measures | Measures are cheap and always needed; avoids a second construction step. |
 | Mapping to `WeakFormDomains` is a separate function | Keeps geometry independent of the Physics key conventions; easy to update if conventions change. |
-| `StructureZone` is physics-agnostic (just a label + length) | The actual entity type (Membrane2D vs EulerBernoulliBeam) is determined elsewhere; geometry only needs extent. |
+| `StructureZone` is physics-agnostic (just a label + length) | The actual entity type (Membrane vs EulerBernoulliBeam) is determined elsewhere; geometry only needs extent. |
 | `f_y` grading extracted into `MeshGrading.jl` | Allows future grading strategies (e.g., tanh, cosine, adaptive) without touching the rest. |
 
 ---
@@ -319,7 +319,7 @@ dom  = to_weakform_domains(geom)
 # Physics + assembly unchanged
 pf   = PotentialFlow()
 fs   = FreeSurface()
-mem  = Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1)
+mem  = Membrane(L=20.0, mᵨ=0.9, Tᵨ=98.1)
 X, Y, fmap = build_fe_spaces(pf => geom.Ω, fs => geom.Γκ, mem => geom.structures[:membrane].Γs)
 # … assemble and solve as before
 ```
