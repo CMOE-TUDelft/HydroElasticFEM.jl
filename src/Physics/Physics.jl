@@ -378,7 +378,7 @@ export active_forms
 export weakform, residual, jacobian, jacobian_t, jacobian_tt
 export PotentialFlow, FreeSurface, Membrane
 export JointRotationalSpring, EulerBernoulliBeam, Resonator
-export KirchhoffLovePlate, KirchhoffLovePlate3D
+export KirchhoffLovePlate
 export build_kl_tensor, build_KL_tensor, check_major_symmetry
 export equivalent_beam_rigidity
 export AbstractPotentialFlowBC, RadiationBC, PrescribedInletPotentialBC, DampingZoneBC

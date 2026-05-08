@@ -1,3 +1,33 @@
+# =============================================================================
+# KirchhoffLovePlate — implementation status (last updated 2026-05-08)
+#
+# A. KirchhoffLovePlate struct EXISTS here (fields E, ν, hb, ρ, ρb, g,
+#    ambient_dim, manifold_dim, symbol, space_domain_symbol, fe, C).
+#
+# B. build_kl_tensor / build_KL_tensor EXISTS here.
+#    build_kl_tensor(ambient_dim, manifold_dim, E, ν, hb, ρ) builds the
+#    SymFourthOrderTensorValue{ambient_dim} constitutive tensor C = E·I/(ρ·...)
+#    The scalar C[1,1,1,1] = D/ρ where D = E·h³/(12(1-ν²)).
+#
+# C. REGISTERED in Physics.jl via
+#    include("Structures/Plate/KirchhoffLovePlate.jl") and exported in
+#    HydroElasticFEM.jl.  Inherits Structure <: PhysicsParameters so the
+#    PotentialFlow↔Structure coupling damping in CouplingTerms.jl applies
+#    automatically — no additional coupling code is needed.
+#
+# D. mass / damping / stiffness / rhs were NOT implemented before this edit.
+#    They are added below.
+#
+# E. BeamPlateConsistencyTests.jl has three tests (1D beam-plate consistency
+#    on the tensor scalar C[1,1,1,1]).  No weak-form assembly tests existed.
+#    New weak-form validation tests live in
+#    test/Physics/KirchhoffLovePlateTests.jl.
+#
+# Reference: Colomés, Verdugo, Akkerman (2022), NME.
+#   Section 3.2, eqs. (24)–(25).
+#   DOI: 10.1002/nme.7140
+# =============================================================================
+
 using Gridap.TensorValues
 
 """
@@ -91,7 +121,7 @@ in 2D/3D fluids.
   ambient_dim::Int = 3
   manifold_dim::Int = 2
   symbol::Symbol = :η
-  space_domain_symbol::Symbol = :Γb
+  space_domain_symbol::Symbol = :Γη
   fe::FESpaceConfig = FESpaceConfig()
   C = build_kl_tensor(ambient_dim, manifold_dim, E, ν, hb, ρ)
 end
@@ -122,4 +152,86 @@ function equivalent_beam_rigidity(plate::KirchhoffLovePlate; width=1.0)
   width * plate.C[1, 1, 1, 1]
 end
 
-const KirchhoffLovePlate3D = KirchhoffLovePlate
+
+# ── Single-variable weak forms: mass, stiffness, rhs ──────────────────────
+#
+# The Kirchhoff-Love plate is discretised with an interior-penalty C/DG
+# approach (Engel et al. 2002; Colomés et al. 2022, §3.2, eqs. 24–25).
+# No intrinsic structural damping is implemented (has_damping_form = false).
+# Fluid-structure coupling damping is inherited via Structure <: PhysicsParameters
+# through the PotentialFlow↔Structure pair in CouplingTerms.jl.
+#
+# Bilinear form on plate surface Γb (interior skeleton Λb):
+#
+#   a(η,v) = ∫ (∇∇v ⊙ (C ⊙ ∇∇η) + g·v·η) dΓb
+#            + ∫ ( -[[∇v·n]] {n·(C⊙∇∇η)·n}
+#                 - {n·(C⊙∇∇v)·n} [[∇η·n]]
+#                 + (γ/hₑ) D_ρ [[∇v·n]] [[∇η·n]] ) dΛb
+#
+# where D_ρ = C[1,1,1,1] = D/ρ_fluid = E·h³/(12(1-ν²)·ρ),
+#       γ   = plate.fe.γ (= 10·p² from FESpaceConfig),
+#       hₑ  = dom[:h_η] (representative element size on Γb).
+#
+# Simply-supported plate BC: η=0 enforced as Dirichlet; M_n=0 is natural.
+# ==========================================================================
+
+"""
+    has_damping_form(::KirchhoffLovePlate)
+
+The plate has no structural damping term; returns `false`.
+FSI coupling damping is provided separately via `CouplingTerms.jl`.
+"""
+has_damping_form(::KirchhoffLovePlate) = false
+
+"""
+    mass(plate, dom, x_tt, y)
+
+Mass bilinear form: ∫ (ρb·hb/ρ) v·ηtt dΓ.
+"""
+function mass(s::KirchhoffLovePlate, dom::IntegrationDomains, x_tt, y)
+  sym  = variable_symbol(s)
+  ηₜₜ = x_tt[sym]
+  v    = y[sym]
+  m_ρ  = s.ρb * s.hb / s.ρ   # mass per unit area / ρ_fluid  [dimensionless]
+  ∫(m_ρ * v * ηₜₜ)dom[:dΓη]
+end
+
+"""
+    stiffness(plate, dom, x, y)
+
+C/DG bilinear form for the Kirchhoff-Love plate (eqs. 24–25 of [C22]).
+
+Uses interior-penalty stabilisation with penalty coefficient
+`(γ / h) * C[1,1,1,1]` where γ comes from `plate.fe.γ`.
+"""
+function stiffness(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
+  sym  = variable_symbol(s)
+  η    = x[sym]
+  v    = y[sym]
+  C    = s.C
+  γ    = s.fe.γ
+  h    = dom[:h_η]
+  n_Λ  = dom[:n_Λ_η]
+  D_ρ  = C[1, 1, 1, 1]     # bending stiffness / ρ_fluid = D/ρ [m⁴/s²]
+
+  bulk = ∫(∇(∇(v)) ⊙ (C ⊙ ∇(∇(η))) + s.g * v * η)dom[:dΓη]
+
+  skeleton = ∫(
+    -jump(∇(v) ⋅ n_Λ) * (n_Λ ⋅ mean(C ⊙ ∇(∇(η))) ⋅ n_Λ)
+    - (n_Λ ⋅ mean(C ⊙ ∇(∇(v))) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ)
+    + (γ / h) * D_ρ * jump(∇(v) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ)
+  )dom[:dΛη]
+
+  return bulk + skeleton
+end
+
+"""
+    rhs(plate, dom, f, y)
+
+Right-hand side linear form: ∫ v · f[sym] dΓ.
+"""
+function rhs(s::KirchhoffLovePlate, dom::IntegrationDomains, f, y)
+  sym = variable_symbol(s)
+  v   = y[sym]
+  ∫(v * f[sym])dom[:dΓη]
+end

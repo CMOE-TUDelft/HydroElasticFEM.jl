@@ -33,3 +33,4 @@ end
 
 @testset "3D sloshing" include("Sloshing3DTests.jl")
 @testset "Beam-plate consistency" include("BeamPlateConsistencyTests.jl")
+@testset "KirchhoffLovePlate" include("KirchhoffLovePlateTests.jl")
