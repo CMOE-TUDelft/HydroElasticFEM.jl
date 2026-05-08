@@ -207,7 +207,7 @@ include("Fluid/PotentialFlow.jl")
 include("Fluid/FreeSurface.jl")
 include("Structures/Membrane.jl")
 include("Structures/EulerBernoulliBeam.jl")
-include("Structures/Plate/KirchhoffLovePlate.jl")
+include("Structures/KirchhoffLovePlate.jl")
 include("Structures/Resonator.jl")
 
 # Coupling weak forms (cross-terms between pairs of entities)
