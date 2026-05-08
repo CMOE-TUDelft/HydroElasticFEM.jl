@@ -218,24 +218,12 @@ function stiffness(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
   h    = dom[:h_η]
   n_Λ  = dom[:n_Λ_η]
 
-  # Isotropic biharmonic SIPG (Engel et al. 2002).
-  # Note: ε(∇(η)) would give SymTensorValue{D} (the symmetric Hessian) and
-  # IS the mathematically correct way to write ∇∇η. However, Gridap does not
-  # dispatch ε on the lazy result of ∇(scalar_field) — it only supports ε on
-  # physical vector FE fields. Likewise, ∇(∇(η)) returns TensorValue{D,D}
-  # (not SymTensorValue), so C ⊙ ∇(∇(η)) also has no dispatch.
-  #
-  # Workaround: for an isotropic plate (C[i,j,k,l] = f(δ) terms only) the
-  # Gauss-curvature boundary integral vanishes for simply-supported BCs, so
-  # ∫ ∇∇v ⊙ (C ⊙ ∇∇η) dΩ = D_ρ ∫ Δv·Δη dΩ exactly.  The Δ-based SIPG
-  # form is numerically identical and dispatches correctly.
-  bulk = ∫(D_ρ * Δ(v) * Δ(η) + s.g * v * η)dom[:dΓη]
+  bulk = ∫(( ∇∇(v) ⊙ (s.C ⊙ ∇∇(η))) + s.g * v * η)dom[:dΓη]
 
   skeleton = ∫(
-    -jump(∇(v) ⋅ n_Λ) * mean(D_ρ * Δ(η))
-    - mean(D_ρ * Δ(v)) * jump(∇(η) ⋅ n_Λ)
-    + (γ / h) * D_ρ * jump(∇(v) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ)
-  )dom[:dΛη]
+    -jump(∇(v)) ⊙ (mean(s.C ⊙ ∇∇(η))⋅n_Λ.⁺) 
+    - (mean((s.C ⊙ ∇∇(v)))⋅n_Λ.⁺) ⊙ jump(∇(η)) 
+    + D_ρ*γ/h*jump(∇(v))⊙jump(∇(η)) )dom[:dΛη]
 
   return bulk + skeleton
 end

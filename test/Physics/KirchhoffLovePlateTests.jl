@@ -237,3 +237,76 @@ end
   plate = P.KirchhoffLovePlate(E=11.9e9, ν=0.13, hb=2.0, ρ=1025.0)
   @test_nowarn P.print_parameters(plate)
 end
+
+# =========================================================================
+# Hessian SIPG form — targeted tests
+# =========================================================================
+
+@testset "KirchhoffLovePlate — Hessian SIPG: stiffness matrix symmetry" begin
+  # The Hessian SIPG form a(η,v) is symmetric by construction.
+  # Verify ||K - Kᵀ||∞ / ||K||∞ < 1e-10 on a small unconstrained mesh.
+  # A failure here means the skeleton terms mean(C⊙∇∇η)⋅n are mis-assembled.
+  L = 1.0;  n = 3;  order = 2
+  E = 10.92e6;  ν = 0.3;  h_plate = 0.01
+
+  prob  = _build_plate_problem(L=L, n=n, order=order)
+  reffe = ReferenceFE(lagrangian, Float64, order)
+  V  = TestFESpace(prob.model, reffe; conformity=:H1,
+                   vector_type=Vector{Float64})
+  U  = TrialFESpace(V)
+  Y  = MultiFieldFESpace([V])
+  X  = MultiFieldFESpace([U])
+
+  plate = P.KirchhoffLovePlate(
+    E=E, ν=ν, hb=h_plate, ρ=1.0, ρb=1.0, g=0.0,
+    ambient_dim=2, manifold_dim=2,
+    fe=FES.FESpaceConfig(order=order, vector_type=Vector{Float64}),
+  )
+  sym  = P.variable_symbol(plate)
+  fmap = Dict(sym => 1)
+
+  a((u,), (v,)) = P.stiffness(plate, prob.dom,
+                               FO.FieldMap((u,), fmap),
+                               FO.FieldMap((v,), fmap))
+
+  K  = assemble_matrix(a, X, Y)
+  Kd = Matrix(K)
+  sym_err = maximum(abs.(Kd .- Kd')) / maximum(abs.(Kd))
+  @test sym_err < 1e-10
+end
+
+@testset "KirchhoffLovePlate — Hessian SIPG: ν=0 simply-supported" begin
+  # For ν=0 the Poisson coupling coefficient λ=0; only the shear term μ is
+  # active in C.  The SS plate solution is governed by D=Eh³/12 (ν=0) and
+  # the Timoshenko reference still applies with the same α≈0.00416.
+  L       = 1.0
+  q       = 1.0
+  E       = 10.92e6
+  h_plate = 0.01
+  D       = E * h_plate^3 / 12    # ν=0 → D = Eh³/12
+  w_ref   = 0.00416 * q * L^4 / D
+
+  w_h = _run_kl_plate_simply_supported(
+    E=E, nu=0.0, h_plate=h_plate, L=L, q=q, n=10, order=2,
+  )
+  @test abs(w_h - w_ref) / w_ref < 0.05
+end
+
+@testset "KirchhoffLovePlate — Hessian SIPG: p-refinement" begin
+  # On the same coarse 5×5 mesh, order=3 should give smaller error than order=2.
+  L = 1.0;  q = 1.0
+  E = 10.92e6;  ν = 0.3;  h_plate = 0.01
+  D   = E * h_plate^3 / (12 * (1 - ν^2))
+  w_ref = 0.00416 * q * L^4 / D
+
+  w2 = _run_kl_plate_simply_supported(E=E, nu=ν, h_plate=h_plate,
+                                       L=L, q=q, n=5, order=2)
+  w3 = _run_kl_plate_simply_supported(E=E, nu=ν, h_plate=h_plate,
+                                       L=L, q=q, n=5, order=3)
+
+  err2 = abs(w2 - w_ref) / w_ref
+  err3 = abs(w3 - w_ref) / w_ref
+
+  @test err3 < err2           # order=3 is more accurate than order=2
+  @test err3 < 0.05           # order=3 on n=5 mesh is within 5%
+end
