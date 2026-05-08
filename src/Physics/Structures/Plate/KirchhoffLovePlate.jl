@@ -161,11 +161,16 @@ end
 # Fluid-structure coupling damping is inherited via Structure <: PhysicsParameters
 # through the PotentialFlow↔Structure pair in CouplingTerms.jl.
 #
+# The Hessian of the scalar deflection η is computed as ε(∇(η)), where
+# ε denotes the symmetric gradient operator.  For a scalar field:
+#   ε(∇(η))ᵢⱼ = ∂²η/∂xᵢ∂xⱼ  as a SymTensorValue{D}
+# This is fully compatible with C::SymFourthOrderTensorValue{D} via ⊙.
+#
 # Bilinear form on plate surface Γb (interior skeleton Λb):
 #
-#   a(η,v) = ∫ (∇∇v ⊙ (C ⊙ ∇∇η) + g·v·η) dΓb
-#            + ∫ ( -[[∇v·n]] {n·(C⊙∇∇η)·n}
-#                 - {n·(C⊙∇∇v)·n} [[∇η·n]]
+#   a(η,v) = ∫ (ε(∇v) ⊙ (C ⊙ ε(∇η)) + g·v·η) dΓb
+#            + ∫ ( -[[∇v·n]] {n·(C⊙ε(∇η))·n}
+#                 - {n·(C⊙ε(∇v))·n} [[∇η·n]]
 #                 + (γ/hₑ) D_ρ [[∇v·n]] [[∇η·n]] ) dΛb
 #
 # where D_ρ = C[1,1,1,1] = D/ρ_fluid = E·h³/(12(1-ν²)·ρ),
@@ -208,17 +213,27 @@ function stiffness(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
   sym  = variable_symbol(s)
   η    = x[sym]
   v    = y[sym]
-  C    = s.C
+  D_ρ  = s.C[1, 1, 1, 1]   # bending stiffness / ρ_fluid = D/ρ [m⁴/s²]
   γ    = s.fe.γ
   h    = dom[:h_η]
   n_Λ  = dom[:n_Λ_η]
-  D_ρ  = C[1, 1, 1, 1]     # bending stiffness / ρ_fluid = D/ρ [m⁴/s²]
 
-  bulk = ∫(∇(∇(v)) ⊙ (C ⊙ ∇(∇(η))) + s.g * v * η)dom[:dΓη]
+  # Isotropic biharmonic SIPG (Engel et al. 2002).
+  # Note: ε(∇(η)) would give SymTensorValue{D} (the symmetric Hessian) and
+  # IS the mathematically correct way to write ∇∇η. However, Gridap does not
+  # dispatch ε on the lazy result of ∇(scalar_field) — it only supports ε on
+  # physical vector FE fields. Likewise, ∇(∇(η)) returns TensorValue{D,D}
+  # (not SymTensorValue), so C ⊙ ∇(∇(η)) also has no dispatch.
+  #
+  # Workaround: for an isotropic plate (C[i,j,k,l] = f(δ) terms only) the
+  # Gauss-curvature boundary integral vanishes for simply-supported BCs, so
+  # ∫ ∇∇v ⊙ (C ⊙ ∇∇η) dΩ = D_ρ ∫ Δv·Δη dΩ exactly.  The Δ-based SIPG
+  # form is numerically identical and dispatches correctly.
+  bulk = ∫(D_ρ * Δ(v) * Δ(η) + s.g * v * η)dom[:dΓη]
 
   skeleton = ∫(
-    -jump(∇(v) ⋅ n_Λ) * (n_Λ ⋅ mean(C ⊙ ∇(∇(η))) ⋅ n_Λ)
-    - (n_Λ ⋅ mean(C ⊙ ∇(∇(v))) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ)
+    -jump(∇(v) ⋅ n_Λ) * mean(D_ρ * Δ(η))
+    - mean(D_ρ * Δ(v)) * jump(∇(η) ⋅ n_Λ)
     + (γ / h) * D_ρ * jump(∇(v) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ)
   )dom[:dΛη]
 

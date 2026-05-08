@@ -121,18 +121,26 @@ end
 end
 
 @testset "KirchhoffLovePlate — constitutive tensor symmetry" begin
-  C = P.build_kl_tensor(2, 2, 10.92e6, 0.3, 0.01, 1.0)
+  # 2D ambient tensor: build_kl_tensor(ambient=2, manifold=2)
+  C2 = P.build_kl_tensor(2, 2, 10.92e6, 0.3, 0.01, 1.0)
 
   for i in 1:2, j in 1:2, k in 1:2, l in 1:2
-    @test C[i, j, k, l] ≈ C[k, l, i, j]  atol=1e-10
-    @test C[i, j, k, l] ≈ C[j, i, k, l]  atol=1e-10
-    @test C[i, j, k, l] ≈ C[i, j, l, k]  atol=1e-10
+    @test C2[i, j, k, l] ≈ C2[k, l, i, j]  atol=1e-10
+    @test C2[i, j, k, l] ≈ C2[j, i, k, l]  atol=1e-10
+    @test C2[i, j, k, l] ≈ C2[i, j, l, k]  atol=1e-10
   end
 
   # D/ρ at (1,1,1,1) — bending stiffness / ρ
   E = 10.92e6;  nu = 0.3;  h = 0.01;  rho = 1.0
   D_rho = E * h^3 / (12 * (1 - nu^2) * rho)
-  @test C[1, 1, 1, 1] ≈ D_rho  atol=1e-10 * D_rho
+  @test C2[1, 1, 1, 1] ≈ D_rho  atol=1e-10 * D_rho
+
+  # 3D ambient tensor via build_KL_tensor
+  # Checks major symmetry C[i,j,k,l] = C[k,l,i,j] for all i,j,k,l ∈ 1:3
+  C3 = P.build_KL_tensor(10.92e6, 0.3, 0.01, 1025.0)
+  for i in 1:3, j in 1:3, k in 1:3, l in 1:3
+    @test C3[i, j, k, l] ≈ C3[k, l, i, j]  atol=1e-10
+  end
 end
 
 @testset "KirchhoffLovePlate — simply-supported square, uniform load" begin
