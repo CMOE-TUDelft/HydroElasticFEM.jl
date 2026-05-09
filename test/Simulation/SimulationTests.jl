@@ -242,8 +242,8 @@ end
 
     physics_files = [
       joinpath(pkg_root, "src", "Physics", "Helpers.jl"),
-      joinpath(pkg_root, "src", "Physics", "PotentialFlow.jl"),
-      joinpath(pkg_root, "src", "Physics", "FreeSurface.jl"),
+      joinpath(pkg_root, "src", "Physics", "Fluid", "PotentialFlow.jl"),
+      joinpath(pkg_root, "src", "Physics", "Fluid", "FreeSurface.jl"),
       joinpath(pkg_root, "src", "Physics", "CouplingTerms.jl"),
     ]
 

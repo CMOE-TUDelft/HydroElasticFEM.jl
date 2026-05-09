@@ -179,8 +179,9 @@ end
 # =========================================================================
 
 # Resonator-structure coupling has damping and stiffness terms only.
-has_damping_form(::Vector{ResonatorSingle}, ::Structure) = true
-has_stiffness_form(::Vector{ResonatorSingle}, ::Structure) = true
+# Return false for empty vectors to avoid BoundsError in form functions.
+has_damping_form(resn::Vector{ResonatorSingle}, ::Structure) = !isempty(resn)
+has_stiffness_form(resn::Vector{ResonatorSingle}, ::Structure) = !isempty(resn)
 
 function damping(resn::Vector{ResonatorSingle}, s::Structure,
                  dom::IntegrationDomains, x_t, y)

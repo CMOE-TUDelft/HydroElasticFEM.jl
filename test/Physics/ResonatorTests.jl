@@ -26,4 +26,16 @@ end
     [P.VectorValue(5.0, 0.0), P.VectorValue(15.0, 0.0)])
   @test arr2[1].M == 100.0
   @test arr2[2].M == 200.0
+
+  # N == 0 is disallowed
+  @test_throws ArgumentError P.resonator_array(0, 100.0, 500.0, 10.0, P.VectorValue{2,Float64}[])
+  @test_throws ArgumentError P.resonator_array(0, Float64[], Float64[], Float64[], P.VectorValue{2,Float64}[])
+end
+
+@testset "has_*_form traits for empty resonator vector" begin
+  empty_resn = P.ResonatorSingle[]
+  @test !P.has_mass_form(empty_resn)
+  @test !P.has_damping_form(empty_resn)
+  @test !P.has_stiffness_form(empty_resn)
+  @test !P.has_rhs_form(empty_resn)
 end

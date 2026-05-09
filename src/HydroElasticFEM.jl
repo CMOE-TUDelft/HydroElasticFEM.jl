@@ -44,7 +44,7 @@ module HydroElasticFEM
   # Re-export Physics public API
   export PhysicsParameters, print_parameters
   export PotentialFlow, FreeSurface, Membrane, EulerBernoulliBeam
-  export KirchhoffLovePlate, KirchhoffLovePlate3D
+  export KirchhoffLovePlate
   export build_kl_tensor, build_KL_tensor
   export equivalent_beam_rigidity
   export ResonatorSingle, resonator_array
