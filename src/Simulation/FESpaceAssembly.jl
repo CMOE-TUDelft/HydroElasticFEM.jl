@@ -134,13 +134,13 @@ build_trial_fe_space(resn::Vector{P.ResonatorSingle}, Vs::Vector, ::PH.TimeDomai
 
 
 """
-    build_fe_spaces(entities::Vector{P.PhysicsParameters}, trians::G.TankTriangulations, config::PH.SimulationConfig) -> (X, Y, fmap)
+    build_fe_spaces(entities, trians::G.TankTriangulations, config::PH.SimulationConfig) -> (X, Y, fmap)
 
 Build multi-field test and trial FE spaces from a list of entities and a TankTriangulations dictionary.
 Each entity uses the triangulation from trians[entity.domain_symbol].
 
 # Arguments
-- `entities`: Vector of `P.PhysicsParameters` (or Vector{P.ResonatorSingle})
+- `entities`: iterable containing `P.PhysicsParameters` and/or `Vector{P.ResonatorSingle}`
 - `trians`: `G.TankTriangulations` (dictionary-like)
 - `config`: `PH.SimulationConfig` (frequency or time-domain)
 
@@ -155,7 +155,7 @@ X, Y, fmap = build_fe_spaces([fluid, fsurf, mem], trians)
 # fmap == Dict(:ϕ => 1, :κ => 2, :η_m => 3)
 ```
 """
-function build_fe_spaces(entities::Vector{<:P.PhysicsParameters}, 
+function build_fe_spaces(entities, 
                          trians::G.TankTriangulations, 
                          config::PH.SimulationConfig)
     test_spaces  = SingleFieldFESpace[]
@@ -164,8 +164,12 @@ function build_fe_spaces(entities::Vector{<:P.PhysicsParameters},
     idx  = 0
 
     for entity in entities
-        trian = trians[entity.space_domain_symbol]
         if entity isa Vector{P.ResonatorSingle}
+            isempty(entity) && throw(ArgumentError("Resonator arrays in `entities` must be non-empty."))
+            domain_symbol = entity[1].space_domain_symbol
+            all(r -> r.space_domain_symbol == domain_symbol, entity) ||
+                throw(ArgumentError("All resonators in an array must share the same `space_domain_symbol`."))
+            trian = trians[domain_symbol]
             Vs = build_test_fe_space(entity, trian, config)
             Us = build_trial_fe_space(entity, Vs, config)
             for (i, (Vi, Ui)) in enumerate(zip(Vs, Us))
@@ -174,7 +178,8 @@ function build_fe_spaces(entities::Vector{<:P.PhysicsParameters},
                 push!(trial_spaces, Ui)
                 fmap[Symbol("q_$i")] = idx
             end
-        else
+        elseif entity isa P.PhysicsParameters
+            trian = trians[entity.space_domain_symbol]
             for (sym, fe_cfg) in zip(P.variable_symbols(entity),
                                      P.field_fe_configs(entity))
                 V = _build_fe_test_space(fe_cfg, trian, config)
@@ -184,6 +189,8 @@ function build_fe_spaces(entities::Vector{<:P.PhysicsParameters},
                 push!(trial_spaces, U)
                 fmap[sym] = idx
             end
+        else
+            throw(ArgumentError("Unsupported entity type in `build_fe_spaces`: $(typeof(entity))"))
         end
     end
 
