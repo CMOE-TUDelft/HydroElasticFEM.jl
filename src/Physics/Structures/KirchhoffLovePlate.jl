@@ -10,7 +10,7 @@
 #    The scalar C[1,1,1,1] = D/ρ where D = E·h³/(12(1-ν²)).
 #
 # C. REGISTERED in Physics.jl via
-#    include("Structures/Plate/KirchhoffLovePlate.jl") and exported in
+#    include("Structures/KirchhoffLovePlate.jl") and exported in
 #    HydroElasticFEM.jl.  Inherits Structure <: PhysicsParameters so the
 #    PotentialFlow↔Structure coupling damping in CouplingTerms.jl applies
 #    automatically — no additional coupling code is needed.
@@ -162,22 +162,24 @@ end
 # through the PotentialFlow↔Structure pair in CouplingTerms.jl.
 #
 # The Hessian of the scalar deflection η is computed as ε(∇(η)), where
-# ε denotes the symmetric gradient operator.  For a scalar field:
-#   ε(∇(η))ᵢⱼ = ∂²η/∂xᵢ∂xⱼ  as a SymTensorValue{D}
+# ε denotes the symmetric gradient operator. For a scalar field, ε(∇(η)) is
+# the symmetric Hessian and therefore coincides with ∇∇(η):
+#   ε(∇(η))ᵢⱼ = ∂²η/∂xᵢ∂xⱼ
 # This is fully compatible with C::SymFourthOrderTensorValue{D} via ⊙.
 #
-# Bilinear form on plate surface Γb (interior skeleton Λb):
+# Bilinear form as assembled on the plate midsurface dom[:dΓη] with interior
+# skeleton dom[:dΛη]:
 #
-#   a(η,v) = ∫ (ε(∇v) ⊙ (C ⊙ ε(∇η)) + g·v·η) dΓb
-#            + ∫ ( -[[∇v·n]] {n·(C⊙ε(∇η))·n}
-#                 - {n·(C⊙ε(∇v))·n} [[∇η·n]]
-#                 + (γ/hₑ) D_ρ [[∇v·n]] [[∇η·n]] ) dΛb
+#   a(η,v) = ∫ ( ∇∇(v) ⊙ (C ⊙ ∇∇(η)) + g·v·η ) dΓη
+#            + ∫ ( - jump(∇(v)) ⋅ mean((C ⊙ ∇∇(η)) ⋅ n)
+#                 - mean((C ⊙ ∇∇(v)) ⋅ n) ⋅ jump(∇(η))
+#                 + (γ/hₑ) D_ρ jump(∇(v)) ⋅ jump(∇(η)) ) dΛη
 #
 # where D_ρ = C[1,1,1,1] = D/ρ_fluid = E·h³/(12(1-ν²)·ρ),
 #       γ   = plate.fe.γ (= 10·p² from FESpaceConfig),
-#       hₑ  = dom[:h_η] (representative element size on Γb).
+#       hₑ  = dom[:h_η] (representative element size on Γη).
 #
-# Simply-supported plate BC: η=0 enforced as Dirichlet; M_n=0 is natural.
+# Simply-supported plate BC on Γη: η=0 enforced as Dirichlet; M_n=0 is natural.
 # ==========================================================================
 
 """
