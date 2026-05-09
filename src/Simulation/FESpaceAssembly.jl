@@ -165,10 +165,10 @@ function build_fe_spaces(entities,
 
     for (ientity, entity) in enumerate(entities)
         if entity isa Vector{P.ResonatorSingle}
-            isempty(entity) && throw(ArgumentError("Resonator array at position $ientity in `entities` must be non-empty."))
+            isempty(entity) && throw(ArgumentError("Resonator array at position $ientity of the `entities` collection must be non-empty."))
             domain_symbol = entity[1].space_domain_symbol
             found_symbols = unique(getfield.(entity, :space_domain_symbol))
-            all(==(domain_symbol), found_symbols) ||
+            length(found_symbols) > 1 &&
                 throw(ArgumentError("Resonator array at position $ientity in `entities` has inconsistent `space_domain_symbol` values. Expected all to be :$domain_symbol, but found: $found_symbols"))
             trian = trians[domain_symbol]
             Vs = build_test_fe_space(entity, trian, config)
