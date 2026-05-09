@@ -19,23 +19,16 @@ import ...Geometry as G
 import ...ParameterHandler as PH
 
 # ─────────────────────────────────────────────────────────────
-# Per-entity FE space construction (dispatched on entity type)
+# Private helpers: build from a FESpaceConfig directly
 # ─────────────────────────────────────────────────────────────
 
-"""
-    build_test_fe_space(entity::PhysicsParameters, trian, config::SimulationConfig)
-
-Build a Gridap `TestFESpace` for `entity` on triangulation `trian`,
-using the numerical parameters from `entity.fe`.
-"""
-function build_test_fe_space(entity::P.PhysicsParameters, trian, config::PH.FreqDomainConfig)
-    fe = entity.fe
+function _build_fe_test_space(fe::PH.FESpaceConfig, trian, ::PH.FreqDomainConfig)
     reffe = ReferenceFE(fe.reffe_type, fe.space_type, fe.order)
     @assert fe.vector_type == Vector{ComplexF64} "Frequency-domain simulations require complex-valued FE spaces."
     if fe.dirichlet_tags !== nothing
         TestFESpace(trian, reffe;
-            conformity   = fe.conformity,
-            vector_type  = fe.vector_type,
+            conformity     = fe.conformity,
+            vector_type    = fe.vector_type,
             dirichlet_tags = fe.dirichlet_tags)
     else
         TestFESpace(trian, reffe;
@@ -44,19 +37,49 @@ function build_test_fe_space(entity::P.PhysicsParameters, trian, config::PH.Freq
     end
 end
 
-function build_test_fe_space(entity::P.PhysicsParameters, trian, ::PH.TimeDomainConfig)
-    fe = entity.fe
+function _build_fe_test_space(fe::PH.FESpaceConfig, trian, ::PH.TimeDomainConfig)
     reffe = ReferenceFE(fe.reffe_type, fe.space_type, fe.order)
     if fe.dirichlet_tags !== nothing
         TestFESpace(trian, reffe;
-            conformity   = fe.conformity,
-            vector_type  = fe.vector_type,
+            conformity     = fe.conformity,
+            vector_type    = fe.vector_type,
             dirichlet_tags = fe.dirichlet_tags)
     else
         TestFESpace(trian, reffe;
             conformity  = fe.conformity,
             vector_type = fe.vector_type)
     end
+end
+
+function _build_fe_trial_space(fe::PH.FESpaceConfig, V_test, ::PH.FreqDomainConfig)
+    fe.dirichlet_value !== nothing ? TrialFESpace(V_test, fe.dirichlet_value) :
+                                     TrialFESpace(V_test)
+end
+
+function _build_fe_trial_space(fe::PH.FESpaceConfig, V_test, ::PH.TimeDomainConfig)
+    fe.dirichlet_value !== nothing ? TransientTrialFESpace(V_test, fe.dirichlet_value) :
+                                     TransientTrialFESpace(V_test)
+end
+
+# ─────────────────────────────────────────────────────────────
+# Per-entity FE space construction (dispatched on entity type)
+# ─────────────────────────────────────────────────────────────
+
+"""
+    build_test_fe_space(entity::PhysicsParameters, trian, config::SimulationConfig)
+
+Build a Gridap `TestFESpace` for a **single-field** entity on triangulation
+`trian`, using the numerical parameters from `entity.fe`.
+
+For multi-field entities (e.g. `TimoshenkoBeam`) use the higher-level
+`build_fe_spaces`, which iterates over `variable_symbols`/`field_fe_configs`.
+"""
+function build_test_fe_space(entity::P.PhysicsParameters, trian, config::PH.FreqDomainConfig)
+    _build_fe_test_space(entity.fe, trian, config)
+end
+
+function build_test_fe_space(entity::P.PhysicsParameters, trian, config::PH.TimeDomainConfig)
+    _build_fe_test_space(entity.fe, trian, config)
 end
 
 """
@@ -83,26 +106,18 @@ end
 """
     build_trial_fe_space(entity::P.PhysicsParameters, V_test, config::PH.SimulationConfig)
 
-Build a `TrialFESpace` (or `TransientTrialFESpace` when `config` is `TimeDomainConfig`)
-from the test space `V_test`, applying Dirichlet values from `entity.fe`
-if present.
+Build a `TrialFESpace` (or `TransientTrialFESpace` when `config` is
+`TimeDomainConfig`) from the test space `V_test`, applying Dirichlet values
+from `entity.fe` if present.
+
+For multi-field entities use `build_fe_spaces`.
 """
-function build_trial_fe_space(entity::P.PhysicsParameters, V_test, ::PH.FreqDomainConfig)
-    fe = entity.fe
-    if fe.dirichlet_value !== nothing
-        TrialFESpace(V_test, fe.dirichlet_value)
-    else
-        TrialFESpace(V_test)
-    end
+function build_trial_fe_space(entity::P.PhysicsParameters, V_test, config::PH.FreqDomainConfig)
+    _build_fe_trial_space(entity.fe, V_test, config)
 end
 
-function build_trial_fe_space(entity::P.PhysicsParameters, V_test, ::PH.TimeDomainConfig)
-    fe = entity.fe
-    if fe.dirichlet_value !== nothing
-        TransientTrialFESpace(V_test, fe.dirichlet_value)
-    else
-        TransientTrialFESpace(V_test)
-    end
+function build_trial_fe_space(entity::P.PhysicsParameters, V_test, config::PH.TimeDomainConfig)
+    _build_fe_trial_space(entity.fe, V_test, config)
 end
 
 """
@@ -160,12 +175,15 @@ function build_fe_spaces(entities::Vector{<:P.PhysicsParameters},
                 fmap[Symbol("q_$i")] = idx
             end
         else
-            V = build_test_fe_space(entity, trian, config)
-            U = build_trial_fe_space(entity, V, config)
-            idx += 1
-            push!(test_spaces, V)
-            push!(trial_spaces, U)
-            fmap[P.variable_symbol(entity)] = idx
+            for (sym, fe_cfg) in zip(P.variable_symbols(entity),
+                                     P.field_fe_configs(entity))
+                V = _build_fe_test_space(fe_cfg, trian, config)
+                U = _build_fe_trial_space(fe_cfg, V, config)
+                idx += 1
+                push!(test_spaces, V)
+                push!(trial_spaces, U)
+                fmap[sym] = idx
+            end
         end
     end
 
