@@ -135,6 +135,26 @@ import HydroElasticFEM.Geometry as G
     @test length(Y) == 1
   end
 
+  @testset "build_fe_spaces — mixed entities with resonator array" begin
+    model = CartesianDiscreteModel((0, 1, -1, 0), (8, 4))
+    Ω = Interior(model)
+    trians = G.TankTriangulations(Dict(:Ω => Ω))
+
+    fluid = P.PotentialFlow(fe=PH.FESpaceConfig(order=1), space_domain_symbol=:Ω)
+    resn = P.resonator_array(
+      2, 100.0, 500.0, 5.0,
+      [P.VectorValue(0.25, 0.0), P.VectorValue(0.75, 0.0)],
+    )
+
+    X, Y, fmap = FEA.build_fe_spaces(Any[fluid, resn], trians, PH.FreqDomainConfig())
+
+    @test fmap[:ϕ] == 1
+    @test fmap[:q_1] == 2
+    @test fmap[:q_2] == 3
+    @test length(X) == 3
+    @test length(Y) == 3
+  end
+
   # -----------------------------------------------------------------------
   # build_fe_spaces integrates with weak forms
   # -----------------------------------------------------------------------
