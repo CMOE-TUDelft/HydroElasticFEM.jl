@@ -165,7 +165,7 @@ function build_fe_spaces(entities,
 
     for entity in entities
         if entity isa Vector{P.ResonatorSingle}
-            isempty(entity) && throw(ArgumentError("Resonator arrays in `entities` must be non-empty."))
+            isempty(entity) && throw(ArgumentError("A resonator array in `entities` must be non-empty."))
             domain_symbol = entity[1].space_domain_symbol
             all(r -> r.space_domain_symbol == domain_symbol, entity) ||
                 throw(ArgumentError("All resonators in an array must share the same `space_domain_symbol`."))
