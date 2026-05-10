@@ -26,17 +26,26 @@ resonators) using the [Gridap.jl](https://www.github.com/gridap/Gridap.jl) FE fr
 | Section | Description |
 |---------|-------------|
 | [Getting Started](@ref) | Installation and first simulation |
+| [First Simulation](@ref "Run Your First Hydroelastic Simulation") | Step-by-step walkthrough: empty tank and floating membrane |
 | [Examples](@ref) | Worked example scripts |
 | [Theory](@ref) | Governing equations and discretisation |
+| [Architecture Guide](@ref "Architecture Guide") | Three-layer design and extension points |
+| [Adding a New Structural Entity](@ref "How to Add a New Structural Entity") | Developer recipe for new physics entities |
+| [Debugging](@ref "Debugging Guide: When Simulations Go Wrong") | Error messages, physics checks, convergence tips |
 | [API Reference](@ref "API Overview") | Full docstring reference |
 
 ## Contents
 
 ```@contents
 Pages = [
+    "guide/index.md",
     "guide/getting_started.md",
+    "guide/first_simulation.md",
     "guide/examples.md",
     "guide/theory.md",
+    "guide/architecture.md",
+    "guide/adding_structure.md",
+    "guide/debugging.md",
     "api/index.md",
     "api/physics.md",
     "api/geometry.md",
