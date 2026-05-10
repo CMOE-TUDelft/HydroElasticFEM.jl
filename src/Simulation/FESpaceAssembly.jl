@@ -132,6 +132,15 @@ build_trial_fe_space(resn::Vector{P.ResonatorSingle}, Vs::Vector, ::PH.TimeDomai
 # Main manager function
 # ─────────────────────────────────────────────────────────────
 
+# This function supports both single-field and multi-field entities.
+# For single-field: variable_symbols returns a 1-tuple, field_fe_configs returns a 1-tuple.
+# For multi-field (e.g. TimoshenkoBeam): variable_symbols returns an N-tuple of Symbols.
+# Each Symbol maps to one FE space in the assembled multi-field space.
+# The field_fe_configs function returns the FESpaceConfig for each field.
+#
+# Trial spaces may be TrialFESpace (frequency-domain) or TransientTrialFESpace
+# (time-domain). Both are SingleFieldFESpace subtypes, so both vectors are typed
+# as SingleFieldFESpace[] which is what MultiFieldFESpace requires.
 
 """
     build_fe_spaces(entities, trians::G.TankTriangulations, config::PH.SimulationConfig) -> (X, Y, fmap)

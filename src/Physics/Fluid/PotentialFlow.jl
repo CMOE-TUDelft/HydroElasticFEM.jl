@@ -61,11 +61,37 @@ end
 """
     PotentialFlow <: PhysicsParameters
 
-Parameters for the 2D fluid potential (Laplace equation).
+Parameters for the linearised velocity-potential formulation of irrotational,
+incompressible fluid flow (Laplace equation).
+
+The velocity potential `ϕ` [m²/s] satisfies `∇²ϕ = 0` in the fluid volume `Ω`.
+Weak-form boundary conditions (radiation, prescribed inlet, damping zones) are
+registered via the `boundary_conditions` field.
 
 # Fields
-- `ρw::Float64` — Density of water
-- `g::Float64`  — Gravitational acceleration
+- `ρw::Float64`  — Fluid density [kg/m³]; default 1025.0
+- `g::Float64`   — Gravitational acceleration [m/s²]; default 9.81
+- `fe::FESpaceConfig` — FE discretisation parameters
+- `dim::Int`     — Ambient spatial dimension; default 2
+- `symbol::Symbol` — Field unknown symbol; default `:ϕ`
+- `space_domain_symbol::Symbol` — Triangulation key for FE spaces; default `:Ω`
+- `sea_state`    — Optional `AiryWaves.AiryState` for regular incident-wave
+  specification; `nothing` for quiescent initial conditions.
+- `boundary_conditions::Vector{AbstractPotentialFlowBC}` — Ordered list of BCs;
+  accepted subtypes are [`RadiationBC`](@ref), [`PrescribedInletPotentialBC`](@ref),
+  and [`DampingZoneBC`](@ref).
+
+# Example
+```julia
+fluid = PotentialFlow(
+    boundary_conditions = [
+        PrescribedInletPotentialBC(forcing = ϕ_in),
+        RadiationBC(),
+    ],
+)
+```
+
+See also: [`FreeSurface`](@ref), [`RadiationBC`](@ref), [`DampingZoneBC`](@ref)
 """
 @with_kw struct PotentialFlow <: PhysicsParameters
     ρw::Float64 = 1025.0

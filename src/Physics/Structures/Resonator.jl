@@ -1,15 +1,24 @@
 """
     ResonatorSingle <: PhysicsParameters
 
-Parameters for a single locally resonant mass-spring-damper.
+Parameters for a single lumped-parameter mass-spring-damper resonator,
+used to model locally resonant meta-structures.
+
+The resonator couples to the surrounding fluid via a delta-function
+(`δ_p`) point interaction at `XZ`.
 
 # Fields
-- `M::Float64` — Mass
-- `K::Float64` — Stiffness
-- `C::Float64` — Damping
-- `ρw::Float64` — Density of water
-- `XZ::VectorValue{2,Float64}` — Position
-- `ωn1::Float64` — Natural frequency (derived: `√(K/M)`)
+- `M::Float64`   — Resonator mass [kg]
+- `K::Float64`   — Spring stiffness [N/m]
+- `C::Float64`   — Viscous damping coefficient [N·s/m]; default 0.0
+- `ρw::Float64`  — Fluid density [kg/m³]; default 1025.0
+- `XZ::VectorValue{2,Float64}` — Resonator position `(x, z)` [m]
+- `symbol::Symbol` — Field unknown symbol; default `:q`
+- `space_domain_symbol::Symbol` — Triangulation key; default `:Ω`
+- `fe::FESpaceConfig` — FE space parameters
+- `ωn1::Float64` — Undamped natural frequency [rad/s], derived as `√(K/M)`
+
+See also: [`resonator_array`](@ref)
 """
 @with_kw struct ResonatorSingle <: PhysicsParameters
     M::Float64
@@ -40,9 +49,17 @@ function print_parameters(resn::Vector{ResonatorSingle})
 end
 
 """
-    resonator_array(N, M::Real, K::Real, C::Real, XZ; ρw=1025.0) -> Vector{ResonatorSingle}
+    resonator_array(N, M, K, C, XZ; ρw=1025.0) -> Vector{ResonatorSingle}
 
-Create `N` identical resonators at positions `XZ`. `N` must be positive.
+Create `N` identical resonators positioned at the locations in `XZ`.
+
+# Arguments
+- `N::Int`  — Number of resonators (must be positive)
+- `M::Real` — Mass [kg]
+- `K::Real` — Spring stiffness [N/m]
+- `C::Real` — Viscous damping [N·s/m]
+- `XZ::Vector{VectorValue{2,Float64}}` — Position list of length `N` [m]
+- `ρw::Real` — Fluid density [kg/m³]; default 1025.0
 """
 function resonator_array(N::Int, M::Real, K::Real, C::Real,
                          XZ::Vector{VectorValue{2,Float64}};
@@ -53,9 +70,17 @@ function resonator_array(N::Int, M::Real, K::Real, C::Real,
 end
 
 """
-    resonator_array(N, M::Vector, K::Vector, C::Vector, XZ; ρw=1025.0) -> Vector{ResonatorSingle}
+    resonator_array(N, M, K, C, XZ; ρw=1025.0) -> Vector{ResonatorSingle}
 
-Create `N` resonators with individual parameters. `N` must be positive.
+Create `N` resonators with individually specified parameters.
+
+# Arguments
+- `N::Int`            — Number of resonators (must be positive)
+- `M::Vector{<:Real}` — Masses [kg], length `N`
+- `K::Vector{<:Real}` — Spring stiffnesses [N/m], length `N`
+- `C::Vector{<:Real}` — Viscous damping coefficients [N·s/m], length `N`
+- `XZ::Vector{VectorValue{2,Float64}}` — Positions [m], length `N`
+- `ρw::Real`          — Fluid density [kg/m³]; default 1025.0
 """
 function resonator_array(N::Int, M::Vector{<:Real}, K::Vector{<:Real},
                          C::Vector{<:Real},

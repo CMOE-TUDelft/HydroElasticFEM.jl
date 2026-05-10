@@ -3,16 +3,27 @@
 
 Linearised free-surface boundary condition parameters.
 
-Introduces an auxiliary surface-elevation variable `κ` that lives on the
-free-surface boundary `Γ_fs` (the portion of the top boundary outside any
+Introduces an auxiliary surface-elevation variable `κ` [m] that lives on the
+free-surface boundary `Γfs` (the portion of the top boundary outside any
 structure).  The standalone stiffness form captures the gravity restoring
 term `βₕ·g·u·κ`; coupling with the velocity potential `ϕ` (from
-`PotentialFlow`) is handled in CouplingTerms.jl.
+[`PotentialFlow`](@ref)) is handled in `CouplingTerms.jl`.
+
+The time-stepping stabilisation coefficient `αₕ` is derived from `βₕ` and
+the angular frequency `ω` in `build_frequency_context` / `build_time_context`.
 
 # Fields
-- `ρw::Float64` — Density of water
-- `g::Float64`  — Gravitational acceleration
-- `βₕ::Float64` — Stabilisation parameter for the free-surface formulation
+- `ρw::Float64` — Fluid density [kg/m³]; default 1025.0
+- `g::Float64`  — Gravitational acceleration [m/s²]; default 9.81
+- `βₕ::Float64` — Free-surface stabilisation parameter ∈ (0, 1]; default 0.5.
+  Setting `βₕ = 1` recovers the fully explicit free-surface condition;
+  `βₕ = 0.5` gives a balanced split between explicit and implicit parts.
+- `fe::FESpaceConfig` — FE discretisation parameters
+- `dim::Int`    — Ambient spatial dimension; default 2
+- `symbol::Symbol` — Field unknown symbol; default `:κ`
+- `space_domain_symbol::Symbol` — Triangulation key for FE spaces; default `:Γκ`
+
+See also: [`PotentialFlow`](@ref)
 """
 @with_kw struct FreeSurface <: PhysicsParameters
     ρw::Float64 = 1025.0
