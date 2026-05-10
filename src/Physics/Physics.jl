@@ -60,6 +60,24 @@ function variable_symbol(s::PhysicsParameters)
     error("variable_symbol not implemented for $(typeof(s))")
 end
 
+"""
+    variable_symbols(s::PhysicsParameters) -> Tuple{Vararg{Symbol}}
+
+Return all field symbols for entity `s`.
+Default: wraps `variable_symbol(s)` in a single-element tuple.
+Override for multi-field entities.
+"""
+variable_symbols(s::PhysicsParameters) = (variable_symbol(s),)
+
+"""
+    field_fe_configs(s::PhysicsParameters) -> Tuple{Vararg{FESpaceConfig}}
+
+Return the `FESpaceConfig` for each field of entity `s`.
+Default: single-element tuple from `s.fe`.
+Override for multi-field entities that do not store a single `.fe` field.
+"""
+field_fe_configs(s::PhysicsParameters) = (s.fe,)
+
 # ─────────────────────────────────────────────────────────────
 # Abstract weak form interface
 # ─────────────────────────────────────────────────────────────
@@ -209,6 +227,7 @@ include("Structures/Membrane.jl")
 include("Structures/EulerBernoulliBeam.jl")
 include("Structures/KirchhoffLovePlate.jl")
 include("Structures/Resonator.jl")
+include("Structures/TimoshenkoBeam.jl")
 
 # Coupling weak forms (cross-terms between pairs of entities)
 include("CouplingTerms.jl")
@@ -372,6 +391,7 @@ jacobian_tt(a, b, dom::IntegrationDomains, x, x_t, dx_tt, y) =
 # ─────────────────────────────────────────────────────────────
 
 export PhysicsParameters, print_parameters, variable_symbol
+export variable_symbols, field_fe_configs
 export mass, damping, stiffness, rhs
 export has_mass_form, has_damping_form, has_stiffness_form, has_rhs_form
 export active_forms
@@ -379,6 +399,7 @@ export weakform, residual, jacobian, jacobian_t, jacobian_tt
 export PotentialFlow, FreeSurface, Membrane
 export JointRotationalSpring, EulerBernoulliBeam, Resonator
 export KirchhoffLovePlate
+export TimoshenkoBeam
 export build_kl_tensor, build_KL_tensor, check_major_symmetry
 export equivalent_beam_rigidity
 export AbstractPotentialFlowBC, RadiationBC, PrescribedInletPotentialBC, DampingZoneBC
