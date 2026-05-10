@@ -17,6 +17,7 @@ makedocs(
             "Getting Started" => "guide/getting_started.md",
             "Examples"        => "guide/examples.md",
             "Theory"          => "guide/theory.md",
+            "Architecture"    => "guide/architecture.md",
         ],
         "API Reference" => [
             "Overview"          => "api/index.md",
