@@ -74,7 +74,14 @@ jobs:
       - name: Install docs dependencies
         run: julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
 
+      - name: Build docs
+        if: github.event_name != 'push' || (github.ref != 'refs/heads/main' && github.ref != 'refs/heads/master')
+        run: julia --project=docs docs/make.jl
+        env:
+          CI: "false"
+
       - name: Build and deploy docs
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         run: julia --project=docs docs/make.jl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
