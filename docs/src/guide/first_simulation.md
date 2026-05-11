@@ -39,6 +39,9 @@ import HydroElasticFEM.ParameterHandler as PH
 import HydroElasticFEM.Physics as P
 import HydroElasticFEM.Simulation as S
 using WaveSpec
+using Gridap
+using Printf
+using LinearAlgebra
 
 # ── 1. Geometry ──────────────────────────────────────────────────────────
 # TankDomain builds a 2D Cartesian mesh.
