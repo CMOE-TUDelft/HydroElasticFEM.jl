@@ -44,7 +44,7 @@ corresponding Gridap skeleton sub-triangulation (one interior facet of
 `Skeleton(Γη)` whose centroid is closest to `location`).  Then
 `get_integration_domains` populates `IntegrationDomains` with the resulting
 measure and outward normal, ready to be consumed by
-[`EulerBernoulliBeam`](@ref) via the matching `JointRotationalSpring`.
+`EulerBernoulliBeam` via the matching `JointRotationalSpring`.
 
 # Fields
 - `location::Vector{Float64}` — 2D coordinates `[x, y]` of the joint point
