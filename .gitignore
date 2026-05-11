@@ -46,4 +46,27 @@ AGENT.md
 */AGENT.md
 */*/AGENT.md
 CLAUDE.md
-notes/agent_dev_notes/
+
+# Working notes — not for version control
+notes/
+
+# Development scripts (not examples, not tests)
+scripts/
+
+# Generated mesh files (test/fixtures/meshes/*.msh are already tracked and exempt)
+*.msh
+
+# Generated output files
+*.jld2
+*.h5
+output/
+results/
+
+# Julia package build artifacts
+*.ji
+
+# OS and editor files
+.DS_Store
+*.swp
+.idea/
+*.orig

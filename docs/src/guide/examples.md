@@ -22,8 +22,7 @@ The setup uses the generic `TankDomain` constructor for 2D Cartesian meshes.
 
 ## Euler-Bernoulli beam with joints
 
-`scripts/EulerBernoulliBeam_example.jl` — standalone beam problem using the
-DG weak form.  For an example of a **beam with rotational-spring joints**,
+For an example of a **beam with rotational-spring joints**,
 see the [Setting up structural joints](@ref) section of the Geometry API
 reference, which walks through the end-to-end setup:
 
