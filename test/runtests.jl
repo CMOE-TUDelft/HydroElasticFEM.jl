@@ -29,8 +29,8 @@ using Test
   # Time-domain solvers
   # ==========================================================================
 
-  include("Membrane2D/TimeDomain/MemTimeLrmmTests.jl")
-  include("Membrane2D/TimeDomain/MemTimeDampingZonePackageTests.jl")
+  include("Membrane/TimeDomain/MemTimeLrmmTests.jl")
+  include("Membrane/TimeDomain/MemTimeDampingZonePackageTests.jl")
 
   # ==========================================================================
   # Examples (integration tests against analytical solutions)
@@ -38,5 +38,7 @@ using Test
 
   include("examples/EulerBernoulliBeamWeakFormTests.jl")
   include("examples/KhabakhpashevaBeamJointTests.jl")
+  include("examples/test_liu_benchmark.jl")
+  include("examples/test_yago_3d_freq.jl")
 
 end

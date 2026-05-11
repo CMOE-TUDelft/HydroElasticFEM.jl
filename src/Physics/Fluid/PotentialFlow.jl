@@ -71,6 +71,7 @@ Parameters for the 2D fluid potential (Laplace equation).
     ρw::Float64 = 1025.0
     g::Float64  = 9.81
     fe::FESpaceConfig = FESpaceConfig()
+    dim::Int    = 2
     symbol::Symbol = :ϕ
     space_domain_symbol::Symbol = :Ω
     sea_state::Union{WaveSpec.AiryWaves.AiryState, Nothing} = nothing
@@ -85,6 +86,7 @@ function print_parameters(f::PotentialFlow)
 end
 
 variable_symbol(s::PotentialFlow) = s.symbol
+ambient_dimension(pf::PotentialFlow) = pf.dim
 
 
 # Potential-flow dynamics are elliptic: no standalone mass/damping forms.

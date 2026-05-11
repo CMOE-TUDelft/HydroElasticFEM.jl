@@ -42,11 +42,12 @@ end
 """
     resonator_array(N, M::Real, K::Real, C::Real, XZ; ρw=1025.0) -> Vector{ResonatorSingle}
 
-Create `N` identical resonators at positions `XZ`.
+Create `N` identical resonators at positions `XZ`. `N` must be positive.
 """
 function resonator_array(N::Int, M::Real, K::Real, C::Real,
                          XZ::Vector{VectorValue{2,Float64}};
                          ρw::Real=1025.0)
+    N > 0 || throw(ArgumentError("N must be positive (got $N)"))
     length(XZ) == N || throw(ArgumentError("XZ must be of length N"))
     [ResonatorSingle(M=M, K=K, C=C, ρw=ρw, XZ=xz) for xz in XZ]
 end
@@ -54,12 +55,13 @@ end
 """
     resonator_array(N, M::Vector, K::Vector, C::Vector, XZ; ρw=1025.0) -> Vector{ResonatorSingle}
 
-Create `N` resonators with individual parameters.
+Create `N` resonators with individual parameters. `N` must be positive.
 """
 function resonator_array(N::Int, M::Vector{<:Real}, K::Vector{<:Real},
                          C::Vector{<:Real},
                          XZ::Vector{VectorValue{2,Float64}};
                          ρw::Real=1025.0)
+    N > 0 || throw(ArgumentError("N must be positive (got $N)"))
     (length(M) == N && length(K) == N &&
      length(C) == N && length(XZ) == N) ||
         throw(ArgumentError("M, K, C, and XZ must be of length N"))
@@ -123,7 +125,8 @@ end
 
 # Form-presence traits for Vector{ResonatorSingle}
 # (Vector is not a PhysicsParameters subtype, so the defaults don't apply)
-has_mass_form(::Vector{ResonatorSingle}) = true
-has_damping_form(::Vector{ResonatorSingle}) = true
-has_stiffness_form(::Vector{ResonatorSingle}) = true
+# Return false for empty vectors to avoid BoundsError in form functions.
+has_mass_form(resn::Vector{ResonatorSingle}) = !isempty(resn)
+has_damping_form(resn::Vector{ResonatorSingle}) = !isempty(resn)
+has_stiffness_form(resn::Vector{ResonatorSingle}) = !isempty(resn)
 has_rhs_form(::Vector{ResonatorSingle}) = false

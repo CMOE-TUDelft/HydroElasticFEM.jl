@@ -257,7 +257,7 @@ function _run_structured_implementation(p::EmptyTankTutorialParams; inlet_nx::Fl
   inc = incident_wave(; H0=p.H0, ω=p.ω, η0=p.η0, α=p.α)
   probes = probe_points(p.probe_x)
 
-  tank = G.TankDomain2D(
+  tank = G.TankDomain(
     L=tp.LΩ,
     H=p.H0,
     nx=p.nx,

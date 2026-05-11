@@ -13,7 +13,7 @@ import HydroElasticFEM.Physics as P
 
   # print_parameters works for concrete types
   ρw = 1025.0
-  mem = P.Membrane2D(L=20.0, mᵨ=922.5/ρw, Tᵨ=98.1, τ=0.0)
+  mem = P.Membrane(L=20.0, mᵨ=922.5/ρw, Tᵨ=98.1, τ=0.0)
   @test_nowarn P.print_parameters(mem)
   beam = P.EulerBernoulliBeam(L=20.0, mᵨ=192.956/ρw, EIᵨ=500e6*6.667e-4/ρw, τ=0.0)
   @test_nowarn P.print_parameters(beam)
@@ -24,9 +24,14 @@ end
 @testset "Physics - Physics modules" begin
 
   @testset "PotentialFlow" include("PotentialFlowTests.jl")
-  @testset "Membrane2D" include("Membrane2DTests.jl")
+  @testset "Membrane" include("MembraneTests.jl")
   @testset "EulerBernoulliBeam" include("EulerBernoulliBeamTests.jl")
   @testset "Resonator" include("ResonatorTests.jl")
   @testset "FreeSurface" include("FreeSurfaceTests.jl")
 
 end
+
+@testset "3D sloshing" include("Sloshing3DTests.jl")
+@testset "Beam-plate consistency" include("BeamPlateConsistencyTests.jl")
+@testset "KirchhoffLovePlate" include("KirchhoffLovePlateTests.jl")
+@testset "TimoshenkoBeam" include("TimoshenkoBeamTests.jl")

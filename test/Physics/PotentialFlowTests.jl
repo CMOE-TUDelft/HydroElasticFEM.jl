@@ -24,7 +24,7 @@ function _multi_frequency_state()
 end
 
 function _potential_flow_problem(pf; ω=2π / 5.0)
-  tank = G.TankDomain2D(L=20.0, H=10.0, nx=12, ny=4)
+  tank = G.TankDomain(L=20.0, H=10.0, nx=12, ny=4)
   config = SM.FreqDomainConfig(ω=ω)
   SM.build_problem(tank, P.PhysicsParameters[pf], config)
 end

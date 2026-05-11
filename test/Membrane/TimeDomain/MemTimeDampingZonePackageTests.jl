@@ -28,17 +28,17 @@ import HydroElasticFEM.Geometry as G
   vz_in(x, t) = η₀ * ω * sin(0.2 * x[1] - ω * t + ph0)
   inlet_v(x, t) = 0.1 * cos(0.2 * x[1] - ω * t + ph0)
 
-  tank = G.TankDomain2D(
+  tank = G.TankDomain(
     L=LΩ,
     H=H0,
     nx=20,
     ny=4,
     structure_domains=[
-      G.StructureDomain1D(L=Lm, x₀=[Ld + Lm / 2, H0], domain_symbol=:Γm),
+      G.StructureDomain(L=Lm, x₀=[Ld + Lm / 2, H0], domain_symbol=:Γm),
     ],
     damping_zones=[
-      G.DampingZone1D(L=Ld, x₀=[0.0, H0], domain_symbol=:Γd_in),
-      G.DampingZone1D(L=Ld, x₀=[LΩ - Ld, H0], domain_symbol=:Γd_out),
+      G.DampingZone(L=Ld, x₀=[0.0, H0], domain_symbol=:Γd_in),
+      G.DampingZone(L=Ld, x₀=[LΩ - Ld, H0], domain_symbol=:Γd_out),
     ],
   )
 
@@ -74,7 +74,7 @@ import HydroElasticFEM.Geometry as G
     space_domain_symbol=:Γκ,
   )
 
-  membrane = P.Membrane2D(
+  membrane = P.Membrane(
     L=Lm,
     mᵨ=0.9,
     Tᵨ=98.1,

@@ -26,15 +26,15 @@ end
 
 # =========================================================================
 # Shared mesh setup: 50m × 10m tank, membrane from x=15 to x=35
-# Uses CartesianGeometry functions from the Geometry module.
+# Uses TankDomain functions from the Geometry module.
 # =========================================================================
 
 @testset "Simulation" begin
 
   order = 1
 
-  mem_domain = G.StructureDomain1D(L=20.0, x₀=[15.0, 10.0])
-  tank = G.TankDomain2D(L=50.0, H=10.0, nx=20, ny=4,
+  mem_domain = G.StructureDomain(L=20.0, x₀=[15.0, 10.0])
+  tank = G.TankDomain(L=50.0, H=10.0, nx=20, ny=4,
       structure_domains=[mem_domain])
 
   model = G.build_model(tank)
@@ -49,7 +49,7 @@ end
       fe=FES.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Ω)
   fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5,
       fe=FES.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Γκ)
-  mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1,
+  mem   = P.Membrane(L=20.0, mᵨ=0.9, Tᵨ=98.1,
       fe=FES.FESpaceConfig(order=order, vector_type=Vector{ComplexF64}), space_domain_symbol=:Γη)
 
   # =========================================================================
@@ -63,13 +63,13 @@ end
     # PotentialFlow ↔ FreeSurface: has mass and damping coupling
     @test (fluid, fsurf) in pairs
 
-    # PotentialFlow ↔ Membrane2D (PhysicsParameters): has damping coupling
+    # PotentialFlow ↔ Membrane (PhysicsParameters): has damping coupling
     @test (fluid, mem) in pairs
 
     # No self-coupling
     @test !any(p -> p[1] === p[2], pairs)
 
-    # FreeSurface ↔ Membrane2D: no coupling defined
+    # FreeSurface ↔ Membrane: no coupling defined
     @test !((fsurf, mem) in pairs)
     @test !((mem, fsurf) in pairs)
   end
@@ -136,7 +136,7 @@ end
       fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Ω)
     fsurf_real = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5,
       fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γκ)
-    mem_real   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1,
+    mem_real   = P.Membrane(L=20.0, mᵨ=0.9, Tᵨ=98.1,
       fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γη)
 
     entities = [fluid_real, fsurf_real, mem_real]
@@ -242,8 +242,8 @@ end
 
     physics_files = [
       joinpath(pkg_root, "src", "Physics", "Helpers.jl"),
-      joinpath(pkg_root, "src", "Physics", "PotentialFlow.jl"),
-      joinpath(pkg_root, "src", "Physics", "FreeSurface.jl"),
+      joinpath(pkg_root, "src", "Physics", "Fluid", "PotentialFlow.jl"),
+      joinpath(pkg_root, "src", "Physics", "Fluid", "FreeSurface.jl"),
       joinpath(pkg_root, "src", "Physics", "CouplingTerms.jl"),
     ]
 
@@ -265,14 +265,14 @@ end
     ω = state.ω[1]
     config = SM.FreqDomainConfig(ω=ω)
 
-    tank_damp = G.TankDomain2D(
+    tank_damp = G.TankDomain(
       L=50.0,
       H=10.0,
       nx=20,
       ny=4,
       damping_zones=[
-        G.DampingZone1D(L=5.0, x₀=[0.0, 10.0], domain_symbol=:Γ_d_in),
-        G.DampingZone1D(L=5.0, x₀=[45.0, 10.0], domain_symbol=:Γ_d_out),
+        G.DampingZone(L=5.0, x₀=[0.0, 10.0], domain_symbol=:Γ_d_in),
+        G.DampingZone(L=5.0, x₀=[45.0, 10.0], domain_symbol=:Γ_d_out),
       ],
     )
 
@@ -401,7 +401,7 @@ end
       fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Ω)
     fsurf_real = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5,
       fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γκ)
-    mem_real   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1,
+    mem_real   = P.Membrane(L=20.0, mᵨ=0.9, Tᵨ=98.1,
       fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γη)
 
     entities = [fluid_real, fsurf_real, mem_real]

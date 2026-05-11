@@ -19,23 +19,16 @@ import ...Geometry as G
 import ...ParameterHandler as PH
 
 # ─────────────────────────────────────────────────────────────
-# Per-entity FE space construction (dispatched on entity type)
+# Private helpers: build from a FESpaceConfig directly
 # ─────────────────────────────────────────────────────────────
 
-"""
-    build_test_fe_space(entity::PhysicsParameters, trian, config::SimulationConfig)
-
-Build a Gridap `TestFESpace` for `entity` on triangulation `trian`,
-using the numerical parameters from `entity.fe`.
-"""
-function build_test_fe_space(entity::P.PhysicsParameters, trian, config::PH.FreqDomainConfig)
-    fe = entity.fe
+function _build_fe_test_space(fe::PH.FESpaceConfig, trian, ::PH.FreqDomainConfig)
     reffe = ReferenceFE(fe.reffe_type, fe.space_type, fe.order)
     @assert fe.vector_type == Vector{ComplexF64} "Frequency-domain simulations require complex-valued FE spaces."
     if fe.dirichlet_tags !== nothing
         TestFESpace(trian, reffe;
-            conformity   = fe.conformity,
-            vector_type  = fe.vector_type,
+            conformity     = fe.conformity,
+            vector_type    = fe.vector_type,
             dirichlet_tags = fe.dirichlet_tags)
     else
         TestFESpace(trian, reffe;
@@ -44,19 +37,49 @@ function build_test_fe_space(entity::P.PhysicsParameters, trian, config::PH.Freq
     end
 end
 
-function build_test_fe_space(entity::P.PhysicsParameters, trian, ::PH.TimeDomainConfig)
-    fe = entity.fe
+function _build_fe_test_space(fe::PH.FESpaceConfig, trian, ::PH.TimeDomainConfig)
     reffe = ReferenceFE(fe.reffe_type, fe.space_type, fe.order)
     if fe.dirichlet_tags !== nothing
         TestFESpace(trian, reffe;
-            conformity   = fe.conformity,
-            vector_type  = fe.vector_type,
+            conformity     = fe.conformity,
+            vector_type    = fe.vector_type,
             dirichlet_tags = fe.dirichlet_tags)
     else
         TestFESpace(trian, reffe;
             conformity  = fe.conformity,
             vector_type = fe.vector_type)
     end
+end
+
+function _build_fe_trial_space(fe::PH.FESpaceConfig, V_test, ::PH.FreqDomainConfig)
+    fe.dirichlet_value !== nothing ? TrialFESpace(V_test, fe.dirichlet_value) :
+                                     TrialFESpace(V_test)
+end
+
+function _build_fe_trial_space(fe::PH.FESpaceConfig, V_test, ::PH.TimeDomainConfig)
+    fe.dirichlet_value !== nothing ? TransientTrialFESpace(V_test, fe.dirichlet_value) :
+                                     TransientTrialFESpace(V_test)
+end
+
+# ─────────────────────────────────────────────────────────────
+# Per-entity FE space construction (dispatched on entity type)
+# ─────────────────────────────────────────────────────────────
+
+"""
+    build_test_fe_space(entity::PhysicsParameters, trian, config::SimulationConfig)
+
+Build a Gridap `TestFESpace` for a **single-field** entity on triangulation
+`trian`, using the numerical parameters from `entity.fe`.
+
+For multi-field entities (e.g. `TimoshenkoBeam`) use the higher-level
+`build_fe_spaces`, which iterates over `variable_symbols`/`field_fe_configs`.
+"""
+function build_test_fe_space(entity::P.PhysicsParameters, trian, config::PH.FreqDomainConfig)
+    _build_fe_test_space(entity.fe, trian, config)
+end
+
+function build_test_fe_space(entity::P.PhysicsParameters, trian, config::PH.TimeDomainConfig)
+    _build_fe_test_space(entity.fe, trian, config)
 end
 
 """
@@ -83,26 +106,18 @@ end
 """
     build_trial_fe_space(entity::P.PhysicsParameters, V_test, config::PH.SimulationConfig)
 
-Build a `TrialFESpace` (or `TransientTrialFESpace` when `config` is `TimeDomainConfig`)
-from the test space `V_test`, applying Dirichlet values from `entity.fe`
-if present.
+Build a `TrialFESpace` (or `TransientTrialFESpace` when `config` is
+`TimeDomainConfig`) from the test space `V_test`, applying Dirichlet values
+from `entity.fe` if present.
+
+For multi-field entities use `build_fe_spaces`.
 """
-function build_trial_fe_space(entity::P.PhysicsParameters, V_test, ::PH.FreqDomainConfig)
-    fe = entity.fe
-    if fe.dirichlet_value !== nothing
-        TrialFESpace(V_test, fe.dirichlet_value)
-    else
-        TrialFESpace(V_test)
-    end
+function build_trial_fe_space(entity::P.PhysicsParameters, V_test, config::PH.FreqDomainConfig)
+    _build_fe_trial_space(entity.fe, V_test, config)
 end
 
-function build_trial_fe_space(entity::P.PhysicsParameters, V_test, ::PH.TimeDomainConfig)
-    fe = entity.fe
-    if fe.dirichlet_value !== nothing
-        TransientTrialFESpace(V_test, fe.dirichlet_value)
-    else
-        TransientTrialFESpace(V_test)
-    end
+function build_trial_fe_space(entity::P.PhysicsParameters, V_test, config::PH.TimeDomainConfig)
+    _build_fe_trial_space(entity.fe, V_test, config)
 end
 
 """
@@ -119,13 +134,13 @@ build_trial_fe_space(resn::Vector{P.ResonatorSingle}, Vs::Vector, ::PH.TimeDomai
 
 
 """
-    build_fe_spaces(entities::Vector{P.PhysicsParameters}, trians::G.TankTriangulations, config::PH.SimulationConfig) -> (X, Y, fmap)
+    build_fe_spaces(entities, trians::G.TankTriangulations, config::PH.SimulationConfig) -> (X, Y, fmap)
 
 Build multi-field test and trial FE spaces from a list of entities and a TankTriangulations dictionary.
 Each entity uses the triangulation from trians[entity.domain_symbol].
 
 # Arguments
-- `entities`: Vector of `P.PhysicsParameters` (or Vector{P.ResonatorSingle})
+- `entities`: iterable containing `P.PhysicsParameters` and/or `Vector{P.ResonatorSingle}`
 - `trians`: `G.TankTriangulations` (dictionary-like)
 - `config`: `PH.SimulationConfig` (frequency or time-domain)
 
@@ -140,7 +155,7 @@ X, Y, fmap = build_fe_spaces([fluid, fsurf, mem], trians)
 # fmap == Dict(:ϕ => 1, :κ => 2, :η_m => 3)
 ```
 """
-function build_fe_spaces(entities::Vector{<:P.PhysicsParameters}, 
+function build_fe_spaces(entities, 
                          trians::G.TankTriangulations, 
                          config::PH.SimulationConfig)
     test_spaces  = SingleFieldFESpace[]
@@ -148,9 +163,14 @@ function build_fe_spaces(entities::Vector{<:P.PhysicsParameters},
     fmap = Dict{Symbol, Int}()
     idx  = 0
 
-    for entity in entities
-        trian = trians[entity.space_domain_symbol]
+    for (ientity, entity) in enumerate(entities)
         if entity isa Vector{P.ResonatorSingle}
+            isempty(entity) && throw(ArgumentError("Resonator array at position $ientity of the `entities` collection must be non-empty."))
+            domain_symbol = entity[1].space_domain_symbol
+            found_symbols = unique(getfield.(entity, :space_domain_symbol))
+            length(found_symbols) > 1 &&
+                throw(ArgumentError("Resonator array at position $ientity in `entities` has inconsistent `space_domain_symbol` values. Expected all to be :$domain_symbol, but found: $found_symbols"))
+            trian = trians[domain_symbol]
             Vs = build_test_fe_space(entity, trian, config)
             Us = build_trial_fe_space(entity, Vs, config)
             for (i, (Vi, Ui)) in enumerate(zip(Vs, Us))
@@ -159,13 +179,19 @@ function build_fe_spaces(entities::Vector{<:P.PhysicsParameters},
                 push!(trial_spaces, Ui)
                 fmap[Symbol("q_$i")] = idx
             end
+        elseif entity isa P.PhysicsParameters
+            trian = trians[entity.space_domain_symbol]
+            for (sym, fe_cfg) in zip(P.variable_symbols(entity),
+                                     P.field_fe_configs(entity))
+                V = _build_fe_test_space(fe_cfg, trian, config)
+                U = _build_fe_trial_space(fe_cfg, V, config)
+                idx += 1
+                push!(test_spaces, V)
+                push!(trial_spaces, U)
+                fmap[sym] = idx
+            end
         else
-            V = build_test_fe_space(entity, trian, config)
-            U = build_trial_fe_space(entity, V, config)
-            idx += 1
-            push!(test_spaces, V)
-            push!(trial_spaces, U)
-            fmap[P.variable_symbol(entity)] = idx
+            throw(ArgumentError("Unsupported entity type in `build_fe_spaces`: $(typeof(entity))"))
         end
     end
 

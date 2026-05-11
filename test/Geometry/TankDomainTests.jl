@@ -2,14 +2,14 @@ using Test
 using Gridap
 import HydroElasticFEM.Geometry as G
 
-@testset "TankDomain2D" begin
+@testset "TankDomain{2}" begin
 
-  structure_a = G.StructureDomain1D(L=1.0, x₀=[0.5,1.0], domain_symbol=:Γ_s_a)
-  structure_b = G.StructureDomain1D(L=2.0, x₀=[0.5,1.0], domain_symbol=:Γ_s_b)
-  damping_a = G.DampingZone1D(L=0.5, x₀=[0.0,1.0], domain_symbol=:Γ_d_a)
-  damping_b = G.DampingZone1D(L=0.5, x₀=[3.5,1.0], domain_symbol=:Γ_d_b)
-  joint_a = G.JointDomain1D(location=[1.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
-  tank = G.TankDomain2D(L=10.0, H=1.0, nx=20, ny=2,
+  structure_a = G.StructureDomain(L=1.0, x₀=[0.5,1.0], domain_symbol=:Γ_s_a)
+  structure_b = G.StructureDomain(L=2.0, x₀=[0.5,1.0], domain_symbol=:Γ_s_b)
+  damping_a = G.DampingZone(L=0.5, x₀=[0.0,1.0], domain_symbol=:Γ_d_a)
+  damping_b = G.DampingZone(L=0.5, x₀=[3.5,1.0], domain_symbol=:Γ_d_b)
+  joint_a = G.JointDomain(location=[1.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
+  tank = G.TankDomain(L=10.0, H=1.0, nx=20, ny=2,
     structure_domains=[structure_a, structure_b],
     damping_zones=[damping_a, damping_b],
     joint_domains=[joint_a])
@@ -30,14 +30,14 @@ import HydroElasticFEM.Geometry as G
 end
 
 @testset "build_model" begin
-  tank = G.TankDomain2D()
+  tank = G.TankDomain()
   model = G.build_model(tank)
   @test model isa Gridap.Geometry.CartesianDiscreteModel
 end
 
-@testset "surface_mask - StructureDomain1D" begin
+@testset "surface_mask - StructureDomain" begin
   # Structure at x ∈ [1.0, 3.0], y = 1.0
-  sd = G.StructureDomain1D(L=2.0, x₀=[1.0, 1.0])
+  sd = G.StructureDomain(L=2.0, x₀=[1.0, 1.0])
   mask = G.surface_mask(sd)
 
   # Centroid inside → true
@@ -51,21 +51,34 @@ end
   @test mask([VectorValue(3.0, 1.0), VectorValue(3.0, 1.0)]) == true
 end
 
-@testset "surface_mask - DampingZone1D" begin
+@testset "surface_mask - DampingZone" begin
   # Damping zone at x ∈ [0.0, 0.5], y = 1.0
-  dz = G.DampingZone1D(L=0.5, x₀=[0.0, 1.0])
+  dz = G.DampingZone(L=0.5, x₀=[0.0, 1.0])
   mask = G.surface_mask(dz)
 
   @test mask([VectorValue(0.1, 1.0), VectorValue(0.3, 1.0)]) == true
   @test mask([VectorValue(0.6, 1.0), VectorValue(0.8, 1.0)]) == false
 end
 
+@testset "surface_mask - shared centroid semantics" begin
+  # Structure and damping zones use the same centroid-based surface-zone mask.
+  structure = G.StructureDomain(L=1.0, x₀=[1.0, 1.0])
+  damping = G.DampingZone(L=1.0, x₀=[1.0, 1.0])
+  cell_inside_by_centroid = [VectorValue(0.75, 1.0), VectorValue(1.75, 1.0)]
+  cell_outside_by_centroid = [VectorValue(0.0, 1.0), VectorValue(1.0, 1.0)]
+
+  @test G.surface_mask(structure)(cell_inside_by_centroid)
+  @test G.surface_mask(damping)(cell_inside_by_centroid)
+  @test !G.surface_mask(structure)(cell_outside_by_centroid)
+  @test !G.surface_mask(damping)(cell_outside_by_centroid)
+end
+
 @testset "surface_masks - full domain" begin
-  s1 = G.StructureDomain1D(L=1.0, x₀=[2.0, 1.0])
-  s2 = G.StructureDomain1D(L=1.5, x₀=[5.0, 1.0])
-  d1 = G.DampingZone1D(L=0.5, x₀=[0.0, 1.0])
-  d2 = G.DampingZone1D(L=0.5, x₀=[9.5, 1.0])
-  tank = G.TankDomain2D(L=10.0, H=1.0, nx=20, ny=2,
+  s1 = G.StructureDomain(L=1.0, x₀=[2.0, 1.0])
+  s2 = G.StructureDomain(L=1.5, x₀=[5.0, 1.0])
+  d1 = G.DampingZone(L=0.5, x₀=[0.0, 1.0])
+  d2 = G.DampingZone(L=0.5, x₀=[9.5, 1.0])
+  tank = G.TankDomain(L=10.0, H=1.0, nx=20, ny=2,
     structure_domains=[s1, s2], damping_zones=[d1, d2])
 
   smasks, dmasks = G.surface_masks(tank)
@@ -92,10 +105,10 @@ end
   # Structure at x ∈ [1.5, 2.5] on y = 1.0  (L = 1.0)
   # Damping inlet  x ∈ [0.0, 0.5]  on y = 1.0
   # Damping outlet x ∈ [3.5, 4.0]  on y = 1.0
-  s1 = G.StructureDomain1D(L=1.0, x₀=[1.5, 1.0])
-  d1 = G.DampingZone1D(L=0.5, x₀=[0.0, 1.0], domain_symbol=:Γ_d_in)
-  d2 = G.DampingZone1D(L=0.5, x₀=[3.5, 1.0], domain_symbol=:Γ_d_out)
-  tank = G.TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
+  s1 = G.StructureDomain(L=1.0, x₀=[1.5, 1.0])
+  d1 = G.DampingZone(L=0.5, x₀=[0.0, 1.0], domain_symbol=:Γ_d_in)
+  d2 = G.DampingZone(L=0.5, x₀=[3.5, 1.0], domain_symbol=:Γ_d_out)
+  tank = G.TankDomain(L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[s1], damping_zones=[d1, d2])
 
   model = G.build_model(tank)
@@ -127,8 +140,41 @@ end
   @test num_cells(trian[:Γ_dampings][2]) == 5
 end
 
+@testset "build_triangulations — symbol collision checks" begin
+  s1 = G.StructureDomain(L=0.5, x₀=[1.0, 1.0], domain_symbol=:Γ_same)
+  s2 = G.StructureDomain(L=0.5, x₀=[2.0, 1.0], domain_symbol=:Γ_same)
+  duplicate_structures = G.TankDomain(
+    L=4.0, H=1.0, nx=40, ny=4,
+    structure_domains=[s1, s2],
+  )
+  @test_throws ErrorException G.build_triangulations(
+    duplicate_structures,
+    G.build_model(duplicate_structures),
+  )
+
+  d1 = G.DampingZone(L=0.5, x₀=[0.0, 1.0], domain_symbol=:Γ_same)
+  d2 = G.DampingZone(L=0.5, x₀=[3.5, 1.0], domain_symbol=:Γ_same)
+  duplicate_dampings = G.TankDomain(
+    L=4.0, H=1.0, nx=40, ny=4,
+    damping_zones=[d1, d2],
+  )
+  @test_throws ErrorException G.build_triangulations(
+    duplicate_dampings,
+    G.build_model(duplicate_dampings),
+  )
+
+  reserved_symbol = G.TankDomain(
+    L=4.0, H=1.0, nx=40, ny=4,
+    structure_domains=[G.StructureDomain(L=1.0, x₀=[1.5, 1.0], domain_symbol=:Γfs)],
+  )
+  @test_throws ErrorException G.build_triangulations(
+    reserved_symbol,
+    G.build_model(reserved_symbol),
+  )
+end
+
 @testset "build_triangulations — no structures or damping" begin
-  tank = G.TankDomain2D(L=4.0, H=1.0, nx=20, ny=2)
+  tank = G.TankDomain(L=4.0, H=1.0, nx=20, ny=2)
   model = G.build_model(tank)
   trian   = G.build_triangulations(tank, model)
 
@@ -141,9 +187,9 @@ end
 end
 
 @testset "build_triangulations — joint skeletons from location" begin
-  s1 = G.StructureDomain1D(L=1.0, x₀=[1.5, 1.0])
-  j1 = G.JointDomain1D(location=[2.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
-  tank = G.TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
+  s1 = G.StructureDomain(L=1.0, x₀=[1.5, 1.0])
+  j1 = G.JointDomain(location=[2.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
+  tank = G.TankDomain(L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[s1],
     joint_domains=[j1])
 
@@ -157,10 +203,10 @@ end
 end
 
 @testset "get_integration_domains" begin
-  s1 = G.StructureDomain1D(L=1.0, x₀=[1.5, 1.0])
-  d1 = G.DampingZone1D(L=0.5, x₀=[0.0, 1.0], domain_symbol=:Γ_d_in)
-  d2 = G.DampingZone1D(L=0.5, x₀=[3.5, 1.0], domain_symbol=:Γ_d_out)
-  tank = G.TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
+  s1 = G.StructureDomain(L=1.0, x₀=[1.5, 1.0])
+  d1 = G.DampingZone(L=0.5, x₀=[0.0, 1.0], domain_symbol=:Γ_d_in)
+  d2 = G.DampingZone(L=0.5, x₀=[3.5, 1.0], domain_symbol=:Γ_d_out)
+  tank = G.TankDomain(L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[s1], damping_zones=[d1, d2])
   model = G.build_model(tank)
   trians   = G.build_triangulations(tank, model)
@@ -202,9 +248,9 @@ end
 end
 
 @testset "get_integration_domains — automatic joint keys" begin
-  s1 = G.StructureDomain1D(L=1.0, x₀=[1.5, 1.0])
-  j1 = G.JointDomain1D(location=[2.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
-  tank = G.TankDomain2D(L=4.0, H=1.0, nx=40, ny=4,
+  s1 = G.StructureDomain(L=1.0, x₀=[1.5, 1.0])
+  j1 = G.JointDomain(location=[2.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
+  tank = G.TankDomain(L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[s1],
     joint_domains=[j1])
 

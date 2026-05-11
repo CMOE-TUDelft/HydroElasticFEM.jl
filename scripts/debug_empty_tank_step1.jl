@@ -39,7 +39,7 @@ inc = EmptyTankExample.incident_wave(H0=p.H0, ω=p.ω, η0=p.η0, α=p.α)
 sea_state = EmptyTankExample.build_regular_wave_state(H=2.0 * p.η0, T=2 * pi / p.ω, h=p.H0)
 f_in(x) = (inc.vin(x) ⋅ VectorValue(-1.0, 0.0)) - im * inc.sea_state.k[1] * inc.ϕin(x)
 
-tank = G.TankDomain2D(L=tp.LΩ, H=p.H0, nx=p.nx, ny=p.ny, map=EmptyTankExample.shifted_gp_map(tp.x0, p.mesh_ry, p.ny, p.H0))
+tank = G.TankDomain(L=tp.LΩ, H=p.H0, nx=p.nx, ny=p.ny, map=EmptyTankExample.shifted_gp_map(tp.x0, p.mesh_ry, p.ny, p.H0))
 pf = P.PotentialFlow(
   ρw=1025.0,
   g=WaveSpec.PhysicalConstants.g,

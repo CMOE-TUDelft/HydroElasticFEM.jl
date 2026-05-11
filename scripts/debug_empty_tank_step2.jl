@@ -114,7 +114,7 @@ b_plain  = get_vector(op_plain)
 sea_state = build_regular_wave_state(H=2.0*p.η0, T=2π/p.ω, h=p.H0)
 f_in(x)   = (inc.vin(x) ⋅ VectorValue(-1.0, 0.0)) + (-1.0) * im * inc.sea_state.k[1] * inc.ϕin(x)
 
-tank = G.TankDomain2D(
+tank = G.TankDomain(
     L  = tp.LΩ,
     H  = p.H0,
     nx = p.nx,

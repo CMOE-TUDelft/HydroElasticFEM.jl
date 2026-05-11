@@ -51,7 +51,7 @@ import HydroElasticFEM.Geometry as D
     fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5)
     @test fsurf.fe.order == 1
 
-    mem = P.Membrane2D(L=20.0, mᵨ=1.0, Tᵨ=100.0)
+    mem = P.Membrane(L=20.0, mᵨ=1.0, Tᵨ=100.0)
     @test mem.fe.order == 1
 
     beam = P.EulerBernoulliBeam(L=1.0, mᵨ=1.0, EIᵨ=100.0)
@@ -93,7 +93,7 @@ import HydroElasticFEM.Geometry as D
 
     fluid = P.PotentialFlow(ρw=1025.0, g=9.81, fe=FES.FESpaceConfig(order=order))
     fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FES.FESpaceConfig(order=order))
-    mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order))
+    mem   = P.Membrane(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order))
 
     X, Y, fmap = FEA.build_fe_spaces(
         fluid => Ω,
@@ -166,7 +166,7 @@ import HydroElasticFEM.Geometry as D
 
     fluid = P.PotentialFlow(ρw=1025.0, g=9.81, fe=FES.FESpaceConfig(order=order))
     fsurf = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5, fe=FES.FESpaceConfig(order=order))
-    mem   = P.Membrane2D(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order))
+    mem   = P.Membrane(L=20.0, mᵨ=0.9, Tᵨ=98.1, fe=FES.FESpaceConfig(order=order))
 
     X, Y, fmap = FEA.build_fe_spaces(
         fluid => Ω,

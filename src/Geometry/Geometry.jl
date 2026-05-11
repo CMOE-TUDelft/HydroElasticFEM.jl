@@ -1,91 +1,105 @@
 """
     module Geometry
 
-Geometry, mesh construction, integration domains and field helpers.
+Geometry, mesh construction, integration domains, and field helpers for
+HydroElasticFEM.jl.
 
-Provides:
-- `TankDomain2D`, `StructureDomain1D`, `DampingZone1D` — geometry specs
-- `build_model`, `build_triangulations` — mesh construction
-- `IntegrationDomains` — dict-based container for Gridap measures/normals
-- `get_integration_domains` — build `IntegrationDomains` from triangulations
+## Two domain families
+
+All geometry in HydroElasticFEM is accessed through the [`AbstractDomain`](@ref)
+interface.  Two concrete implementations cover the two main use cases:
+
+**Structured Cartesian** (`TankDomain` / `CartesianDomain`) — use when the
+fluid region is a simple rectangular box and structure/damping sub-domains can
+be described by axis-aligned coordinates.  Boundaries are identified by
+coordinate masks computed at runtime; no external mesh file is needed.
+
+**Unstructured Gmsh** (`GmshDomain`) — use when the geometry is irregular or
+comes from a CAD tool.  Boundaries are identified exclusively by Gmsh
+*physical-group names* baked into the `.msh` file.  Coordinate-based filtering
+is never used, because it is fragile for unstructured meshes and couples
+geometry decisions to Julia source code.
+
+Both families expose the same `AbstractDomain` API and feed the same
+three-step simulation pipeline described below.
+
+## Simulation pipeline
+
+Every simulation follows this three-step pattern, regardless of domain type:
+
+```
+1. model  = build_model(domain)
+2. trians = build_triangulations(domain, model)
+3. dom    = get_integration_domains(trians; degree=4)
+```
+
+**Step 1** constructs (or retrieves) a Gridap `DiscreteModel`.
+**Step 2** partitions the model into named sub-triangulations (`TankTriangulations`).
+**Step 3** wraps each triangulation in a Gridap `Measure` and outward normal
+(`IntegrationDomains`), ready for weak-form assembly.
+
+All three steps must share the same `model` instance.  Building triangulations
+from separate model objects will trigger a Gridap assertion error at assembly
+time.
+
+## File map
+
+| File                    | Purpose                                              |
+|-------------------------|------------------------------------------------------|
+| `AbstractDomain.jl`     | `AbstractDomain` interface, `STANDARD_TAGS`          |
+| `Triangulations.jl`     | `TankTriangulations` container                       |
+| `CartesianDomain.jl`    | `CartesianDomain{D}`, `build_model` / `build_triangulations` (plain box), `map_fn` / `f_z` |
+| `TankDomain.jl`         | `TankDomain{D}`, `StructureDomain`, `DampingZone`, `JointDomain`, surface-mask partition, `get_plate_triangulation` |
+| `GmshDomain.jl`         | `GmshDomain`, tag-based triangulations, `validate_gmsh_tags` |
+| `IntegrationDomains.jl` | `IntegrationDomains` container, `get_integration_domains` |
+
+## Quick-start
+
+```julia
+import HydroElasticFEM.Geometry as G
+
+# Structured Cartesian tank with an embedded beam and a damping zone
+tank = G.TankDomain(L=4.0, H=1.0, nx=40, ny=4,
+    structure_domains = [G.StructureDomain(L=1.0, x₀=[1.5, 1.0])],
+    damping_zones     = [G.DampingZone(L=0.5, x₀=[0.0, 1.0])],
+)
+model  = G.build_model(tank)
+trians = G.build_triangulations(tank, model)
+dom    = G.get_integration_domains(trians; degree=4)
+
+# Unstructured Gmsh mesh — boundaries come from physical-group names
+gmsh_tank = G.GmshDomain("tank.msh"; dim=2)
+model     = G.build_model(gmsh_tank)
+trians    = G.build_triangulations(gmsh_tank, model)
+dom       = G.get_integration_domains(trians)
+```
 """
 module Geometry
 using Parameters
 using Gridap
 
-
-"""
-    TankTriangulations(; key=value, ...)
-    TankTriangulations(dict::Dict{Symbol,Any})
-
-Dict-based container for triangulations.
-Allows flexible access to triangulations by symbol keys.
-
-# Standard key conventions (not enforced)
-- `:Ω`  — Interior (fluid domain)
-- `:Γ`  — Full top-surface boundary
-- `:Γbot` — Bottom boundary
-- `:Γin` — Inlet (left wall) boundary
-- `:Γout` — Outlet (right wall) boundary
-- `:Γ_structures` — `Vector`: one triangulation per structure domain, ordered as in `TankDomain2D.structure_domains`
-- `:Γ_dampings`   — `Vector`: one triangulation per damping zone, ordered as in `TankDomain2D.damping_zones`
-- `:Γfs` — Free surface: surface cells that belong to no structure and no damping zone
-- `:Γκ`  — Non-structure surface (free surface ∪ damping zones)
-- `:Γη`  — All-structure surface (union of all structure triangulations)
-"""
-struct TankTriangulations
-    data::Dict{Symbol, Any}
-end
-
-TankTriangulations(; kwargs...) =
-    TankTriangulations(Dict{Symbol, Any}(k => v for (k, v) in pairs(kwargs)))
-
-Base.getindex(t::TankTriangulations, k::Symbol)            = t.data[k]
-Base.haskey(t::TankTriangulations, k::Symbol)              = haskey(t.data, k)
-Base.get(t::TankTriangulations, k::Symbol, default)        = get(t.data, k, default)
-Base.setindex!(t::TankTriangulations, val, k::Symbol)      = (t.data[k] = val)
-Base.keys(t::TankTriangulations)                           = keys(t.data)
-
-
-"""
-    IntegrationDomains(; key=value, ...)
-    IntegrationDomains(dict::Dict{Symbol,Any})
-
-Dict-based container for Gridap measures, normals, DiracDeltas,
-and any other domain data needed by weak form methods.
-
-Each `weakform` dispatch accesses only the keys it needs via
-`dom[:key]`.  No fixed schema — new keys can be added without
-changing this type.
-
-# Standard key conventions (not enforced)
-- `:dΩ`     — fluid interior measure
-- `:dΓκ`    — free-surface measure (outside structure)
-- `:dΓη`    — structure surface measure
-- `:dΛη`, `:n_Λη`, `:h_η` — beam skeleton measures/normals + mesh size
-- `:dΛηb`, `:n_Ληb`  — structure boundary (fixed BC Neumann)
-- `:dΓin`, `:dΓout`  — inlet / outlet radiation boundaries
-- `:dΓd_1`, `:dΓd_2` — damping zone measures
-- `:δ_p`    — vector of DiracDelta functionals (resonator points)
-- `:dΛj_1`, `:n_Λ_j_1` — joint skeleton measures/normals (from `TankDomain2D.joint_domains`)
-"""
-struct IntegrationDomains
-    data::Dict{Symbol, Any}
-end
-
-IntegrationDomains(; kwargs...) =
-    IntegrationDomains(Dict{Symbol, Any}(k => v for (k, v) in pairs(kwargs)))
-
-Base.getindex(d::IntegrationDomains, k::Symbol)            = d.data[k]
-Base.haskey(d::IntegrationDomains, k::Symbol)               = haskey(d.data, k)
-Base.get(d::IntegrationDomains, k::Symbol, default)         = get(d.data, k, default)
-Base.setindex!(d::IntegrationDomains, val, k::Symbol)       = (d.data[k] = val)
-Base.keys(d::IntegrationDomains)                            = keys(d.data)
-
-include("CartesianGeometry.jl")
+# Load order: each file may use symbols from files above it.
+include("AbstractDomain.jl")       # AbstractDomain, STANDARD_TAGS
+include("Triangulations.jl")       # TankTriangulations, _tank_triangulation_dict
+include("CartesianDomain.jl")      # CartesianDomain{D}, centroid helpers, map_fn/f_z
+include("TankDomain.jl")           # TankDomain{D}, StructureDomain, DampingZone, JointDomain
+include("GmshDomain.jl")           # GmshDomain, validate_gmsh_tags
+include("IntegrationDomains.jl")   # IntegrationDomains, get_integration_domains
 
 export TankTriangulations
 export IntegrationDomains
-export JointDomain1D
+export TankDomain
+export StructureDomain, DampingZone
+export JointDomain
+export AbstractDomain, STANDARD_TAGS
+export GmshDomain
+export validate_gmsh_tags
+export triangulation, boundary_tags, ambient_dimension
+export manifold_dimension, get_boundary
+export CartesianDomain
+export f_z, map_fn
+export get_plate_triangulation
+export build_model, build_triangulations, get_integration_domains
+export surface_mask, surface_masks, joint_mask
 
 end # module Geometry

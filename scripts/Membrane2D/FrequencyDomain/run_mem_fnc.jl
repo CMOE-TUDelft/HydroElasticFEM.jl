@@ -7,9 +7,9 @@ using HydroElasticFEM: PKG_ROOT
 # Define srcdir function to construct source file paths
 
 # Here you may include files from the source directory
-# include( joinpath(PKG_ROOT,"src","Membrane2D",
+# include( joinpath(PKG_ROOT,"src","Membrane",
 #   "FrequencyDomain","mem_freq_damp_free_fnc.jl") )
-include( joinpath(PKG_ROOT,"src","Membrane2D",
+include( joinpath(PKG_ROOT,"src","Membrane",
   "FrequencyDomain","mem_freq_rad_fnc.jl") )
 
 resDir::String = "data/sims_202601/run/spec_free"

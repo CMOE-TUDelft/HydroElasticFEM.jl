@@ -20,7 +20,7 @@
 ## Package Features
 
 - **Frequency-domain and time-domain simulations** – solve hydro-elastic problems in either domain
-- **Modular and expandable physics entities** – `PotentialFlow`, `FreeSurface`, `Membrane2D`, `EulerBernoulliBeam`, `ResonatorSingle`
+- **Modular and expandable physics entities** – `PotentialFlow`, `FreeSurface`, `Membrane`, `EulerBernoulliBeam`, `ResonatorSingle`
 - **Automated multi-field FE space construction** – seamless assembly of coupled systems
 - **Automatic differentiation support** – for nonlinear problems
 - **Cartesian mesh generation** – with structure and damping-zone support (unstructured mesh under development)
@@ -53,7 +53,7 @@ import HydroElasticFEM.Physics as P
 import HydroElasticFEM.Simulation as S
 
 # 1. Define the fluid domain (a 2D rectangular tank)
-domain = G.TankDomain2D(L=10.0, H=1.0, nx=60, ny=8)
+domain = G.TankDomain(L=10.0, H=1.0, nx=60, ny=8)
 
 # 2. Define physics entities using defaults (ρw=1025, g=9.81, βₕ=0.5, …)
 fluid   = P.PotentialFlow()

@@ -10,27 +10,54 @@ HydroElasticFEM.Geometry
 ## Integration domains
 
 ```@docs
+HydroElasticFEM.Geometry.STANDARD_TAGS
+HydroElasticFEM.Geometry.AbstractDomain
 HydroElasticFEM.Geometry.IntegrationDomains
 HydroElasticFEM.Geometry.TankTriangulations
+HydroElasticFEM.Geometry.ambient_dimension
+HydroElasticFEM.Geometry.manifold_dimension
+HydroElasticFEM.Geometry.boundary_tags
+HydroElasticFEM.Geometry.triangulation
+HydroElasticFEM.Geometry.get_boundary
 ```
 
 ## Cartesian geometry
 
 ```@docs
-HydroElasticFEM.Geometry.TankDomain2D
-HydroElasticFEM.Geometry.StructureDomain1D
-HydroElasticFEM.Geometry.DampingZone1D
-HydroElasticFEM.Geometry.JointDomain1D
+HydroElasticFEM.Geometry.CartesianDomain
+HydroElasticFEM.Geometry.TankDomain
+HydroElasticFEM.Geometry.StructureDomain
+HydroElasticFEM.Geometry.DampingZone
+HydroElasticFEM.Geometry.JointDomain
 HydroElasticFEM.Geometry.build_model
 HydroElasticFEM.Geometry.build_triangulations
 HydroElasticFEM.Geometry.get_integration_domains
+HydroElasticFEM.Geometry.surface_mask
+HydroElasticFEM.Geometry.surface_masks
+HydroElasticFEM.Geometry.joint_mask
+```
+
+## 3D Cartesian helpers
+
+```@docs
+HydroElasticFEM.Geometry.f_z
+HydroElasticFEM.Geometry.map_fn
+HydroElasticFEM.Geometry.get_plate_triangulation
+```
+
+## Gmsh geometry
+
+```@docs
+HydroElasticFEM.Geometry.GmshDomain
+HydroElasticFEM.Geometry.validate_gmsh_tags
 ```
 
 ## Setting up structural joints
 
-Joints are declared at the geometry level using `JointDomain1D` inside
-`TankDomain2D`, then automatically converted into skeleton triangulations and
-integration-domain keys by `build_triangulations` and `get_integration_domains`.
+Joints are declared at the geometry level using `JointDomain` inside a
+2D `TankDomain`, then automatically converted into
+skeleton triangulations and integration-domain keys by
+`build_triangulations` and `get_integration_domains`.
 
 On the physics side, each joint maps one-to-one to a `JointRotationalSpring`
 attached to the `EulerBernoulliBeam` via the same symbol keys.
@@ -39,14 +66,14 @@ attached to the `EulerBernoulliBeam` via the same symbol keys.
 using HydroElasticFEM
 
 # ── 1. Geometry: beam at y = 1, x ∈ [0, 4] with a joint at x = 2 ──
-beam_dom = StructureDomain1D(L=4.0, x₀=[0.0, 1.0])
-joint    = JointDomain1D(
+beam_dom = StructureDomain(L=4.0, x₀=[0.0, 1.0])
+joint    = JointDomain(
     location      = [2.0, 1.0],   # joint position in 2D (must lie on the beam)
     domain_symbol = :dΛj_1,       # key for the skeleton Measure
     normal_symbol = :n_Λ_j_1,     # key for the skeleton normal
 )
 
-tank = TankDomain2D(
+tank = TankDomain(
     L=8.0, H=1.0, nx=80, ny=4,
     structure_domains = [beam_dom],
     joint_domains     = [joint],     # ← declare joint here
@@ -72,11 +99,11 @@ result  = simulate(problem)
 ```
 
 !!! tip
-    The `domain_symbol`/`normal_symbol` pair in `JointDomain1D` **must match**
+    The `domain_symbol`/`normal_symbol` pair in `JointDomain` **must match**
     those in the corresponding `JointRotationalSpring`.  Any mismatch will
     cause a `KeyError` at assembly time.
 
 !!! note
-    Multiple joints are supported — add one `JointDomain1D` per joint location
+    Multiple joints are supported — add one `JointDomain` per joint location
     to `joint_domains` and one `JointRotationalSpring` per joint to
     `EulerBernoulliBeam.joints`.  Each pair must use unique symbol names.
