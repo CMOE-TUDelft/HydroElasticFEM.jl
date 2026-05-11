@@ -94,6 +94,27 @@ end
     @test P.active_forms(tctx, fluid, fsurf) == (mass=true, damping=true, stiffness=false, rhs=false)
   end
 
+  @testset "integration degrees use max polynomial degree per domain" begin
+    fluid_low_order = P.PotentialFlow(
+      ρw=1025.0,
+      g=9.81,
+      fe=FES.FESpaceConfig(order=1, vector_type=Vector{ComplexF64}),
+      space_domain_symbol=:Ω,
+    )
+    fluid_high_order = P.PotentialFlow(
+      ρw=1025.0,
+      g=9.81,
+      fe=FES.FESpaceConfig(order=3, vector_type=Vector{ComplexF64}),
+      space_domain_symbol=:Ω,
+    )
+
+    degrees = SM.get_integration_degrees(trian, P.PhysicsParameters[fluid_low_order, fluid_high_order, fsurf])
+
+    @test degrees[:Ω] == 6
+    @test degrees[:Γκ] == 2
+    @test degrees[:Γη] == 2
+  end
+
   # =========================================================================
   # build_fe_operator — frequency domain
   # =========================================================================

@@ -322,7 +322,7 @@ function get_integration_degrees(trians::G.TankTriangulations, physics::Vector{P
         if fe !== nothing
             domain_symbol = p.space_domain_symbol
             if haskey(degrees, domain_symbol)
-                degrees[domain_symbol] = max(degrees[domain_symbol], fe.order)
+                degrees[domain_symbol] = max(degrees[domain_symbol], 2*fe.order)
             else
                 degrees[domain_symbol] = 2*fe.order
             end
