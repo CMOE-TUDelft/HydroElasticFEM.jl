@@ -27,9 +27,10 @@ this requirement.
 - `ρ_s::Float64`            — structural density [kg/m³]
 - `ρ_w::Float64`            — fluid density for normalisation [kg/m³];
                               default 1025.0
-- `g::Float64`              — gravitational acceleration [m/s²]; default 9.81
-- `κ::Float64`              — shear correction factor [dimensionless]; default 5/6 for
-                              rectangular cross-sections
+- `g::Float64`              — gravitational acceleration [m/s²];
+                              default 9.81
+- `κ::Float64`              — shear correction factor [-];
+                              default 5/6 for rectangular cross-sections
 - `tangent`                 — unit tangent along the beam axis; must match the
                               ambient dimension of the FE mesh (default
                               `VectorValue(1.0, 0.0)` for a horizontal beam in
