@@ -36,6 +36,8 @@ makedocs(
     doctest   = true,
 )
 
+touch(joinpath(@__DIR__, "build", ".nojekyll"))
+
 if get(ENV, "CI", "false") == "true"
     deploydocs(
         repo = "github.com/CMOE-TUDelft/HydroElasticFEM.jl.git",
