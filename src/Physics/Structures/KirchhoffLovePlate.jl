@@ -108,8 +108,51 @@ end
 """
     KirchhoffLovePlate <: Structure
 
-Generic Kirchhoff-Love plate parameters supporting 1D/2D manifolds embedded
-in 2D/3D fluids.
+Generic Kirchhoff-Love plate parameters for 1D or 2D structural manifolds
+embedded in 2D or 3D fluids.
+
+The interior-penalty C/DG discretisation follows Colomés, Verdugo &
+Akkerman (2022), NME, §3.2, eqs. (24)–(25).
+DOI: 10.1002/nme.7140
+
+All weak forms are normalised by the ambient fluid density `ρ` so that
+the assembled system matrices are dimensionally consistent with the
+`PotentialFlow` and `FreeSurface` entities.
+
+# Fields
+- `E::Float64`            — Young's modulus [Pa]
+- `ν::Float64`            — Poisson's ratio [dimensionless]
+- `hb::Float64`           — Plate thickness [m]
+- `ρ::Float64`            — Ambient fluid density [kg/m³]; default 1025.0
+- `ρb::Float64`           — Plate material density [kg/m³]; default 256.25
+- `g::Float64`            — Gravitational acceleration [m/s²]; default 9.81
+- `ambient_dim::Int`      — Embedding-space dimension: 2 or 3; default 3
+- `manifold_dim::Int`     — Plate manifold dimension: 1 (beam-like) or 2; default 2
+- `symbol::Symbol`        — Field unknown symbol; default `:η`
+- `space_domain_symbol::Symbol` — Triangulation key used for FE spaces; default `:Γη`
+- `fe::FESpaceConfig`     — FE discretisation parameters
+- `C`                     — Constitutive tensor `SymFourthOrderTensorValue{ambient_dim}`,
+                            computed automatically via [`build_kl_tensor`](@ref).
+                            The scalar `C[1,1,1,1] = D/ρ` where `D = E·h³/(12(1-ν²))`.
+
+# Notes
+- For `manifold_dim == 1` the model reduces to Euler-Bernoulli curvature
+  rigidity; set `ambient_dim = 2` for 2D problems.
+- `ambient_dim = 3, manifold_dim = 2` is the canonical 3D floating plate.
+- The rotational penalty coefficient `γ` in `fe.γ` should be set to
+  `O(p²)` (the default `10 * p^2` in `FESpaceConfig` is recommended).
+
+# Example
+```julia
+plate = KirchhoffLovePlate(
+    E  = 1.19e10,   # Pa  (e.g. ice)
+    ν  = 0.13,
+    hb = 2.0,        # m
+    ρb = 256.25,     # kg/m³
+)
+```
+
+See also: [`build_kl_tensor`](@ref), [`equivalent_beam_rigidity`](@ref)
 """
 @with_kw struct KirchhoffLovePlate <: Structure
   E::Float64

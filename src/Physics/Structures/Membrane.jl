@@ -5,18 +5,22 @@ Parameters for an nD membrane model, normalised by fluid density `ρw`.
 
 The membrane manifold can be 1D or 2D, embedded in a 2D or 3D fluid.
 Weak forms are written in a dimension-agnostic way and evaluated on
-`space_domain_symbol`.
+`space_domain_symbol`.  The structural damping form uses stiffness-proportional
+Rayleigh damping with coefficient `τ`.
 
 # Fields
-- `L::Float64`         : Characteristic membrane length [m]
-- `mᵨ::Float64`        : Mass per unit manifold measure / `ρw`
-- `Tᵨ::Float64`        : Pre-tension / `ρw`
-- `τ::Float64`         : Proportional structural damping coefficient [-]
-- `g::Float64`         : Gravitational acceleration [m/s²]
-- `ambient_dim::Int`   : Fluid ambient dimension (2 or 3)
-- `manifold_dim::Int`  : Membrane manifold dimension (1 or 2)
-- `symbol::Symbol`     : Primary unknown symbol
-- `space_domain_symbol::Symbol` : Triangulation key used for FE spaces
+- `L::Float64`         — Characteristic membrane length [m]
+- `mᵨ::Float64`        — Mass per unit manifold measure / ρw [dimensionless]
+- `Tᵨ::Float64`        — Pre-tension / ρw [m³/s²]
+- `τ::Float64`         — Stiffness-proportional structural damping coefficient; default 0
+- `g::Float64`         — Gravitational acceleration [m/s²]; default 9.81
+- `ambient_dim::Int`   — Fluid ambient dimension: 2 or 3; default 2
+- `manifold_dim::Int`  — Membrane manifold dimension: 1 or 2; default 1
+- `symbol::Symbol`     — Field unknown symbol; default `:η_m`
+- `space_domain_symbol::Symbol` — Triangulation key for FE spaces; default `:Γη`
+- `fe::FESpaceConfig`  — FE discretisation parameters
+- `ωn1::Float64`       — First dry analytical natural frequency [rad/s], derived as
+  `(π/L) * √(Tᵨ/mᵨ)` for the 1D canonical case
 """
 @with_kw struct Membrane <: Structure
   L::Float64

@@ -38,18 +38,34 @@ end
 """
     EulerBernoulliBeam <: Structure
 
-Parameters for a 2D Euler-Bernoulli beam model,
-normalised by fluid density ρw.
+Parameters for a 2D Euler-Bernoulli beam model, normalised by the ambient
+fluid density `ρw`.
+
+The interior-penalty C/DG formulation uses a Symmetric Interior Penalty (SIP)
+consistency + penalty scheme for the fourth-order bending operator.
 
 # Fields
-- `L::Float64`    — Length of beam
-- `mᵨ::Float64`   — Mass per unit length per unit width / ρw
-- `EIᵨ::Union{Float64,Function}` — Flexural Rigidity / ρw (scalar or a function of position `x`)
-- `τ::Float64`    — Stiffness Proportional Structural Damping coefficient
-- `g::Float64`    — Gravitational acceleration
-- `joints::Vector{JointRotationalSpring}` — Optional rotational spring joints
-- `bndType::BoundaryCondition` — Boundary Type
-- `ωn1::Union{Float64,Nothing}` — Dry Analytical Natural frequency (derived; `nothing` when `EIᵨ` is a function)
+- `L::Float64`    — Beam span [m]
+- `mᵨ::Float64`   — Mass per unit length / ρw [m²], i.e. `ρb·hb / ρw`
+- `EIᵨ::Union{Float64,Function}` — Flexural rigidity / ρw [m⁵/s²];
+  may be a scalar `Float64` or a univariate `Function(x) -> Float64`
+  for spatially varying stiffness.
+- `τ::Float64`    — Stiffness-proportional structural damping coefficient; default 0
+- `g::Float64`    — Gravitational acceleration [m/s²]; default 9.81
+- `joints::Vector{JointRotationalSpring}` — Rotational spring connections at
+  interior skeleton facets; leave empty for a continuous beam.
+- `symbol::Symbol` — Field unknown symbol; default `:η_b`
+- `space_domain_symbol::Symbol` — Triangulation key used for FE spaces; default `:Γη`
+- `fe::FESpaceConfig` — FE discretisation parameters
+- `ωn1::Union{Float64,Nothing}` — First dry analytical natural frequency [rad/s], derived
+  from `EIᵨ` and `mᵨ` for clamped-free; `nothing` when `EIᵨ` is a `Function`
+
+# Example
+```julia
+beam = EulerBernoulliBeam(L=10.0, mᵨ=0.5, EIᵨ=1.0e4)
+```
+
+See also: [`JointRotationalSpring`](@ref), [`JointDomain`](@ref)
 """
 @with_kw struct EulerBernoulliBeam <: Structure
     L::Float64

@@ -14,6 +14,8 @@ HydroElasticFEM.Physics
 HydroElasticFEM.Physics.PhysicsParameters
 HydroElasticFEM.Physics.print_parameters
 HydroElasticFEM.Physics.variable_symbol
+HydroElasticFEM.Physics.variable_symbols
+HydroElasticFEM.Physics.field_fe_configs
 ```
 
 ## Weak-form interface
@@ -63,13 +65,11 @@ HydroElasticFEM.Physics.Membrane
 HydroElasticFEM.Physics.EulerBernoulliBeam
 HydroElasticFEM.Physics.JointRotationalSpring
 HydroElasticFEM.Physics.KirchhoffLovePlate
+HydroElasticFEM.Physics.TimoshenkoBeam
 HydroElasticFEM.Physics.build_kl_tensor
 HydroElasticFEM.Physics.build_KL_tensor
 HydroElasticFEM.Physics.check_major_symmetry
 HydroElasticFEM.Physics.equivalent_beam_rigidity
-HydroElasticFEM.Physics.TimoshenkoBeam
-HydroElasticFEM.Physics.variable_symbols
-HydroElasticFEM.Physics.field_fe_configs
 ```
 
 ## Resonators

@@ -60,9 +60,25 @@ struct HEFEM_Problem{T<:PH.SimulationConfig,C<:AC.AbstractAssemblyContext}
     sim_config::T
 end
 
-# Getter functions for HEFEM_Problem fields
+"""
+    get_model(prob::HEFEM_Problem) -> DiscreteModel
+
+Return the discrete mesh model from a built problem.
+"""
 get_model(prob::HEFEM_Problem) = prob.model
+
+"""
+    get_triangulations(prob::HEFEM_Problem) -> TankTriangulations
+
+Return the triangulations container from a built problem.
+"""
 get_triangulations(prob::HEFEM_Problem) = prob.triangulations
+
+"""
+    get_integration_domains(prob::HEFEM_Problem) -> IntegrationDomains
+
+Return the integration domains (measures and normals) from a built problem.
+"""
 get_integration_domains(prob::HEFEM_Problem) = prob.integration_domains
 """
     get_assembly_context(prob::HEFEM_Problem)
@@ -71,11 +87,47 @@ Return the immutable assembly context attached to a built problem.
 This is either a `FrequencyAssemblyContext` or `TimeAssemblyContext`.
 """
 get_assembly_context(prob::HEFEM_Problem) = prob.assembly_context
+"""
+    get_entities(prob::HEFEM_Problem) -> Vector{PhysicsParameters}
+
+Return the ordered list of physics entities from a built problem.
+"""
 get_entities(prob::HEFEM_Problem) = prob.entities
+
+"""
+    get_field_map(prob::HEFEM_Problem) -> Dict{Symbol,Int}
+
+Return the symbol-to-field-index map from a built problem.
+"""
 get_field_map(prob::HEFEM_Problem) = prob.field_map
+
+"""
+    get_test_fe_space(prob::HEFEM_Problem) -> MultiFieldFESpace
+
+Return the test `MultiFieldFESpace` from a built problem.
+"""
 get_test_fe_space(prob::HEFEM_Problem) = prob.test_fe_space
+
+"""
+    get_trial_fe_space(prob::HEFEM_Problem) -> MultiFieldFESpace
+
+Return the trial `MultiFieldFESpace` from a built problem.
+"""
 get_trial_fe_space(prob::HEFEM_Problem) = prob.trial_fe_space
+
+"""
+    get_fe_operator(prob::HEFEM_Problem) -> Union{FEOperator,TransientFEOperator}
+
+Return the assembled FE operator from a built problem.
+"""
 get_fe_operator(prob::HEFEM_Problem) = prob.fe_operator
+
+"""
+    get_sim_config(prob::HEFEM_Problem) -> SimulationConfig
+
+Return the simulation configuration (`FreqDomainConfig` or `TimeDomainConfig`)
+from a built problem.
+"""
 get_sim_config(prob::HEFEM_Problem) = prob.sim_config
 
 function _find_free_surface(physics::Vector{P.PhysicsParameters})
@@ -91,11 +143,18 @@ function _has_damping_zone_bc(physics::Vector{P.PhysicsParameters})
 end
 
 """
-    build_frequency_context(domains, physics, config)
+    build_frequency_context(domains, physics, config) -> FrequencyAssemblyContext
 
 Build a `FrequencyAssemblyContext` from integration domains and
-frequency-domain simulation inputs. The function also triggers
-radiation-boundary validation for enabled `RadiationBC` entries.
+frequency-domain simulation inputs.
+
+Also validates that any enabled `RadiationBC` entries have a compatible
+frequency value via `_radiation_frequency`.
+
+# Arguments
+- `domains::IntegrationDomains` — integration domains (measures and normals)
+- `physics::Vector{PhysicsParameters}` — physics entity list
+- `config::FreqDomainConfig` — frequency-domain configuration (provides `ω`)
 """
 function build_frequency_context(domains::G.IntegrationDomains,
                                  physics::Vector{P.PhysicsParameters},
@@ -117,11 +176,19 @@ function build_frequency_context(domains::G.IntegrationDomains,
 end
 
 """
-    build_time_context(domains, physics, config, tconfig)
+    build_time_context(domains, physics, config, tconfig) -> TimeAssemblyContext
 
 Build a `TimeAssemblyContext` from integration domains and time-domain
-simulation inputs. For damping-zone cases, a non-`nothing` `tconfig`
-with `αₕ` is required.
+simulation inputs.
+
+Errors if a `DampingZoneBC` is present but `tconfig` is `nothing` or
+`tconfig.αₕ` is `nothing`.
+
+# Arguments
+- `domains::IntegrationDomains` — integration domains (measures and normals)
+- `physics::Vector{PhysicsParameters}` — physics entity list
+- `config::TimeDomainConfig` — time-domain configuration (provides `t₀`)
+- `tconfig` — `TimeConfig` (or `nothing`); provides `t₀` and `αₕ` overrides
 """
 function build_time_context(domains::G.IntegrationDomains,
                             physics::Vector{P.PhysicsParameters},
@@ -173,10 +240,45 @@ function _build_problem_parts(domain, physics::Vector{P.PhysicsParameters}, conf
 end
 
 """
-    build_problem(config, entities_trians...; dom, ...)
+    build_problem(domain, physics, config; rhs_fn=nothing) -> HEFEM_Problem
+    build_problem(domain, physics, config; tconfig=nothing, rhs_fn=nothing) -> HEFEM_Problem
 
-Given a simulation config and physics entities, construct the immutable
-assembly context, FE spaces, and FE operator.
+Construct an immutable `HEFEM_Problem` from a domain descriptor, a list of
+physics entities, and a simulation configuration.
+
+This is the primary entry point for building a HydroElasticFEM simulation.
+It performs, in order:
+1. Ambient-dimension consistency check between `domain` and all entities.
+2. `build_model(domain)` — create the discrete mesh.
+3. `build_triangulations(domain, model)` — extract all triangulations.
+4. `get_integration_domains(trians)` — build `Measure`s and normals.
+5. `build_fe_spaces(physics, trians, config)` — build `MultiFieldFESpace`.
+6. `build_frequency_context` or `build_time_context` — set up the assembly context.
+7. `build_frequency_fe_operator` or `build_time_fe_operator` — assemble the operator.
+
+# Arguments
+- `domain` — geometry descriptor (`TankDomain`, `CartesianDomain`, or `GmshDomain`)
+- `physics::Vector{PhysicsParameters}` — ordered list of physics entities
+  (e.g. `[fluid, fs, beam]`).  Order determines the `MultiFieldFESpace` layout.
+- `config::FreqDomainConfig` or `config::TimeDomainConfig` — simulation config
+- `tconfig::TimeConfig` — (time-domain only) time integration configuration
+  including `t₀` and optional `αₕ` for damping-zone stabilisation
+- `rhs_fn` — optional user-supplied forcing function
+
+# Returns
+`HEFEM_Problem` containing the model, triangulations, integration domains,
+assembly context, FE spaces, FE operator, and simulation config.
+
+# Example
+```julia
+tank = TankDomain(L=20.0, H=5.0, nx=40, ny=4)
+config = FreqDomainConfig(ω=1.0)
+fluid = PotentialFlow()
+fs    = FreeSurface()
+prob  = build_problem(tank, [fluid, fs], config)
+```
+
+See also: [`simulate`](@ref), [`HEFEM_Problem`](@ref)
 """
 function build_problem(domain, physics::Vector{P.PhysicsParameters}, config::PH.FreqDomainConfig; rhs_fn=nothing)
     model, trians, measures, X, Y, fmap = _build_problem_parts(domain, physics, config)
@@ -194,14 +296,22 @@ end
 
 
 """
-    get_integration_degrees(trians::G.TankTriangulations, physics::Vector{P.PhysicsParameters})
+    get_integration_degrees(trians, physics) -> Dict{Symbol,Int}
 
-Determines the required integration degree for each domain based on the FE order of the physics entities 
-defined on that domain. Returns a dictionary mapping domain symbols to integration degrees.
+Determine the required Gaussian integration degree for each triangulation
+domain, based on the polynomial order declared in each entity's `fe` field.
+
+For each entity, the degree for its `space_domain_symbol` domain is set to
+`2 * fe.order` on first encounter, and to the maximum of existing and new
+degree on subsequent encounters.  Any domain present in `trians` but not
+covered by a physics entity defaults to degree `2`.
 
 # Arguments
-- `trians` — triangulations for each domain (used to get domain symbols)
-- `physics` — vector of physics entities, each with an optional `fe` field containing
+- `trians::TankTriangulations` — triangulations container (used to enumerate domains)
+- `physics::Vector{PhysicsParameters}` — ordered list of physics entities
+
+# Returns
+`Dict{Symbol,Int}` mapping triangulation-domain symbols to integration degrees.
 """
 function get_integration_degrees(trians::G.TankTriangulations, physics::Vector{P.PhysicsParameters})
     
@@ -212,7 +322,7 @@ function get_integration_degrees(trians::G.TankTriangulations, physics::Vector{P
         if fe !== nothing
             domain_symbol = p.space_domain_symbol
             if haskey(degrees, domain_symbol)
-                degrees[domain_symbol] = max(degrees[domain_symbol], fe.order)
+                degrees[domain_symbol] = max(degrees[domain_symbol], 2*fe.order)
             else
                 degrees[domain_symbol] = 2*fe.order
             end

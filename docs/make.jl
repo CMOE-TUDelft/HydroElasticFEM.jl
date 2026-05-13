@@ -14,9 +14,14 @@ makedocs(
     pages = [
         "Home" => "index.md",
         "Guides" => [
-            "Getting Started" => "guide/getting_started.md",
-            "Examples"        => "guide/examples.md",
-            "Theory"          => "guide/theory.md",
+            "Overview"                 => "guide/index.md",
+            "Getting Started"          => "guide/getting_started.md",
+            "First Simulation"         => "guide/first_simulation.md",
+            "Examples"                 => "guide/examples.md",
+            "Theory"                   => "guide/theory.md",
+            "Architecture"             => "guide/architecture.md",
+            "Adding a New Structure"   => "guide/adding_structure.md",
+            "Debugging"                => "guide/debugging.md",
         ],
         "API Reference" => [
             "Overview"          => "api/index.md",
