@@ -92,6 +92,12 @@ fluid = PotentialFlow(
 ```
 
 See also: [`FreeSurface`](@ref), [`RadiationBC`](@ref), [`DampingZoneBC`](@ref)
+
+# Reference
+- [C23] Colomes, O., Verdugo, F., & Akkerman, I. (2023). A monolithic
+    finite element formulation for the hydroelastic analysis of very large
+    floating structures. *Int. J. Numer. Methods Eng.*, 124(3), 714-751.
+    DOI: https://doi.org/10.1002/nme.7140
 """
 @with_kw struct PotentialFlow <: PhysicsParameters
     ρw::Float64 = 1025.0
@@ -126,6 +132,9 @@ function stiffness(pf::PotentialFlow, dom::IntegrationDomains, x, y)
     sym = variable_symbol(pf)
     ϕ = x[sym]
     w = y[sym]
+    # Fluid bulk term: Laplace equation for velocity potential.
+    # Weak form: ∫_Ω ∇ϕ·∇w dΩ = 0 (no sources).
+    # Reference: [C23] Section 2.1, Eq. (1)-(3).
     val = ∫(∇(w) ⋅ ∇(ϕ))dom[:dΩ]
     bc_val = _stiffness_bc_contributions(pf, dom, ϕ, w)
     return _add_contribution(val, bc_val)
@@ -136,6 +145,9 @@ function stiffness(pf::PotentialFlow, ctx::AC.AbstractAssemblyContext, x, y)
     sym = variable_symbol(pf)
     ϕ = x[sym]
     w = y[sym]
+    # Fluid bulk term: Laplace equation for velocity potential.
+    # Weak form: ∫_Ω ∇ϕ·∇w dΩ = 0 (no sources).
+    # Reference: [C23] Section 2.1, Eq. (1)-(3).
     val = ∫(∇(w) ⋅ ∇(ϕ))dom[:dΩ]
     bc_val = _stiffness_bc_contributions(pf, ctx, ϕ, w)
     return _add_contribution(val, bc_val)

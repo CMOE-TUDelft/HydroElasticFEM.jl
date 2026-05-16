@@ -21,6 +21,16 @@ Rayleigh damping with coefficient `τ`.
 - `fe::FESpaceConfig`  — FE discretisation parameters
 - `ωn1::Float64`       — First dry analytical natural frequency [rad/s], derived as
   `(π/L) * √(Tᵨ/mᵨ)` for the 1D canonical case
+
+# References
+- [A24] Agarwal, S., Colomes, O., & Metrikine, A. V. (2024).
+  Dynamic analysis of viscoelastic floating membranes using monolithic
+  finite element method. *Journal of Fluids and Structures*, 129, 104167.
+  DOI: https://doi.org/10.1016/j.jfluidstructs.2024.104167
+- [C23] Colomes, O., Verdugo, F., & Akkerman, I. (2023). A monolithic
+  finite element formulation for the hydroelastic analysis of very large
+  floating structures. *Int. J. Numer. Methods Eng.*, 124(3), 714-751.
+  DOI: https://doi.org/10.1002/nme.7140
 """
 @with_kw struct Membrane <: Structure
   L::Float64
@@ -72,6 +82,9 @@ function stiffness(s::Membrane, dom::IntegrationDomains, x, y)
   sym = variable_symbol(s)
   η = x[sym]
   v = y[sym]
+  # Membrane structural bilinear form:
+  # ∫_Γη (g·v·η + Tρ·∇v·∇η) dΓ.
+  # Reference: [A24] (viscoelastic floating membrane formulation).
   ∫(v * (s.g * η) + s.Tᵨ * ∇(v) ⋅ ∇(η))dom[:dΓη]
 end
 

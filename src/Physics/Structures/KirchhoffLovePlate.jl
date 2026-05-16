@@ -23,7 +23,7 @@
 #    New weak-form validation tests live in
 #    test/Physics/KirchhoffLovePlateTests.jl.
 #
-# Reference: Colomés, Verdugo, Akkerman (2022), NME.
+# Reference: [C23] Colomes, Verdugo, Akkerman (2023), NME.
 #   Section 3.2, eqs. (24)–(25).
 #   DOI: 10.1002/nme.7140
 # =============================================================================
@@ -111,8 +111,8 @@ end
 Generic Kirchhoff-Love plate parameters for 1D or 2D structural manifolds
 embedded in 2D or 3D fluids.
 
-The interior-penalty C/DG discretisation follows Colomés, Verdugo &
-Akkerman (2022), NME, §3.2, eqs. (24)–(25).
+The interior-penalty C/DG discretisation follows Colomes, Verdugo &
+Akkerman (2023), NME, §3.2, eqs. (24)–(25).
 DOI: 10.1002/nme.7140
 
 All weak forms are normalised by the ambient fluid density `ρ` so that
@@ -153,6 +153,13 @@ plate = KirchhoffLovePlate(
 ```
 
 See also: [`build_kl_tensor`](@ref), [`equivalent_beam_rigidity`](@ref)
+
+# References
+- [C23] Colomes, O., Verdugo, F., & Akkerman, I. (2023). A monolithic
+  finite element formulation for the hydroelastic analysis of very large
+  floating structures. *Int. J. Numer. Methods Eng.*, 124(3), 714-751.
+  DOI: https://doi.org/10.1002/nme.7140
+- `build_kl_tensor`: [C23] Section 3.2, Eq. (22)-(23)
 """
 @with_kw struct KirchhoffLovePlate <: Structure
   E::Float64
@@ -199,7 +206,7 @@ end
 # ── Single-variable weak forms: mass, stiffness, rhs ──────────────────────
 #
 # The Kirchhoff-Love plate is discretised with an interior-penalty C/DG
-# approach (Engel et al. 2002; Colomés et al. 2022, §3.2, eqs. 24–25).
+# approach (Engel et al. 2002; Colomes et al. 2023, §3.2, eqs. 24-25).
 # No intrinsic structural damping is implemented (has_damping_form = false).
 # Fluid-structure coupling damping is inherited via Structure <: PhysicsParameters
 # through the PotentialFlow↔Structure pair in CouplingTerms.jl.
@@ -249,7 +256,7 @@ end
 """
     stiffness(plate, dom, x, y)
 
-C/DG bilinear form for the Kirchhoff-Love plate (eqs. 24–25 of [C22]).
+  C/DG bilinear form for the Kirchhoff-Love plate (eqs. 24-25 of [C23]).
 
 Uses interior-penalty stabilisation with penalty coefficient
 `(γ / h) * C[1,1,1,1]` where γ comes from `plate.fe.γ`.
@@ -263,6 +270,10 @@ function stiffness(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
   h    = dom[:h_η]
   n_Λ  = dom[:n_Λ_η]
 
+  # Kirchhoff-Love plate C/DG formulation.
+  # Bulk term: ∫_Γb ∇∇v ⊙ (C ⊙ ∇∇η) dΓ + hydrostatic restoring term.
+  # Skeleton terms: consistency + symmetry + penalty.
+  # Reference: [C23] Section 3.2, Eq. (24)-(25).
   bulk = ∫(( ∇∇(v) ⊙ (s.C ⊙ ∇∇(η))) + s.g * v * η)dom[:dΓη]
 
   skeleton = ∫(

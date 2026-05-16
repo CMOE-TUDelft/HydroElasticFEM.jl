@@ -10,6 +10,10 @@
 #
 # Time-domain coupling lives only in damping:
 #     ∫( y[η] * x_t[:ϕ] − y[:ϕ] * x_t[η] ) dΓ_s
+# Kinematic interface coupling reference:
+#   [C23] Section 3.1, Eq. (21) and Section 3.2, Eq. (26).
+# Dynamic/restoring contributions are represented in structure self-forms
+# (e.g. hydrostatic restoring terms in `stiffness(::Structure, ...)`).
 # =========================================================================
 
 # Fluid-structure coupling only contributes through damping terms.
@@ -20,6 +24,9 @@ function damping(pf::PotentialFlow, s::Structure, dom::IntegrationDomains, x_t, 
     η_sym = variable_symbol(s)
     ϕₜ = x_t[ϕ_sym];  ηₜ = x_t[η_sym]
     w  = y[ϕ_sym];     v  = y[η_sym]
+    # FSI kinematic condition in weak form:
+    # ∫_Γs (v·∂tϕ - w·∂tη) dΓ.
+    # Reference: [C23] Section 3.1, Eq. (21).
     ∫(v * ϕₜ - w * ηₜ)dom[:dΓη]
 end
 
@@ -29,6 +36,7 @@ end
 # Frequency domain:
 #   ∫( βₕ*(u + αₕ*w)*(g*κ − iω*ϕ) + iω*w*κ ) dΓ_fs
 #   with αₕ = −iω/g * (1−βₕ)/βₕ
+# Reference: [C23] Section 2.2, Eq. (7)-(10).
 #
 # Decomposed into mass/damping/stiffness so that the composed
 # weakform = −ω²·mass + (−iω)·damping + stiffness reproduces the above.
@@ -119,6 +127,8 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.FrequencyAssembly
         μ₁ = _as_space_function(bc.μ₁)
         μ₂ = _as_space_function(bc.μ₂)
         ∇ₙϕ = ∇(ϕ) ⋅ nΓ
+        # Sponge-layer damping-zone contributions.
+        # Reference: [C23] Section 4.1, Eq. (33)-(36).
         zone_val = ∫(μ₁ * ∇ₙϕ * u - (μ₂ * κ * w))dΓ
         val = _add_contribution(val, zone_val)
     end
@@ -147,6 +157,8 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyConte
         μ₁ = _as_space_function(bc.μ₁)
         μ₂ = _as_space_function(bc.μ₂)
         ∇ₙϕ = ∇(ϕ) ⋅ nΓ
+        # Sponge-layer damping-zone contributions.
+        # Reference: [C23] Section 4.1, Eq. (33)-(36).
         zone_val = ∫(μ₁ * ∇ₙϕ * u - (μ₂ * κ * w))dΓ
         val = _add_contribution(val, zone_val)
     end

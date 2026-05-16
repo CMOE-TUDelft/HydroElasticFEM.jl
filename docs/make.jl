@@ -13,6 +13,7 @@ makedocs(
     remotes = nothing,
     pages = [
         "Home" => "index.md",
+        "References" => "references.md",
         "Guides" => [
             "Overview"                 => "guide/index.md",
             "Getting Started"          => "guide/getting_started.md",
