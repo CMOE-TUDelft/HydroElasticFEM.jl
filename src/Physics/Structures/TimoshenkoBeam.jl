@@ -159,8 +159,8 @@ function stiffness(s::TimoshenkoBeam, dom::IntegrationDomains, x, y)
 
   # Timoshenko two-field structural bilinear form (w, θ).
   # Includes bending and shear terms; thin limit recovers EB behavior.
-  # Reference: [A24] (Timoshenko-based monolithic FE model),
-  # and [C23] for hydroelastic monolithic coupling context.
+  # Standard Timoshenko beam formulation; see [C23] for the
+  # hydroelastic monolithic coupling context used in this model.
   ∫(
     EI_ρ  * (∇(θ)   ⋅ t) * (∇(v_θ) ⋅ t) +
     κGA_ρ * ((∇(w)  ⋅ t) - θ) * ((∇(v_w) ⋅ t) - v_θ) +
