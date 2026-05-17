@@ -45,6 +45,19 @@ this requirement.
 
 # See also
 [`EulerBernoulliBeam`](@ref), [`KirchhoffLovePlate`](@ref)
+
+# References
+- [A24] Agarwal, S., Colomes, O., & Metrikine, A. V. (2024).
+  Dynamic analysis of viscoelastic floating membranes using monolithic
+  finite element method. *Journal of Fluids and Structures*, 129, 104167.
+  DOI: https://doi.org/10.1016/j.jfluidstructs.2024.104167
+  Cited here only for related monolithic hydroelastic finite-element
+  methodology; it is not a reference for the Timoshenko beam kinematics or
+  constitutive model used by `TimoshenkoBeam`.
+- [C23] Colomes, O., Verdugo, F., & Akkerman, I. (2023). A monolithic
+  finite element formulation for the hydroelastic analysis of very large
+  floating structures. *Int. J. Numer. Methods Eng.*, 124(3), 714-751.
+  DOI: https://doi.org/10.1002/nme.7140
 """
 @with_kw struct TimoshenkoBeam <: Structure
   E::Float64
@@ -144,6 +157,10 @@ function stiffness(s::TimoshenkoBeam, dom::IntegrationDomains, x, y)
   κGA_ρ  = s.κ * G * A_val / s.ρ_w
   t      = s.tangent
 
+  # Timoshenko two-field structural bilinear form (w, θ).
+  # Includes bending and shear terms; thin limit recovers EB behavior.
+  # Standard Timoshenko beam formulation; see [C23] for the
+  # hydroelastic monolithic coupling context used in this model.
   ∫(
     EI_ρ  * (∇(θ)   ⋅ t) * (∇(v_θ) ⋅ t) +
     κGA_ρ * ((∇(w)  ⋅ t) - θ) * ((∇(v_w) ⋅ t) - v_θ) +

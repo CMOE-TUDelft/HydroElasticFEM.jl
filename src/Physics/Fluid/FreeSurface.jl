@@ -24,6 +24,12 @@ the angular frequency `ω` in `build_frequency_context` / `build_time_context`.
 - `space_domain_symbol::Symbol` — Triangulation key for FE spaces; default `:Γκ`
 
 See also: [`PotentialFlow`](@ref)
+
+# Reference
+- [C23] Colomes, O., Verdugo, F., & Akkerman, I. (2023). A monolithic
+    finite element formulation for the hydroelastic analysis of very large
+    floating structures. *Int. J. Numer. Methods Eng.*, 124(3), 714-751.
+    DOI: https://doi.org/10.1002/nme.7140
 """
 @with_kw struct FreeSurface <: PhysicsParameters
     ρw::Float64 = 1025.0
@@ -69,5 +75,9 @@ function stiffness(fs::FreeSurface, dom::IntegrationDomains, x, y)
     u = y[κ_sym]
     βₕ = fs.βₕ
     g  = fs.g
+    # Free-surface gravity restoring term.
+    # Standalone weak form: ∫_Γκ βₕ·g·u·κ dΓ.
+    # Full stabilized PF-FS coupling is in CouplingTerms.jl.
+    # Reference: [C23] Section 2.2, Eq. (7)-(10).
     ∫(βₕ * g * u * κ)dom[:dΓκ]
 end

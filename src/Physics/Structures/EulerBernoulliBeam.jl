@@ -66,6 +66,12 @@ beam = EulerBernoulliBeam(L=10.0, mᵨ=0.5, EIᵨ=1.0e4)
 ```
 
 See also: [`JointRotationalSpring`](@ref), [`JointDomain`](@ref)
+
+# Reference
+- [C23] Colomes, O., Verdugo, F., & Akkerman, I. (2023). A monolithic
+    finite element formulation for the hydroelastic analysis of very large
+    floating structures. *Int. J. Numer. Methods Eng.*, 124(3), 714-751.
+    DOI: https://doi.org/10.1002/nme.7140
 """
 @with_kw struct EulerBernoulliBeam <: Structure
     L::Float64
@@ -135,6 +141,10 @@ function stiffness(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
     h   = dom[:h_η]
     n_Λ = dom[:n_Λ_η]
 
+    # Euler-Bernoulli C/DG bending formulation on Γb and Skeleton(Γb).
+    # Bulk: ∫_Γb a1·Δη·Δv dΓ, with a1 = EI/ρ.
+    # Skeleton: consistency + symmetry + penalty terms.
+    # Reference: [C23] Section 3.1, Eq. (16)-(20).
     val = ∫(v * (s.g * η) + EI * Δ(v) * Δ(η))dom[:dΓη] +
           ∫(
               -jump(∇(v) ⋅ n_Λ) * mean(EI * Δ(η))

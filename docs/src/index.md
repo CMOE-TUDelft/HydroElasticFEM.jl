@@ -33,11 +33,13 @@ resonators) using the [Gridap.jl](https://www.github.com/gridap/Gridap.jl) FE fr
 | [Adding a New Structural Entity](@ref "How to Add a New Structural Entity") | Developer recipe for new physics entities |
 | [Debugging](@ref "Debugging Guide: When Simulations Go Wrong") | Error messages, physics checks, convergence tips |
 | [API Reference](@ref "API Overview") | Full docstring reference |
+| [References](references.md) | Primary literature and software dependencies |
 
 ## Contents
 
 ```@contents
 Pages = [
+    "references.md",
     "guide/index.md",
     "guide/getting_started.md",
     "guide/first_simulation.md",
