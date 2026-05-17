@@ -20,7 +20,7 @@ This is the primary reference for HydroElasticFEM.jl. It provides:
 ### [A24] Agarwal et al. (2024)
 S. Agarwal, O. Colomes, and A. V. Metrikine,
 "Dynamic analysis of viscoelastic floating membranes using monolithic
-Finite Element method,"
+finite element method,"
 *Journal of Fluids and Structures*, 129:104167, 2024.
 DOI: [10.1016/j.jfluidstructs.2024.104167](https://doi.org/10.1016/j.jfluidstructs.2024.104167)
 
