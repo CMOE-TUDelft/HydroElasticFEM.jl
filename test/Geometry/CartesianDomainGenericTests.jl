@@ -148,3 +148,54 @@ end
   @test num_cells(trians[:Γfs]) == 8 * 3
   @test num_cells(trians[:Γlateral]) == 2 * 8 * 2
 end
+
+@testset "CartesianDomain is_periodic — default all-false" begin
+  d = G.CartesianDomain(L = 4.0, H = 1.0, nx = 8, ny = 2)
+  @test d.is_periodic == (false, false)
+end
+
+@testset "CartesianDomain is_periodic — set via constructor" begin
+  d = G.CartesianDomain(
+    L = 4.0, H = 1.0, nx = 8, ny = 2, is_periodic = (true, false),
+  )
+  @test d.is_periodic == (true, false)
+  # build_model must succeed and produce the right cell count
+  model = G.build_model(d)
+  @test model isa Gridap.Geometry.CartesianDiscreteModel
+  @test num_cells(G.triangulation(d)) == 8 * 2
+end
+
+@testset "CartesianDomain is_periodic — explicit bounds form" begin
+  d = G.CartesianDomain(
+    mins = (0.0, 0.0), maxs = (4.0, 1.0), parts = (8, 2),
+    is_periodic = (true, false),
+  )
+  @test d.is_periodic == (true, false)
+end
+
+@testset "CartesianDomain is_periodic — wrong length raises ArgumentError" begin
+  @test_throws ArgumentError G.CartesianDomain(
+    L = 4.0, H = 1.0, nx = 8, ny = 2, is_periodic = (true, false, false),
+  )
+end
+
+@testset "TankDomain is_periodic — forwarded and readable" begin
+  tank = G.TankDomain(
+    L = 4.0, H = 1.0, nx = 8, ny = 2, is_periodic = (true, false),
+  )
+  @test tank.is_periodic == (true, false)
+  @test tank.cartesian.is_periodic == (true, false)
+  model = G.build_model(tank)
+  @test model isa Gridap.Geometry.CartesianDiscreteModel
+end
+
+@testset "TankDomain is_periodic — default all-false" begin
+  tank = G.TankDomain(L = 4.0, H = 1.0, nx = 8, ny = 2)
+  @test tank.is_periodic == (false, false)
+end
+
+@testset "TankDomain is_periodic — wrong length raises ArgumentError" begin
+  @test_throws ArgumentError G.TankDomain(
+    L = 4.0, H = 1.0, nx = 8, ny = 2, is_periodic = (true,),
+  )
+end
