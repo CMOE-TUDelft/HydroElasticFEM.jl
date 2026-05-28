@@ -134,12 +134,24 @@ The dimension `D` is inferred from the keyword arguments:
 Only `TankDomain{2}` currently supports `structure_domains`, `damping_zones`,
 and `joint_domains`; `TankDomain{3}` models a plain tank.
 
+## Periodicity
+
+Pass `is_periodic` to enable periodic boundary conditions along one or more
+axes.  It must be an `NTuple{D,Bool}` whose length matches the domain
+dimension:
+
+```julia
+# 2D domain periodic in x (useful for regular wave trains)
+tank = TankDomain(L=4.0, H=1.0, nx=40, ny=8, is_periodic=(true, false))
+```
+
 ## Compatibility properties
 
 `TankDomain` exposes the wrapped Cartesian dimensions as direct properties for
-backwards compatibility: `domain.L`, `domain.H`, `domain.nx`, `domain.ny`
-(2D) and additionally `domain.W`, `domain.nz` (3D).  These are read-only
-derived values; the canonical data lives in `domain.cartesian`.
+backwards compatibility: `domain.L`, `domain.H`, `domain.nx`, `domain.ny`,
+`domain.is_periodic` (2D) and additionally `domain.W`, `domain.nz` (3D).
+These are read-only derived values; the canonical data lives in
+`domain.cartesian`.
 """
 struct TankDomain{D, C, SZ, DZ, JZ} <: AbstractDomain
   cartesian::C
@@ -207,6 +219,7 @@ function TankDomain(;
   W = nothing,
   nz = nothing,
   map = x -> x,
+  is_periodic = nothing,
   structure_domains = StructureDomain[],
   damping_zones = DampingZone[],
   joint_domains = JointDomain[],
@@ -219,6 +232,7 @@ function TankDomain(;
     W = W,
     nz = nz,
     map = map,
+    is_periodic = is_periodic,
   )
   TankDomain(
     cartesian;
@@ -240,6 +254,7 @@ function _tank_legacy_dimensions(domain::TankDomain{2})
     nx = cartesian.parts[1],
     ny = cartesian.parts[2],
     map = cartesian.map,
+    is_periodic = cartesian.is_periodic,
   )
 end
 
@@ -253,11 +268,12 @@ function _tank_legacy_dimensions(domain::TankDomain{3})
     ny = cartesian.parts[2],
     nz = cartesian.parts[3],
     map = cartesian.map,
+    is_periodic = cartesian.is_periodic,
   )
 end
 
-_tank_legacy_property_names(::Val{2}) = (:L, :H, :nx, :ny, :map)
-_tank_legacy_property_names(::Val{3}) = (:L, :W, :H, :nx, :ny, :nz, :map)
+_tank_legacy_property_names(::Val{2}) = (:L, :H, :nx, :ny, :map, :is_periodic)
+_tank_legacy_property_names(::Val{3}) = (:L, :W, :H, :nx, :ny, :nz, :map, :is_periodic)
 
 function _tank_public_property_names(::Val{D}) where {D}
   (

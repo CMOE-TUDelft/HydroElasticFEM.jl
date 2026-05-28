@@ -8,9 +8,9 @@
 Low-level axis-aligned Cartesian domain for 2D or 3D fluid problems.
 
 `CartesianDomain` is the building block: it stores the bounding box, cell
-counts, and an optional coordinate map, and knows how to construct a
-`CartesianDiscreteModel`.  It has no knowledge of embedded structures,
-damping zones, or joints.
+counts, an optional coordinate map, and periodicity flags, and knows how to
+construct a `CartesianDiscreteModel`.  It has no knowledge of embedded
+structures, damping zones, or joints.
 
 **Most users should use [`TankDomain`](@ref) instead.**
 `TankDomain` wraps a `CartesianDomain` and adds the sub-domain descriptors
@@ -23,16 +23,22 @@ region with no embedded structural components.
 `CartesianDomain{3}` uses coordinates `(x, y, z)`.
 
 ## Fields
-- `mins::NTuple{D,Float64}` — lower bounds for each axis [m]
-- `maxs::NTuple{D,Float64}` — upper bounds for each axis [m]
-- `parts::NTuple{D,Int}`    — number of cells along each axis
-- `map::Function`           — optional coordinate map (default: identity)
+- `mins::NTuple{D,Float64}`        — lower bounds for each axis [m]
+- `maxs::NTuple{D,Float64}`        — upper bounds for each axis [m]
+- `parts::NTuple{D,Int}`           — number of cells along each axis
+- `map::Function`                  — optional coordinate map; default identity
+- `is_periodic::NTuple{D,Bool}`    — periodicity flag per axis; default all
+  `false`. Set `is_periodic[i] = true` to impose periodic boundary conditions
+  along axis `i`.
 
 ## Example
 
 ```julia
 # 2D box [0,4] × [0,1], 80 × 10 cells
 d = CartesianDomain(L=4.0, H=1.0, nx=80, ny=10)
+
+# 2D domain periodic in x
+d = CartesianDomain(L=4.0, H=1.0, nx=80, ny=10, is_periodic=(true, false))
 
 # 3D box with graded vertical cells
 d = CartesianDomain(
@@ -45,12 +51,13 @@ struct CartesianDomain{D, F <: Function} <: AbstractDomain
   maxs::NTuple{D, Float64}
   parts::NTuple{D, Int}
   map::F
+  is_periodic::NTuple{D, Bool}
 end
 
 """
     CartesianDomain(; L, H, nx, ny, W=nothing, nz=nothing,
                      mins=nothing, maxs=nothing, parts=nothing,
-                     map=x->x) -> CartesianDomain
+                     map=x->x, is_periodic=nothing) -> CartesianDomain
 
 Build a Cartesian domain.  Three calling forms are supported:
 
@@ -76,12 +83,18 @@ CartesianDomain(
 
 The `map` keyword is a `Function` applied to every node coordinate by
 `CartesianDiscreteModel`.  Use [`map_fn`](@ref) for vertical grading.
+
+The `is_periodic` keyword is an `NTuple{D,Bool}` that enables periodic
+boundary conditions along each axis.  Defaults to all-`false` when omitted.
+For example, `is_periodic=(true, false)` makes a 2D domain periodic in `x`
+but not in `z`.  The length of `is_periodic` must equal `D`.
 """
 function CartesianDomain(;
   L = nothing, H = nothing, nx = nothing, ny = nothing,
   W = nothing, nz = nothing,
   mins = nothing, maxs = nothing, parts = nothing,
   map = x -> x,
+  is_periodic = nothing,
 )
   if !isnothing(mins) || !isnothing(maxs) || !isnothing(parts)
     isnothing(mins) && error("`mins` must be provided for explicit CartesianDomain construction.")
@@ -90,29 +103,35 @@ function CartesianDomain(;
     D = length(mins)
     length(maxs) == D || error("length(maxs) must match length(mins).")
     length(parts) == D || error("length(parts) must match length(mins).")
+    periodic = _coerce_is_periodic(is_periodic, D)
     return CartesianDomain{D, typeof(map)}(
       Tuple(Float64.(mins)),
       Tuple(Float64.(maxs)),
       Tuple(Int.(parts)),
       map,
+      periodic,
     )
   end
 
   if isnothing(W) && isnothing(nz)
+    periodic = _coerce_is_periodic(is_periodic, 2)
     return CartesianDomain{2, typeof(map)}(
       (0.0, 0.0),
       (Float64(L), Float64(H)),
       (Int(nx), Int(ny)),
       map,
+      periodic,
     )
   end
 
   if !isnothing(W) && !isnothing(nz)
+    periodic = _coerce_is_periodic(is_periodic, 3)
     return CartesianDomain{3, typeof(map)}(
       (0.0, 0.0, 0.0),
       (Float64(L), Float64(W), Float64(H)),
       (Int(nx), Int(ny), Int(nz)),
       map,
+      periodic,
     )
   end
 
@@ -120,6 +139,28 @@ function CartesianDomain(;
     "CartesianDomain expects 2D args (L,H,nx,ny), " *
     "3D args (L,W,H,nx,ny,nz), or explicit (mins,maxs,parts).",
   )
+end
+
+"""
+    _coerce_is_periodic(is_periodic, D::Int) -> NTuple{D, Bool}
+
+Validate and coerce the `is_periodic` argument to `NTuple{D, Bool}`.
+
+- `nothing` → all-`false` tuple of length `D`.
+- Any length-`D` iterable of `Bool` → `NTuple{D, Bool}`.
+- Wrong length → descriptive `ArgumentError`.
+"""
+function _coerce_is_periodic(is_periodic::Nothing, D::Int)
+  ntuple(_ -> false, D)
+end
+
+function _coerce_is_periodic(is_periodic, D::Int)
+  length(is_periodic) == D || throw(ArgumentError(
+    "is_periodic has length $(length(is_periodic)) but the domain has " *
+    "dimension $D.  Provide exactly $D Bool values, " *
+    "e.g. is_periodic = " * (D == 2 ? "(true, false)" : "(true, false, false)") * ".",
+  ))
+  NTuple{D, Bool}(is_periodic)
 end
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -240,7 +281,7 @@ and pass the model to [`build_triangulations`](@ref) and
 """
 function build_model(d::CartesianDomain{D}) where {D}
   bounds = _flatten_bounds(d.mins, d.maxs)
-  CartesianDiscreteModel(bounds, d.parts; map = d.map)
+  CartesianDiscreteModel(bounds, d.parts; map = d.map, isperiodic = d.is_periodic)
 end
 
 """
