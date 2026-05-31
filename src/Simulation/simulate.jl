@@ -4,16 +4,31 @@
 
 
 """
-    simulate(config::SimConfig, entities, trians;
-             dom::IntegrationDomains, couplings=nothing, rhs_fn=nothing)
+    simulate(problem::HEFEM_Problem{FreqDomainConfig}) -> SimResult
 
-Run a **frequency-domain** simulation.
+Solve a fully assembled **frequency-domain** hydroelastic problem.
+
+Builds or re-uses the `AffineFEOperator` stored in `problem`, solves the complex
+linear system with the configured solver (default: `LUSolver()`), and returns the
+solution wrapped in a `SimResult`.
 
 # Arguments
-- `problem::HEFEM_Problem{PH.FreqDomainConfig}` — problem container with FE spaces, operator, and other entities
+- `problem::HEFEM_Problem{FreqDomainConfig}`: assembled problem container returned
+  by `build_problem` with a `FreqDomainConfig` simulation config
 
 # Returns
-`SimResult` containing FE spaces, operator, and solution.
+- `result::SimResult`: contains FE spaces, operator, and the complex-valued FE solution
+
+# Example
+```julia
+import HydroElasticFEM.Simulation as S
+problem = S.build_problem(domain, entities, config)
+result  = S.simulate(problem)
+phi_h, kappa_h = result.solution  # unpack multi-field solution
+```
+
+# Reference
+[C23] Colomés et al. (2023), Int. J. Numer. Methods Eng., 124(3), 714-751.
 """
 function simulate(problem::HEFEM_Problem{PH.FreqDomainConfig})
 
@@ -35,16 +50,37 @@ end
 
 
 """
-    simulate(config::SimConfig, tconfig::TimeConfig, problem::HEFEM_Problem)
+    simulate(problem::HEFEM_Problem{TimeDomainConfig}, tconfig::TimeConfig) -> SimResult
 
-Run a **time-domain** simulation.
+Solve a fully assembled **time-domain** hydroelastic problem.
+
+Builds a `GeneralizedAlpha2` ODE solver from `tconfig`, interpolates initial
+conditions, and integrates the system over `[t₀, tf]`.  Returns the ODE solution
+wrapped in a `SimResult`.
 
 # Arguments
-- `problem::HEFEM_Problem` — problem container with FE spaces, operator, and other entities
-- `tconfig::TimeConfig` — time-stepping and initial-condition parameters
+- `problem::HEFEM_Problem{TimeDomainConfig}`: assembled problem container returned
+  by `build_problem` with a `TimeDomainConfig` simulation config
+- `tconfig::TimeConfig`: time-stepping parameters (time step `Δt`, spectral radius
+  `ρ∞`, initial conditions `u0`, `u0t`, `u0tt`, time window `t₀` to `tf`)
 
 # Returns
-`SimResult` containing FE spaces, transient operator, and ODE solution.
+- `result::SimResult`: contains FE spaces, transient operator, and ODE solution iterator
+
+# Example
+```julia
+import HydroElasticFEM.Simulation as S
+import HydroElasticFEM.ParameterHandler as PH
+tconfig  = PH.TimeConfig(Δt=0.01, tf=10.0)
+problem  = S.build_problem(domain, entities, config)
+result   = S.simulate(problem, tconfig)
+for (t, u_h) in result.solution
+    # process time step
+end
+```
+
+# Reference
+[C23] Colomés et al. (2023), Int. J. Numer. Methods Eng., 124(3), 714-751.
 """
 function simulate(problem::HEFEM_Problem{PH.TimeDomainConfig}, tconfig::TimeConfig)
 

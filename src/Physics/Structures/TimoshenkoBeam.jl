@@ -97,6 +97,7 @@ variable_symbol(s::TimoshenkoBeam)  = s.symbol_w
 variable_symbols(s::TimoshenkoBeam) = (s.symbol_w, s.symbol_θ)
 field_fe_configs(s::TimoshenkoBeam) = (s.fe_w, s.fe_θ)
 
+# Timoshenko beams do not have a standalone damping form (Rayleigh damping is not implemented).
 has_damping_form(::TimoshenkoBeam) = false
 
 # ── Two-field weak forms ────────────────────────────────────────────────────

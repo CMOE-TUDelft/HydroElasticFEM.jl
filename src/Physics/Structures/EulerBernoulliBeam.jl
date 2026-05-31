@@ -104,6 +104,28 @@ variable_symbol(s::EulerBernoulliBeam) = s.symbol
 # ── Single-variable weak forms: mass, damping, stiffness, rhs ──
 #    Only η_b terms — no coupling to ϕ or other fields
 
+"""
+    mass(s::EulerBernoulliBeam, dom::IntegrationDomains, x_tt, y)
+
+Euler-Bernoulli beam inertia (mass) bilinear form.
+
+Assembles:
+```math
+\\int_{\\Gamma_\\eta} m_\\varrho \\, v \\, \\partial_{tt}\\eta \\, \\mathrm{d}\\Gamma_\\eta
+```
+
+# Arguments
+- `s::EulerBernoulliBeam`: beam parameters (provides `mρ`)
+- `dom::IntegrationDomains`: integration measures (requires `:dΓη`)
+- `x_tt`: second time-derivative trial `FieldMap`
+- `y`: test `FieldMap`
+
+# Returns
+- `Gridap.FESpaces.DomainContribution`
+
+# Reference
+[C23] Colomés et al. (2023), Section 3.1, Eq. (16).
+"""
 function mass(s::EulerBernoulliBeam, dom::IntegrationDomains, x_tt, y)
     sym = variable_symbol(s)
     ηₜₜ = x_tt[sym]
@@ -111,6 +133,30 @@ function mass(s::EulerBernoulliBeam, dom::IntegrationDomains, x_tt, y)
     ∫(s.mᵨ * v * ηₜₜ)dom[:dΓη]
 end
 
+"""
+    damping(s::EulerBernoulliBeam, dom::IntegrationDomains, x_t, y)
+
+Euler-Bernoulli beam stiffness-proportional Rayleigh damping bilinear form.
+
+Uses the symmetric interior-penalty C/DG formulation with penalty parameter `γ`:
+
+```math
+\\int_{\\Gamma_\\eta} EI\\tau \\Delta v \\Delta\\partial_t\\eta \\, \\mathrm{d}\\Gamma_\\eta
+- \\int_{\\Lambda_\\eta} \\text{(consistency + symmetry + penalty skeleton terms)}
+```
+
+# Arguments
+- `s::EulerBernoulliBeam`: beam parameters (provides `EIρ`, `τ`, `fe.gamma`)
+- `dom::IntegrationDomains`: integration measures (requires `:dΓη`, `:dΛη`, `:h_η`, `:n_Λ_η`)
+- `x_t`: first time-derivative trial `FieldMap`
+- `y`: test `FieldMap`
+
+# Returns
+- `Gridap.FESpaces.DomainContribution`
+
+# Reference
+[C23] Colomés et al. (2023), Section 3.1, Eq. (16)-(20).
+"""
 function damping(s::EulerBernoulliBeam, dom::IntegrationDomains, x_t, y)
     sym = variable_symbol(s)
     ηₜ = x_t[sym]
@@ -160,6 +206,25 @@ function stiffness(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
     return val
 end
 
+"""
+    rhs(s::EulerBernoulliBeam, dom::IntegrationDomains, f, y)
+
+Euler-Bernoulli beam right-hand side (applied load) linear form.
+
+Assembles the distributed load contribution:
+```math
+\\int_{\\Gamma_\\eta} v \\, f_\\eta \\, \\mathrm{d}\\Gamma_\\eta
+```
+
+# Arguments
+- `s::EulerBernoulliBeam`: beam parameters (provides `symbol` for field lookup)
+- `dom::IntegrationDomains`: integration measures (requires `:dΓη`)
+- `f`: forcing `FieldMap`
+- `y`: test `FieldMap`
+
+# Returns
+- `Gridap.FESpaces.DomainContribution`
+"""
 function rhs(s::EulerBernoulliBeam, dom::IntegrationDomains, f, y)
     sym = variable_symbol(s)
     v = y[sym]
