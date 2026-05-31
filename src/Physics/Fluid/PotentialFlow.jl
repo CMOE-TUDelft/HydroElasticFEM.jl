@@ -189,6 +189,7 @@ function _stiffness_bc_contributions(pf::PotentialFlow, dom::IntegrationDomains,
     return val
 end
 
+# Context overload: delegate to the IntegrationDomains overload.
 function _stiffness_bc_contributions(pf::PotentialFlow, ctx::AC.AbstractAssemblyContext, ϕ, w)
     val = nothing
     for bc in pf.boundary_conditions
@@ -265,6 +266,7 @@ function _rhs_bc_contributions(pf::PotentialFlow, dom::IntegrationDomains, w)
     return val
 end
 
+# Context overload: delegate to the IntegrationDomains overload.
 function _rhs_bc_contributions(pf::PotentialFlow, ctx::AC.AbstractAssemblyContext, w)
     val = nothing
     for bc in pf.boundary_conditions
@@ -289,6 +291,7 @@ function _rhs_bc_contribution(pf::PotentialFlow, bc::PrescribedInletPotentialBC,
     return _prescribed_rhs_contribution(Val(bc.quantity), pf, forcing, dom[bc.domain], w)
 end
 
+# Context overload: unwrap domains before delegating.
 function _rhs_bc_contribution(pf::PotentialFlow, bc::PrescribedInletPotentialBC, ctx::AC.AbstractAssemblyContext, w)
     dom = AC.domains(ctx)
     forcing = _resolve_space_function(bc.forcing, ctx)
@@ -305,6 +308,7 @@ function _rhs_bc_contribution(::PotentialFlow, bc::DampingZoneBC, dom::Integrati
     return ∫(f * w)dΓ
 end
 
+# Context overload for DampingZoneBC RHS: unwrap domains and stabilization parameter.
 function _rhs_bc_contribution(::PotentialFlow, bc::DampingZoneBC, ctx::AC.AbstractAssemblyContext, w)
     bc.enabled || return nothing
     dom = AC.domains(ctx)
@@ -316,8 +320,10 @@ function _rhs_bc_contribution(::PotentialFlow, bc::DampingZoneBC, ctx::AC.Abstra
     return ∫(f * w)dΓ
 end
 
+# Traction and normal-gradient forcings integrate directly as Neumann data.
 _prescribed_rhs_contribution(::Val{:traction}, ::PotentialFlow, forcing, dΓ, w) = ∫(w * forcing)dΓ
 _prescribed_rhs_contribution(::Val{:normal_gradient}, ::PotentialFlow, forcing, dΓ, w) = ∫(w * forcing)dΓ
+# Potential forcing: convert to equivalent normal-flux via the radiation condition (-ikϕ).
 function _prescribed_rhs_contribution(::Val{:potential}, pf::PotentialFlow, forcing, dΓ, w)
     k = _radiation_wavenumber(pf)
     return ∫(-im * k * w * forcing)dΓ
@@ -330,6 +336,7 @@ end
 # Helper functions for BC contributions
 # -----────────────────────────────────────────────────────────────
 
+# Guard that the sea_state is set and contains exactly one frequency / wavenumber.
 function _single_frequency_wave(pf::PotentialFlow)
     isnothing(pf.sea_state) && error("PotentialFlow radiation requires `sea_state` to be defined.")
     length(pf.sea_state.ω) == 1 || error("PotentialFlow radiation requires a single-frequency `sea_state` (length(sea_state.ω) == 1).")
@@ -337,47 +344,57 @@ function _single_frequency_wave(pf::PotentialFlow)
     return pf.sea_state
 end
 
+# Wavenumber and angular frequency extracted from the single-component sea state.
 _radiation_wavenumber(pf::PotentialFlow) = _single_frequency_wave(pf).k[1]
 _radiation_frequency(pf::PotentialFlow) = _single_frequency_wave(pf).ω[1]
 
+# Filter the BC list to enabled DampingZoneBC instances.
 _active_damping_zone_bcs(pf::PotentialFlow) = [bc for bc in pf.boundary_conditions if bc isa DampingZoneBC && bc.enabled]
 
+# Return true if at least one enabled DampingZoneBC is registered.
 function _damping_zone_enabled(pf::PotentialFlow)
     !isempty(_active_damping_zone_bcs(pf))
 end
 
+# Derive the outward-normal measure key from the measure key (e.g., `:dΓout` -> `:nΓout`).
 function _boundary_normal(dom::IntegrationDomains, domain::Symbol)
     key = Symbol(replace(String(domain), "dΓ" => "nΓ", count=1))
     haskey(dom, key) || error("Normal key `$key` was not found in IntegrationDomains for damping zone `$domain`.")
     return dom[key]
 end
 
+# Retrieve the stabilization parameter α_h from the assembly context (raises if absent).
 function _stabilization_parameter(ctx::AC.AbstractAssemblyContext)
     AC.has_stabilization(ctx) || error("Damping-zone stabilization requires `αₕ` in the assembly context.")
     return AC.stabilization_parameter(ctx)
 end
 
+# Stabilization via IntegrationDomains is no longer supported; context is required.
 _stabilization_parameter(::IntegrationDomains) =
     error("Damping-zone stabilization now requires an immutable assembly context.")
 
+# Build the damped free-surface elevation function: η_d(x) = μ₂(x) * η_in(x).
 function _ηd(bc::DampingZoneBC, dom)
     μ₂ = _as_space_function(bc.μ₂)
     η_in = _resolve_space_function(bc.η_in, dom)
     x -> μ₂(x) * η_in(x)
 end
 
+# Build the damped normal-flux function: ∇nϕ_d(x) = μ₁(x) * vz_in(x).
 function _normal_damped(bc::DampingZoneBC, dom)
     μ₁ = _as_space_function(bc.μ₁)
     vz_in = _resolve_space_function(bc.vz_in, dom)
     x -> μ₁(x) * vz_in(x)
 end
 
+# Context overload for _ηd: resolves time-indexed functions via the assembly context.
 function _ηd(bc::DampingZoneBC, ctx::AC.AbstractAssemblyContext)
     μ₂ = _as_space_function(bc.μ₂)
     η_in = _resolve_space_function(bc.η_in, ctx)
     x -> μ₂(x) * η_in(x)
 end
 
+# Context overload for _normal_damped: resolves time-indexed functions via the assembly context.
 function _normal_damped(bc::DampingZoneBC, ctx::AC.AbstractAssemblyContext)
     μ₁ = _as_space_function(bc.μ₁)
     vz_in = _resolve_space_function(bc.vz_in, ctx)

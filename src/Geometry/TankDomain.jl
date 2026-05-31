@@ -184,6 +184,30 @@ function _validate_tank_domain_inputs(
   nothing
 end
 
+"""
+    TankDomain(cartesian; structure_domains=[], damping_zones=[], joint_domains=[])
+
+Construct a `TankDomain` from an existing `CartesianDomain`.
+
+This is the low-level constructor used when you already have a `CartesianDomain`
+object.  See also the keyword-argument constructor `TankDomain(; L, H, nx, ny, ...)`
+for a one-shot variant that builds the `CartesianDomain` internally.
+
+# Arguments
+- `cartesian`: a `CartesianDomain{D}` for D = 2 or 3
+- `structure_domains::Vector{StructureDomain}`: structural subregions on the free surface
+- `damping_zones::Vector{DampingZone}`: sponge-layer regions on the free surface
+- `joint_domains::Vector{JointDomain}`: interior skeleton facets for beam joints (2D only)
+
+# Returns
+- `TankDomain{D,...}`: configured tank domain
+
+# Example
+```julia
+cart = G.CartesianDomain(L=10.0, H=1.0, nx=40, ny=8)
+domain = G.TankDomain(cart; structure_domains=[G.StructureDomain(x_start=3.0, x_end=7.0)])
+```
+"""
 function TankDomain(
   cartesian;
   structure_domains = StructureDomain[],
@@ -211,6 +235,37 @@ function TankDomain(
   )
 end
 
+"""
+    TankDomain(; L, H, nx, ny, W=nothing, nz=nothing, map=identity,
+               is_periodic=nothing, structure_domains=[], damping_zones=[], joint_domains=[])
+
+Build a `TankDomain` from scratch using keyword arguments.
+
+Creates the underlying `CartesianDomain` internally and wraps it with the
+given structural, damping-zone, and joint sub-regions.  Use `W` and `nz` to
+create a 3D domain; omit them for 2D.
+
+# Arguments
+- `L::Real`: domain length in x [m]
+- `H::Real`: domain height (depth) in z [m]
+- `nx::Int`: number of cells in x
+- `ny::Int`: number of cells in y (vertical for 2D)
+- `W::Union{Real,Nothing}`: domain width in y [m]; `nothing` for 2D
+- `nz::Union{Int,Nothing}`: number of cells in z; `nothing` for 2D
+- `map`: optional coordinate mapping function, default `identity`
+- `is_periodic`: pass-through to `CartesianDomain`; `nothing` for default behaviour
+- `structure_domains::Vector{StructureDomain}`: structural subregions
+- `damping_zones::Vector{DampingZone}`: sponge-layer regions
+- `joint_domains::Vector{JointDomain}`: interior beam-joint facets (2D only)
+
+# Returns
+- `TankDomain{D,...}` with D = 2 (no `W`/`nz`) or D = 3
+
+# Example
+```julia
+domain = G.TankDomain(L=10.0, H=1.0, nx=60, ny=8)
+```
+"""
 function TankDomain(;
   L = 4.0,
   H = 1.0,
@@ -242,10 +297,13 @@ function TankDomain(;
   )
 end
 
+# Retrieve the underlying CartesianDomain stored in the :cartesian field.
 function _cartesian_domain(domain::TankDomain)
   getfield(domain, :cartesian)
 end
 
+# Extract the named dimension/partition properties of a 2D TankDomain for
+# use by legacy code and property accessors.
 function _tank_legacy_dimensions(domain::TankDomain{2})
   cartesian = _cartesian_domain(domain)
   (

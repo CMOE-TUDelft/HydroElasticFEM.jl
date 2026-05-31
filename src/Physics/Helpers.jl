@@ -71,6 +71,9 @@ function _resolve_space_function(v, t)
     end
 end
 
+# Frequency-domain: time is not meaningful, so fall back to pure space resolution.
 _resolve_space_function(v, ::AC.FrequencyAssemblyContext) = _resolve_space_function(v, nothing)
+# Time-domain: extract the current time from the context and resolve.
 _resolve_space_function(v, ctx::AC.TimeAssemblyContext) = _resolve_space_function(v, AC.current_time(ctx))
+# IntegrationDomains has no time, behave the same as the time=nothing case.
 _resolve_space_function(v, ::IntegrationDomains) = _resolve_space_function(v, nothing)

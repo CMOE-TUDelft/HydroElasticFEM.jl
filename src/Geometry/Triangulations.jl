@@ -36,9 +36,11 @@ struct TankTriangulations
   data::Dict{Symbol, Any}
 end
 
+# Keyword-arg constructor: build from named triangulation pairs (e.g., TankTriangulations(dΩ=dΩ)).
 TankTriangulations(; kwargs...) =
   TankTriangulations(Dict{Symbol, Any}(k => v for (k, v) in pairs(kwargs)))
 
+# Dict-like interface delegating to the internal `data` dictionary.
 Base.getindex(t::TankTriangulations, k::Symbol) = t.data[k]
 Base.haskey(t::TankTriangulations, k::Symbol) = haskey(t.data, k)
 Base.get(t::TankTriangulations, k::Symbol, default) = get(t.data, k, default)
