@@ -4,8 +4,8 @@
 Container for simulation outputs returned by `simulate`.
 
 # Fields
-- `X` — test multi-field FE space (Gridap `MultiFieldFESpace`)
-- `Y` — trial multi-field FE space
+- `X` — trial multi-field FE space (Gridap `MultiFieldFESpace`)
+- `Y` — test multi-field FE space
 - `fmap::Dict{Symbol,Int}` — map from field symbol (e.g. `:phi`) to positional
   index in the multi-field solution
 - `op` — assembled FE operator (`AffineFEOperator` for frequency domain,
