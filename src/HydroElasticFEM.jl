@@ -1,3 +1,46 @@
+"""
+    HydroElasticFEM
+
+Finite element analysis of hydroelastic wave–structure interaction
+for very large floating structures.
+
+Uses a continuous/discontinuous Galerkin (C/DG) formulation coupling linearised
+potential flow fluid models with structural models (membranes, Euler–Bernoulli beams,
+Kirchhoff–Love plates, Timoshenko beams, resonators), implemented using
+[Gridap.jl](https://github.com/gridap/Gridap.jl) as a base finite element library.
+
+# Quick start
+
+```julia
+import HydroElasticFEM.Geometry as G
+import HydroElasticFEM.ParameterHandler as PH
+import HydroElasticFEM.Physics as P
+import HydroElasticFEM.Simulation as S
+
+# Build 2-D tank domain
+domain = G.TankDomain(L=10.0, H=1.0, nx=60, ny=8)
+
+# Define physics entities
+fluid   = P.PotentialFlow()
+surface = P.FreeSurface()
+
+# Run frequency-domain simulation at ω = 1 rad/s
+config  = PH.FreqDomainConfig(ω=1.0)
+problem = S.build_problem(domain, P.PhysicsParameters[fluid, surface], config)
+result  = S.simulate(problem)
+
+# Unpack solution fields: velocity potential ϕ, free-surface elevation κ
+phi_h, kappa_h = result.solution
+```
+
+See the `examples/` directory for complete simulation scripts, and the online
+documentation for the theory, API reference, and validation benchmarks.
+
+# Reference
+Colomés, O., Verdugo, F., & Akkerman, I. (2023). A monolithic finite element
+formulation for the hydroelastic analysis of very large floating structures.
+*Int. J. Numer. Methods Eng.*, 124(3), 714–751. DOI: 10.1002/nme.7140
+"""
 module HydroElasticFEM
 
   const PKG_ROOT = normpath(joinpath(@__DIR__, ".."))  # because @__DIR__ here is src/

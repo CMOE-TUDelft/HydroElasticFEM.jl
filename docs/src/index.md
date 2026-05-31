@@ -57,3 +57,7 @@ Pages = [
 ]
 Depth = 2
 ```
+
+```@docs
+HydroElasticFEM
+```
