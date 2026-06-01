@@ -56,10 +56,10 @@ Users provide the incident free-surface elevation `η_in` and vertical velocity
 
 # Fields
 - `domain::Symbol` — Integration-domain key for the damping-zone boundary
-- `μ₁` — Multiplicative coefficient for damped normal-velocity contribution
-- `μ₂` — Multiplicative coefficient for damped free-surface elevation contribution
-- `η_in` — Prescribed incident free-surface elevation input
-- `vz_in` — Prescribed incident vertical-velocity input
+- `μ₁` — Multiplicative coefficient for damped normal-velocity contribution; default `0.0`
+- `μ₂` — Multiplicative coefficient for damped free-surface elevation contribution; default `0.0`
+- `η_in` — Prescribed incident free-surface elevation input; default `0.0`
+- `vz_in` — Prescribed incident vertical-velocity input; default `0.0`
 - `enabled::Bool` — Toggle for activating/deactivating this BC; default `true`
 """
 @with_kw struct DampingZoneBC <: AbstractPotentialFlowBC
