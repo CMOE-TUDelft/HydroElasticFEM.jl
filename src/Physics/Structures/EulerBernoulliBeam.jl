@@ -177,6 +177,26 @@ function damping(s::EulerBernoulliBeam, dom::IntegrationDomains, x_t, y)
     return val
 end
 
+"""
+    stiffness(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
+
+Euler-Bernoulli beam stiffness bilinear form (gravity + C/DG bending + joints).
+
+Assembles the bulk bending term, symmetric interior-penalty skeleton terms,
+and optional rotational-spring contributions at declared joints.
+
+# Arguments
+- `s::EulerBernoulliBeam`: beam parameters (`EIᵨ`, `g`, `fe.γ`, optional `joints`)
+- `dom::IntegrationDomains`: integration domains (`:dΓη`, `:dΛη`, `:h_η`, `:n_Λ_η`, and joint keys)
+- `x`: trial `FieldMap`
+- `y`: test `FieldMap`
+
+# Returns
+- `Gridap.FESpaces.DomainContribution`
+
+# Reference
+[C23] Colomés et al. (2023), Section 3.1, Eq. (16)-(20).
+"""
 function stiffness(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
     sym = variable_symbol(s)
     η = x[sym]

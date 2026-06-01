@@ -12,6 +12,10 @@ Radiation boundary condition for potential flow, based on the linearized free-su
 condition and the dispersion relation. Can be applied to any boundary, but typically 
 used on open boundaries (e.g., `:dΓout`) to allow outgoing waves to radiate without 
 reflection.
+
+# Fields
+- `domain::Symbol` — Integration-domain key where the BC is applied; default `:dΓout`
+- `enabled::Bool` — Toggle for activating/deactivating this BC; default `true`
 """
 @with_kw struct RadiationBC <: AbstractPotentialFlowBC
     domain::Symbol = :dΓout
@@ -27,6 +31,11 @@ be a constant value or a function of space (and time, if needed) that defines th
 potential on the specified boundary. The `quantity` field indicates whether the forcing
 represents a potential value, a normal gradient (Neumann condition), or a traction
 condition, which affects how the contribution is added to the weak form.
+
+# Fields
+- `domain::Symbol` — Integration-domain key where the BC is applied; default `:dΓin`
+- `forcing` — Boundary forcing value/function resolved to a space function at assembly time
+- `quantity::Symbol` — Interpretation of `forcing`; one of `:potential`, `:normal_gradient`, `:traction`
 """
 @with_kw struct PrescribedInletPotentialBC <: AbstractPotentialFlowBC
     domain::Symbol = :dΓin
@@ -44,6 +53,14 @@ Users provide the incident free-surface elevation `η_in` and vertical velocity
 
 - `ηd = μ₂ * η_in`
 - `∇ₙϕd = μ₁ * vz_in`
+
+# Fields
+- `domain::Symbol` — Integration-domain key for the damping-zone boundary
+- `μ₁` — Multiplicative coefficient for damped normal-velocity contribution
+- `μ₂` — Multiplicative coefficient for damped free-surface elevation contribution
+- `η_in` — Prescribed incident free-surface elevation input
+- `vz_in` — Prescribed incident vertical-velocity input
+- `enabled::Bool` — Toggle for activating/deactivating this BC; default `true`
 """
 @with_kw struct DampingZoneBC <: AbstractPotentialFlowBC
     domain::Symbol
