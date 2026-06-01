@@ -2,12 +2,12 @@
 
 ## Installation
 
-HydroElasticFEM.jl is not yet registered in the General registry.
-Install it directly from the repository:
+HydroElasticFEM.jl is registered in the Julia General registry.
+Install it with:
 
 ```julia
 using Pkg
-Pkg.add(url = "https://github.com/CMOE/HydroElasticFEM.jl")
+Pkg.add("HydroElasticFEM")
 ```
 
 The package requires Julia ≥ 1.10 and depends on
