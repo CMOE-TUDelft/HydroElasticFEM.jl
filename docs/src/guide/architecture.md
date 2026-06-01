@@ -142,6 +142,11 @@ the relevant type pair.
 All coupling traits default to `false` for unknown pairs, so adding a new entity that
 does not couple to any existing one requires no changes to `CouplingTerms.jl`.
 
+The trait system is centralized, but not magic: single-entity methods live with the
+entity definition, while pairwise coupling methods live only in `CouplingTerms.jl`.
+Adding a new structural model still requires registering it in `src/Physics/Physics.jl`
+and exporting it from `src/HydroElasticFEM.jl` so the top-level API sees it.
+
 ### C/DG Formulation for High-Order Beam and Plate Entities
 
 The Euler–Bernoulli beam and Kirchhoff–Love plate require $C^1$ inter-element continuity,
@@ -286,6 +291,9 @@ The following checklist adds a single-field structural entity called `MyBeam`.
    ```
 
 8. Export `MyBeam` from `src/HydroElasticFEM.jl`.
+
+    At the moment there is no automatic discovery or registration mechanism for new
+    structural entities, so these two edits are required in addition to the new file.
 
 9. Write a docstring for `MyBeam` that lists every field with its SI unit and a
    minimal example (required by `checkdocs = :exports` in `docs/make.jl`).
