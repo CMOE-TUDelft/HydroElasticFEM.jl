@@ -403,6 +403,5 @@ export TimoshenkoBeam
 export build_kl_tensor, build_KL_tensor, check_major_symmetry
 export equivalent_beam_rigidity
 export AbstractPotentialFlowBC, RadiationBC, PrescribedInletPotentialBC, DampingZoneBC
-export CouplingTerms
 
 end # module Physics

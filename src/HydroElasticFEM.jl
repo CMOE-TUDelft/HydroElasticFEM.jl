@@ -49,7 +49,6 @@ module HydroElasticFEM
   export build_kl_tensor, build_KL_tensor
   export equivalent_beam_rigidity
   export ResonatorSingle, resonator_array
-  export IntegrationDomains
   export AbstractAssemblyContext, FrequencyAssemblyContext, TimeAssemblyContext
   export domains, frequency, current_time, stabilization_parameter, has_stabilization, with_time
 
