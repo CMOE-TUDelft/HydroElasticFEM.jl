@@ -67,9 +67,11 @@ struct IntegrationDomains
   data::Dict{Symbol, Any}
 end
 
+# Keyword-arg constructor: build from named measure pairs (e.g., IntegrationDomains(dΩ=dΩ, dΓ=dΓ)).
 IntegrationDomains(; kwargs...) =
   IntegrationDomains(Dict{Symbol, Any}(k => v for (k, v) in pairs(kwargs)))
 
+# Dict-like interface delegating to the internal `data` dictionary.
 Base.getindex(d::IntegrationDomains, k::Symbol) = d.data[k]
 Base.haskey(d::IntegrationDomains, k::Symbol) = haskey(d.data, k)
 Base.get(d::IntegrationDomains, k::Symbol, default) = get(d.data, k, default)

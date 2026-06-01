@@ -298,9 +298,11 @@ triangulation(d::CartesianDomain) = Interior(build_model(d))
 # Boundary extraction helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Vertical-axis index: 2 for 2D (y), 3 for 3D (z).
 _vertical_axis(::Val{2}) = 2
 _vertical_axis(::Val{3}) = 3
 
+# Valid named boundary tags per dimension.
 _cartesian_valid_tags(::Val{2}) = STANDARD_TAGS
 _cartesian_valid_tags(::Val{3}) = vcat(STANDARD_TAGS, ["lateral_walls"])
 
@@ -425,6 +427,7 @@ function build_triangulations(d::CartesianDomain{D}, model) where {D}
   _cartesian_boundary_triangulations(Val(D), model, d.mins, d.maxs)
 end
 
+# Build the full triangulation dict for a pure Cartesian domain (no embedded structures).
 function _cartesian_boundary_triangulations(
   ::Val{D},
   model,

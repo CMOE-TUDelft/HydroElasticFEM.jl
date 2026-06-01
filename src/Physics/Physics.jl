@@ -38,6 +38,7 @@ Abstract base type for all physics parameter structures.
 """
 abstract type PhysicsParameters end
 
+"""Abstract base type for structure physics entities (beams, plates, membranes)."""
 abstract type Structure <:PhysicsParameters end
 
 """
@@ -84,8 +85,25 @@ field_fe_configs(s::PhysicsParameters) = (s.fe,)
 
 """
     mass(s, dom, x_tt, y)
+    mass(s, ctx::AbstractAssemblyContext, x_tt, y)
 
-Mass weak form.
+Assemble the mass bilinear form for physics entity `s`.
+
+Must be implemented by every concrete subtype for which `has_mass_form(s)` returns
+`true`.  The assembled form contributes to the coefficient of the second time
+derivative in the equation of motion: `M * ẍ`.
+
+# Arguments
+- `s::PhysicsParameters`: physics entity providing the material parameters
+- `dom::IntegrationDomains` (or `ctx::AbstractAssemblyContext`): integration measures
+- `x_tt`: second time-derivative of the trial-field `FieldMap`
+- `y`: test-field `FieldMap`
+
+# Returns
+- `Gridap.FESpaces.DomainContribution`: assembled bilinear form contribution
+
+# Reference
+[C23] Colomés et al. (2023), Int. J. Numer. Methods Eng., 124(3), 714-751.
 """
 function mass(s::PhysicsParameters, dom, x_tt, y)
     error("mass not implemented for $(typeof(s))")
@@ -93,8 +111,25 @@ end
 
 """
     damping(s, dom, x_t, y)
+    damping(s, ctx::AbstractAssemblyContext, x_t, y)
 
-Damping weak form.
+Assemble the damping bilinear form for physics entity `s` (or entity pair `a`, `b`).
+
+Must be implemented by every concrete subtype for which `has_damping_form(s)` returns
+`true`.  The assembled form contributes to the coefficient of the first time
+derivative in the equation of motion: `C * ẋ`.
+
+# Arguments
+- `s::PhysicsParameters`: physics entity providing the material parameters
+- `dom::IntegrationDomains` (or `ctx::AbstractAssemblyContext`): integration measures
+- `x_t`: first time-derivative of the trial-field `FieldMap`
+- `y`: test-field `FieldMap`
+
+# Returns
+- `Gridap.FESpaces.DomainContribution`: assembled bilinear form contribution
+
+# Reference
+[C23] Colomés et al. (2023), Int. J. Numer. Methods Eng., 124(3), 714-751.
 """
 function damping(s::PhysicsParameters, dom, x_t, y)
     error("damping not implemented for $(typeof(s))")
@@ -102,8 +137,24 @@ end
 
 """
     stiffness(s, dom, x, y)
+    stiffness(s, ctx::AbstractAssemblyContext, x, y)
 
-Stiffness weak form.
+Assemble the stiffness bilinear form for physics entity `s` (or entity pair `a`, `b`).
+
+Must be implemented by every concrete subtype for which `has_stiffness_form(s)` returns
+`true`.  The assembled form contributes to the static restoring term: `K * x`.
+
+# Arguments
+- `s::PhysicsParameters`: physics entity providing the material parameters
+- `dom::IntegrationDomains` (or `ctx::AbstractAssemblyContext`): integration measures
+- `x`: trial-field `FieldMap`
+- `y`: test-field `FieldMap`
+
+# Returns
+- `Gridap.FESpaces.DomainContribution`: assembled bilinear form contribution
+
+# Reference
+[C23] Colomés et al. (2023), Int. J. Numer. Methods Eng., 124(3), 714-751.
 """
 function stiffness(s::PhysicsParameters, dom, x, y)
     error("stiffness not implemented for $(typeof(s))")
@@ -111,8 +162,24 @@ end
 
 """
     rhs(s, dom, f, y)
+    rhs(s, ctx::AbstractAssemblyContext, f, y)
 
-Right-hand side weak form.
+Assemble the right-hand side (linear) form for physics entity `s` (or entity pair `a`, `b`).
+
+Must be implemented by every concrete subtype for which `has_rhs_form(s)` returns
+`true`.  The assembled form contributes to the load vector: `F`.
+
+# Arguments
+- `s::PhysicsParameters`: physics entity providing the material parameters
+- `dom::IntegrationDomains` (or `ctx::AbstractAssemblyContext`): integration measures
+- `f`: forcing-field `FieldMap`
+- `y`: test-field `FieldMap`
+
+# Returns
+- `Gridap.FESpaces.DomainContribution`: assembled linear form contribution
+
+# Reference
+[C23] Colomés et al. (2023), Int. J. Numer. Methods Eng., 124(3), 714-751.
 """
 function rhs(s::PhysicsParameters, dom, f, y)
     error("rhs not implemented for $(typeof(s))")
@@ -202,6 +269,7 @@ active_forms(::AC.AbstractAssemblyContext, a, b) = (
     rhs=has_rhs_form(a, b),
 )
 
+# Accumulate form contributions, skipping `nothing` values (inactive forms).
 function _sum_present(terms...)
     val = nothing
     for t in terms
@@ -212,6 +280,7 @@ function _sum_present(terms...)
     return val
 end
 
+# Guard that raises an error when no form contributed anything (likely a missing implementation).
 _require_nonempty(val, kind, obj) =
     isnothing(val) ? error("$kind has no active contributions for $(typeof(obj))") : val
 
@@ -266,6 +335,8 @@ weakform(a, b, ctx::AC.FrequencyAssemblyContext, x, y) =
         "weakform", (a, b)
     )
 
+# Backward-compat bridge: build a FrequencyAssemblyContext from bare dom + ω,
+# deriving αh from the FreeSurface stabilisation parameter when applicable.
 function _compat_frequency_context(obj, dom::IntegrationDomains, ω)
     αₕ = nothing
     if obj isa FreeSurface

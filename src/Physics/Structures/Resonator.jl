@@ -44,6 +44,12 @@ function print_parameters(resn::ResonatorSingle)
     println()
 end
 
+"""
+    print_parameters(resn::Vector{ResonatorSingle})
+
+Print parameters for every resonator in the array by delegating to the
+single-resonator `print_parameters` method.
+"""
 function print_parameters(resn::Vector{ResonatorSingle})
     print_parameters.(resn)
 end
@@ -96,6 +102,27 @@ end
 # ── Single-variable weak forms: mass, damping, stiffness, rhs ──
 #    Only q_i terms — no coupling to structure η
 
+"""
+    mass(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x_tt, y)
+
+Resonator array inertia (mass) bilinear form.
+
+Assembles the sum of point-mass contributions over all resonators at their
+attachment locations using the delta-function distributions `δ_p`:
+
+```math
+\\sum_i M_i \\, \\delta_i(\\partial_{tt} q_i \\cdot \\xi_i)
+```
+
+# Arguments
+- `resn::Vector{ResonatorSingle}`: array of resonator entities
+- `dom::IntegrationDomains`: integration measures (requires `:delta_p`, `:dΩ`)
+- `x_tt`: second time-derivative trial `FieldMap`
+- `y`: test `FieldMap`
+
+# Returns
+- `Gridap.FESpaces.DomainContribution`
+"""
 function mass(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x_tt, y)
     δ_p = dom[:δ_p]
     ξ1  = y[variable_symbol(resn[1])]
@@ -109,6 +136,26 @@ function mass(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x_tt, y)
     return val
 end
 
+"""
+    damping(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x_t, y)
+
+Resonator array self-damping bilinear form.
+
+Assembles the sum of viscous damping contributions over all resonators:
+
+```math
+\\sum_i C_i \\, \\delta_i(\\partial_t q_i \\cdot \\xi_i)
+```
+
+# Arguments
+- `resn::Vector{ResonatorSingle}`: array of resonator entities
+- `dom::IntegrationDomains`: integration measures (requires `:delta_p`, `:dΩ`)
+- `x_t`: first time-derivative trial `FieldMap`
+- `y`: test `FieldMap`
+
+# Returns
+- `Gridap.FESpaces.DomainContribution`
+"""
 function damping(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x_t, y)
     δ_p = dom[:δ_p]
     ξ1  = y[variable_symbol(resn[1])]
@@ -122,6 +169,26 @@ function damping(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x_t, y)
     return val
 end
 
+"""
+    stiffness(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x, y)
+
+Resonator array self-stiffness bilinear form.
+
+Assembles the sum of spring contributions over all resonators:
+
+```math
+\\sum_i K_i \\, \\delta_i(q_i \\cdot \\xi_i)
+```
+
+# Arguments
+- `resn::Vector{ResonatorSingle}`: array of resonator entities
+- `dom::IntegrationDomains`: integration measures (requires `:delta_p`, `:dΩ`)
+- `x`: trial `FieldMap`
+- `y`: test `FieldMap`
+
+# Returns
+- `Gridap.FESpaces.DomainContribution`
+"""
 function stiffness(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x, y)
     δ_p = dom[:δ_p]
     ξ1  = y[variable_symbol(resn[1])]
@@ -135,6 +202,30 @@ function stiffness(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x, y)
     return val
 end
 
+"""
+    rhs(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, f, y)
+
+Resonator array right-hand side (external forcing) linear form.
+
+Assembles point loads on each resonator DOF using the delta distributions:
+
+```math
+\\sum_i \\delta_i(f_i \\cdot \\xi_i)
+```
+
+Returns `false` for the form-presence trait (`has_rhs_form` returns `false`);
+this method is only called when an external resonator forcing is explicitly
+provided.
+
+# Arguments
+- `resn::Vector{ResonatorSingle}`: array of resonator entities
+- `dom::IntegrationDomains`: integration measures (requires `:delta_p`, `:dΩ`)
+- `f`: forcing `FieldMap`
+- `y`: test `FieldMap`
+
+# Returns
+- `Gridap.FESpaces.DomainContribution`
+"""
 function rhs(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, f, y)
     δ_p = dom[:δ_p]
     ξ1  = y[variable_symbol(resn[1])]

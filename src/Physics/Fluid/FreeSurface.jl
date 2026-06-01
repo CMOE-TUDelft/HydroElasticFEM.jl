@@ -52,6 +52,14 @@ end
 variable_symbol(s::FreeSurface) = s.symbol
 ambient_dimension(fs::FreeSurface) = fs.dim
 
+"""
+    stabilization_parameter(fs::FreeSurface, ctx)
+
+Return the stabilisation coefficient `α_h` for the free-surface condition from
+the assembly context `ctx`.
+
+Raises an error if the context was built without a stabilisation parameter.
+"""
 function stabilization_parameter(fs::FreeSurface, ctx::AC.FrequencyAssemblyContext)
     AC.has_stabilization(ctx) || error("Frequency-domain free-surface stabilization requires `αₕ` in the assembly context.")
     return AC.stabilization_parameter(ctx)
