@@ -35,7 +35,7 @@ condition, which affects how the contribution is added to the weak form.
 # Fields
 - `domain::Symbol` — Integration-domain key where the BC is applied; default `:dΓin`
 - `forcing` — Boundary forcing value/function resolved to a space function at assembly time
-- `quantity::Symbol` — Interpretation of `forcing`; one of `:potential`, `:normal_gradient`, `:traction`
+- `quantity::Symbol` — Interpretation of `forcing`; one of `:potential`, `:normal_gradient`, `:traction`; default `:potential`
 """
 @with_kw struct PrescribedInletPotentialBC <: AbstractPotentialFlowBC
     domain::Symbol = :dΓin
