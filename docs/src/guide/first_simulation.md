@@ -11,7 +11,7 @@ Start Julia 1.10 or newer and activate a project environment:
 ```julia
 using Pkg
 Pkg.activate(".")                          # or Pkg.activate("path/to/myproject")
-Pkg.add(url = "https://github.com/CMOE/HydroElasticFEM.jl")
+Pkg.add("HydroElasticFEM")
 ```
 
 HydroElasticFEM pulls in [Gridap.jl](https://github.com/gridap/Gridap.jl) and
