@@ -122,7 +122,7 @@ function get_integration_domains(
 )
   d = Dict{Symbol, Any}()
 
-  get_deg(key) = isa(degree, Dict) ? get(degree, key, 4) : degree
+  get_deg(key) = isa(degree, Dict) ? get(degree, Symbol(string(key)[2:end]), 4) : degree
 
   # Fluid interior
   d[:dΩ] = Measure(tri[:Ω], get_deg(:dΩ))
