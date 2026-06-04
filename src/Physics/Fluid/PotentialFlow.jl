@@ -149,10 +149,11 @@ function stiffness(pf::PotentialFlow, dom::IntegrationDomains, x, y)
     sym = variable_symbol(pf)
     ϕ = x[sym]
     w = y[sym]
+    dΩ = _space_measure(dom, pf)
     # Fluid bulk term: Laplace equation for velocity potential.
     # Weak form: ∫_Ω ∇ϕ·∇w dΩ = 0 (no sources).
     # Reference: [C23] Section 2.1, Eq. (1)-(3).
-    val = ∫(∇(w) ⋅ ∇(ϕ))dom[:dΩ]
+    val = ∫(∇(w) ⋅ ∇(ϕ))dΩ
     bc_val = _stiffness_bc_contributions(pf, dom, ϕ, w)
     return _add_contribution(val, bc_val)
 end
@@ -162,10 +163,11 @@ function stiffness(pf::PotentialFlow, ctx::AC.AbstractAssemblyContext, x, y)
     sym = variable_symbol(pf)
     ϕ = x[sym]
     w = y[sym]
+    dΩ = _space_measure(dom, pf)
     # Fluid bulk term: Laplace equation for velocity potential.
     # Weak form: ∫_Ω ∇ϕ·∇w dΩ = 0 (no sources).
     # Reference: [C23] Section 2.1, Eq. (1)-(3).
-    val = ∫(∇(w) ⋅ ∇(ϕ))dom[:dΩ]
+    val = ∫(∇(w) ⋅ ∇(ϕ))dΩ
     bc_val = _stiffness_bc_contributions(pf, ctx, ϕ, w)
     return _add_contribution(val, bc_val)
 end
@@ -173,7 +175,8 @@ end
 function rhs(pf::PotentialFlow, dom::IntegrationDomains, f, y)
     sym = variable_symbol(pf)
     w = y[sym]
-    val = ∫(w * f[sym])dom[:dΓin]
+    dΩ = _space_measure(dom, pf)
+    val = ∫(w * f[sym])dΩ
     bc_val = _rhs_bc_contributions(pf, dom, w)
     return _add_contribution(val, bc_val)
 end
@@ -182,7 +185,8 @@ function rhs(pf::PotentialFlow, ctx::AC.AbstractAssemblyContext, f, y)
     dom = AC.domains(ctx)
     sym = variable_symbol(pf)
     w = y[sym]
-    val = ∫(w * f[sym])dom[:dΓin]
+    dΩ = _space_measure(dom, pf)
+    val = ∫(w * f[sym])dΩ
     bc_val = _rhs_bc_contributions(pf, ctx, w)
     return _add_contribution(val, bc_val)
 end

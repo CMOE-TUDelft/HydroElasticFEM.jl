@@ -127,7 +127,8 @@ function mass(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x_tt, y)
     δ_p = dom[:δ_p]
     ξ1  = y[variable_symbol(resn[1])]
     q1  = x_tt[variable_symbol(resn[1])]
-    val = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
+    dΩ  = _space_measure(dom, resn)
+    val = ∫((ξ1 ⋅ q1) * 0.0)dΩ
     for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
         qₜₜi = x_tt[variable_symbol(ri)]
         ξi   = y[variable_symbol(ri)]
@@ -160,7 +161,8 @@ function damping(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x_t, y)
     δ_p = dom[:δ_p]
     ξ1  = y[variable_symbol(resn[1])]
     q1  = x_t[variable_symbol(resn[1])]
-    val = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
+    dΩ  = _space_measure(dom, resn)
+    val = ∫((ξ1 ⋅ q1) * 0.0)dΩ
     for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
         qₜi = x_t[variable_symbol(ri)]
         ξi  = y[variable_symbol(ri)]
@@ -193,7 +195,8 @@ function stiffness(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, x, y)
     δ_p = dom[:δ_p]
     ξ1  = y[variable_symbol(resn[1])]
     q1  = x[variable_symbol(resn[1])]
-    val = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
+    dΩ  = _space_measure(dom, resn)
+    val = ∫((ξ1 ⋅ q1) * 0.0)dΩ
     for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
         qi = x[variable_symbol(ri)]
         ξi = y[variable_symbol(ri)]
@@ -230,7 +233,8 @@ function rhs(resn::Vector{ResonatorSingle}, dom::IntegrationDomains, f, y)
     δ_p = dom[:δ_p]
     ξ1  = y[variable_symbol(resn[1])]
     q1  = f[variable_symbol(resn[1])]
-    val = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
+    dΩ  = _space_measure(dom, resn)
+    val = ∫((ξ1 ⋅ q1) * 0.0)dΩ
     for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
         fi = f[variable_symbol(ri)]
         ξi = y[variable_symbol(ri)]
