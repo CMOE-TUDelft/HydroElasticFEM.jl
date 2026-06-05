@@ -125,8 +125,9 @@ function mass(s::TimoshenkoBeam, dom::IntegrationDomains, x_tt, y)
   I_val = s.b_beam * s.h_beam^3 / 12
   m_A   = s.ρ_s * A_val / s.ρ_w   # translational mass per unit length / ρ_w
   m_I   = s.ρ_s * I_val / s.ρ_w   # rotational inertia per unit length / ρ_w
+  dΩ    = _space_measure(dom, s)
 
-  ∫(m_A * v_w * w_tt + m_I * v_θ * θ_tt)dom[:dΓη]
+  ∫(m_A * v_w * w_tt + m_I * v_θ * θ_tt)dΩ
 end
 
 """
@@ -157,6 +158,7 @@ function stiffness(s::TimoshenkoBeam, dom::IntegrationDomains, x, y)
   EI_ρ   = s.E * I_val / s.ρ_w
   κGA_ρ  = s.κ * G * A_val / s.ρ_w
   t      = s.tangent
+  dΩ     = _space_measure(dom, s)
 
   # Timoshenko two-field structural bilinear form (w, θ).
   # Includes bending and shear terms; thin limit recovers EB behavior.
@@ -166,7 +168,7 @@ function stiffness(s::TimoshenkoBeam, dom::IntegrationDomains, x, y)
     EI_ρ  * (∇(θ)   ⋅ t) * (∇(v_θ) ⋅ t) +
     κGA_ρ * ((∇(w)  ⋅ t) - θ) * ((∇(v_w) ⋅ t) - v_θ) +
     s.g   * v_w * w
-  )dom[:dΓη]
+  )dΩ
 end
 
 """
@@ -182,5 +184,6 @@ The `f` argument must be a `FieldMap` with a key equal to `s.symbol_w`.
 """
 function rhs(s::TimoshenkoBeam, dom::IntegrationDomains, f, y)
   v_w = y[s.symbol_w]
-  ∫(v_w * f[s.symbol_w])dom[:dΓη]
+  dΩ = _space_measure(dom, s)
+  ∫(v_w * f[s.symbol_w])dΩ
 end

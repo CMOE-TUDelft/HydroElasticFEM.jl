@@ -78,6 +78,49 @@ Base.get(d::IntegrationDomains, k::Symbol, default) = get(d.data, k, default)
 Base.setindex!(d::IntegrationDomains, val, k::Symbol) = (d.data[k] = val)
 Base.keys(d::IntegrationDomains) = keys(d.data)
 
+# Convert a triangulation key into the matching measure key used by weak forms.
+# Examples: :Ω -> :dΩ, :Γ_s -> :dΓ_s, :Λη -> :dΛη.
+_measure_key(domain_symbol::Symbol) = Symbol("d", domain_symbol)
+
+# Convert a measure key back to its triangulation key.  This lets callers pass
+# either :Γ_s or :dΓ_s in a degree dictionary and get the same quadrature order.
+_domain_key(measure_symbol::Symbol) = Symbol(string(measure_symbol)[2:end])
+
+# Recognize the measure-key families created by this module.  Avoid treating an
+# arbitrary user domain beginning with lowercase `d` as a measure key.
+function _is_measure_key(key::Symbol)
+  s = string(key)
+  startswith(s, "dΩ") || startswith(s, "dΓ") || startswith(s, "dΛ")
+end
+
+_degree_for(degree::Int, ::Symbol) = degree
+
+# Resolve quadrature degree for both supported dictionary styles:
+#   Dict(:Γ_s => 6)  and  Dict(:dΓ_s => 6).
+# Missing entries keep the historical fallback degree of 4.
+function _degree_for(degree::Dict{Symbol, Int}, key::Symbol)
+  domain_key = _is_measure_key(key) ? _domain_key(key) : key
+  measure_key = _is_measure_key(key) ? key : _measure_key(key)
+  return get(degree, key, get(degree, measure_key, get(degree, domain_key, 4)))
+end
+
+# Extract triangulation-domain keys from the degree dictionary.  These are the
+# domains requested by physics entities through `space_domain_symbol`.
+function _degree_domain_keys(degree::Dict{Symbol, Int})
+  keys = Symbol[]
+  for key in Base.keys(degree)
+    push!(keys, _is_measure_key(key) ? _domain_key(key) : key)
+  end
+  unique(keys)
+end
+
+_degree_domain_keys(::Int) = Symbol[]
+
+# Only scalar triangulations can be wrapped in a Measure here.  Container and
+# metadata entries such as :Γ_structures, :Γ_dampings, and :joint_domains are
+# handled explicitly above or intentionally skipped.
+_can_define_measure(trian) = !(trian === nothing || trian isa AbstractVector || trian isa Tuple)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Assembly bridge
 # ─────────────────────────────────────────────────────────────────────────────
@@ -122,7 +165,7 @@ function get_integration_domains(
 )
   d = Dict{Symbol, Any}()
 
-  get_deg(key) = isa(degree, Dict) ? get(degree, key, 4) : degree
+  get_deg(key) = _degree_for(degree, key)
 
   # Fluid interior
   d[:dΩ] = Measure(tri[:Ω], get_deg(:dΩ))
@@ -169,6 +212,19 @@ function get_integration_domains(
     d[:dΛη]   = Measure(Λη, get_deg(:dΛη))
     d[:n_Λ_η] = get_normal_vector(Λη)
     d[:h_η]   = minimum(get_cell_measure(tri[:Γη]))
+  end
+
+  # User-defined space domains declared by physics entities arrive through
+  # `degree` as triangulation keys (e.g. `:Γ_s`).  Mirror each such scalar
+  # triangulation into the matching measure key (`:dΓ_s`) unless a standard
+  # measure above already populated it.
+  for domain_symbol in _degree_domain_keys(degree)
+    haskey(tri, domain_symbol) || continue
+    measure_symbol = _measure_key(domain_symbol)
+    haskey(d, measure_symbol) && continue
+    trian = tri[domain_symbol]
+    _can_define_measure(trian) || continue
+    d[measure_symbol] = Measure(trian, get_deg(domain_symbol))
   end
 
   IntegrationDomains(d)

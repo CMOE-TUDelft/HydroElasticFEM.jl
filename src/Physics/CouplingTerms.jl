@@ -43,10 +43,11 @@ function damping(pf::PotentialFlow, s::Structure, dom::IntegrationDomains, x_t, 
     η_sym = variable_symbol(s)
     ϕₜ = x_t[ϕ_sym];  ηₜ = x_t[η_sym]
     w  = y[ϕ_sym];     v  = y[η_sym]
+    dΩ = _space_measure(dom, s)
     # FSI kinematic condition in weak form:
     # ∫_Γs (v·∂tϕ - w·∂tη) dΓ.
     # Reference: [C23] Section 3.1, Eq. (21).
-    ∫(v * ϕₜ - w * ηₜ)dom[:dΓη]
+    ∫(v * ϕₜ - w * ηₜ)dΩ
 end
 
 # =========================================================================
@@ -109,7 +110,8 @@ function mass(pf::PotentialFlow, fs::FreeSurface, ctx::AC.FrequencyAssemblyConte
     w    = y[ϕ_sym]
     βₕ   = fs.βₕ
     g    = fs.g
-    ∫((1 - βₕ) / g * w * ϕₜₜ)AC.domains(ctx)[:dΓκ]
+    dΩ   = _space_measure(AC.domains(ctx), fs)
+    ∫((1 - βₕ) / g * w * ϕₜₜ)dΩ
 end
 
 function mass(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyContext, x_tt, y)
@@ -119,7 +121,8 @@ function mass(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyContext, x
     w    = y[ϕ_sym]
     βₕ   = fs.βₕ
     g    = fs.g
-    ∫((1 - βₕ) / g * w * ϕₜₜ)AC.domains(ctx)[:dΓκ]
+    dΩ   = _space_measure(AC.domains(ctx), fs)
+    ∫((1 - βₕ) / g * w * ϕₜₜ)dΩ
 end
 
 """
@@ -140,7 +143,8 @@ function damping(pf::PotentialFlow, fs::FreeSurface, ctx::AC.FrequencyAssemblyCo
     w  = y[ϕ_sym]
     u  = y[κ_sym]
     βₕ = fs.βₕ
-    ∫(βₕ * u * ϕₜ - βₕ * w * κₜ)AC.domains(ctx)[:dΓκ]
+    dΩ = _space_measure(AC.domains(ctx), fs)
+    ∫(βₕ * u * ϕₜ - βₕ * w * κₜ)dΩ
 end
 
 function damping(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyContext, x_t, y)
@@ -152,11 +156,12 @@ function damping(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyContext
     w  = y[ϕ_sym]
     u  = y[κ_sym]
     βₕ = fs.βₕ
+    dΩ = _space_measure(dom, fs)
     if AC.has_stabilization(ctx)
         αₕ = stabilization_parameter(fs, ctx)
-        return ∫(βₕ * (u + αₕ * w) * ϕₜ - w * κₜ)dom[:dΓκ]
+        return ∫(βₕ * (u + αₕ * w) * ϕₜ - w * κₜ)dΩ
     end
-    ∫(βₕ * u * ϕₜ - βₕ * w * κₜ)dom[:dΓκ]
+    ∫(βₕ * u * ϕₜ - βₕ * w * κₜ)dΩ
 end
 
 """
@@ -205,7 +210,8 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyConte
     val = nothing
     if AC.has_stabilization(ctx)
         αₕ = stabilization_parameter(fs, ctx)
-        val = ∫(fs.βₕ * fs.g * αₕ * w * κ)dom[:dΓκ]
+        dΩ = _space_measure(dom, fs)
+        val = ∫(fs.βₕ * fs.g * αₕ * w * κ)dΩ
     end
 
     for bc in _active_damping_zone_bcs(pf)
@@ -277,7 +283,8 @@ function damping(resn::Vector{ResonatorSingle}, s::Structure,
     î1    = VectorValue(1.0)
     ξ1    = y[Symbol("q_1")]
     q1    = x_t[Symbol("q_1")]
-    val   = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
+    dΩ    = _space_measure(dom, resn)
+    val   = ∫((ξ1 ⋅ q1) * 0.0)dΩ
     for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
         qₜi = x_t[Symbol("q_$i")]
         ξi  = y[Symbol("q_$i")]
@@ -306,7 +313,8 @@ function stiffness(resn::Vector{ResonatorSingle}, s::Structure,
     î1    = VectorValue(1.0)
     ξ1    = y[Symbol("q_1")]
     q1    = x[Symbol("q_1")]
-    val   = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
+    dΩ    = _space_measure(dom, resn)
+    val   = ∫((ξ1 ⋅ q1) * 0.0)dΩ
     for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
         qi = x[Symbol("q_$i")]
         ξi = y[Symbol("q_$i")]

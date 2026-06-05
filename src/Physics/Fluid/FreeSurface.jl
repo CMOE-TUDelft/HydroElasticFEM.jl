@@ -83,9 +83,10 @@ function stiffness(fs::FreeSurface, dom::IntegrationDomains, x, y)
     u = y[κ_sym]
     βₕ = fs.βₕ
     g  = fs.g
+    dΩ = _space_measure(dom, fs)
     # Free-surface gravity restoring term.
     # Standalone weak form: ∫_Γκ βₕ·g·u·κ dΓ.
     # Full stabilized PF-FS coupling is in CouplingTerms.jl.
     # Reference: [C23] Section 2.2, Eq. (7)-(10).
-    ∫(βₕ * g * u * κ)dom[:dΓκ]
+    ∫(βₕ * g * u * κ)dΩ
 end

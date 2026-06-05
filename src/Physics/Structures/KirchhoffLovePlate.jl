@@ -250,7 +250,8 @@ function mass(s::KirchhoffLovePlate, dom::IntegrationDomains, x_tt, y)
   ηₜₜ = x_tt[sym]
   v    = y[sym]
   m_ρ  = s.ρb * s.hb / s.ρ   # mass per unit area / ρ_fluid  [dimensionless]
-  ∫(m_ρ * v * ηₜₜ)dom[:dΓη]
+  dΩ   = _space_measure(dom, s)
+  ∫(m_ρ * v * ηₜₜ)dΩ
 end
 
 """
@@ -269,12 +270,13 @@ function stiffness(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
   γ    = s.fe.γ
   h    = dom[:h_η]
   n_Λ  = dom[:n_Λ_η]
+  dΩ   = _space_measure(dom, s)
 
   # Kirchhoff-Love plate C/DG formulation.
   # Bulk term: ∫_Γb ∇∇v ⊙ (C ⊙ ∇∇η) dΓ + hydrostatic restoring term.
   # Skeleton terms: consistency + symmetry + penalty.
   # Reference: [C23] Section 3.2, Eq. (24)-(25).
-  bulk = ∫(( ∇∇(v) ⊙ (s.C ⊙ ∇∇(η))) + s.g * v * η)dom[:dΓη]
+  bulk = ∫(( ∇∇(v) ⊙ (s.C ⊙ ∇∇(η))) + s.g * v * η)dΩ
 
   skeleton = ∫(
     -jump(∇(v)) ⊙ (mean(s.C ⊙ ∇∇(η))⋅n_Λ.⁺) 
@@ -292,5 +294,6 @@ Right-hand side linear form: ∫ v · f[sym] dΓ.
 function rhs(s::KirchhoffLovePlate, dom::IntegrationDomains, f, y)
   sym = variable_symbol(s)
   v   = y[sym]
-  ∫(v * f[sym])dom[:dΓη]
+  dΩ  = _space_measure(dom, s)
+  ∫(v * f[sym])dΩ
 end

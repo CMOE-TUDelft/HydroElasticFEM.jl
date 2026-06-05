@@ -130,7 +130,8 @@ function mass(s::EulerBernoulliBeam, dom::IntegrationDomains, x_tt, y)
     sym = variable_symbol(s)
     ηₜₜ = x_tt[sym]
     v   = y[sym]
-    ∫(s.mᵨ * v * ηₜₜ)dom[:dΓη]
+    dΩ = _space_measure(dom, s)
+    ∫(s.mᵨ * v * ηₜₜ)dΩ
 end
 
 """
@@ -168,8 +169,9 @@ function damping(s::EulerBernoulliBeam, dom::IntegrationDomains, x_t, y)
     γ   = s.fe.γ
     h   = dom[:h_η]
     n_Λ = dom[:n_Λ_η]
+    dΩ  = _space_measure(dom, s)
 
-    val = ∫(EIτ * Δ(v) * Δ(ηₜ))dom[:dΓη] +
+    val = ∫(EIτ * Δ(v) * Δ(ηₜ))dΩ +
           ∫(
               -jump(∇(v) ⋅ n_Λ) * mean(EIτ * Δ(ηₜ))
               - mean(EIτ * Δ(v)) * jump(∇(ηₜ) ⋅ n_Λ)
@@ -206,12 +208,13 @@ function stiffness(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
     γ   = s.fe.γ
     h   = dom[:h_η]
     n_Λ = dom[:n_Λ_η]
+    dΩ  = _space_measure(dom, s)
 
     # Euler-Bernoulli C/DG bending formulation on Γb and Skeleton(Γb).
     # Bulk: ∫_Γb a1·Δη·Δv dΓ, with a1 = EI/ρ.
     # Skeleton: consistency + symmetry + penalty terms.
     # Reference: [C23] Section 3.1, Eq. (16)-(20).
-    val = ∫(v * (s.g * η) + EI * Δ(v) * Δ(η))dom[:dΓη] +
+    val = ∫(v * (s.g * η) + EI * Δ(v) * Δ(η))dΩ +
           ∫(
               -jump(∇(v) ⋅ n_Λ) * mean(EI * Δ(η))
               - mean(EI * Δ(v)) * jump(∇(η) ⋅ n_Λ)
@@ -248,5 +251,6 @@ Assembles the distributed load contribution:
 function rhs(s::EulerBernoulliBeam, dom::IntegrationDomains, f, y)
     sym = variable_symbol(s)
     v = y[sym]
-    ∫(v * f[sym])dom[:dΓη]
+    dΩ = _space_measure(dom, s)
+    ∫(v * f[sym])dΩ
 end

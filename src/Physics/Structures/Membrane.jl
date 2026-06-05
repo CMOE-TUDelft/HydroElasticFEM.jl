@@ -90,7 +90,8 @@ function mass(s::Membrane, dom::IntegrationDomains, x_tt, y)
   sym = variable_symbol(s)
   ηₜₜ = x_tt[sym]
   v = y[sym]
-  ∫(s.mᵨ * v * ηₜₜ)dom[:dΓη]
+  dΩ = _space_measure(dom, s)
+  ∫(s.mᵨ * v * ηₜₜ)dΩ
 end
 
 """
@@ -122,7 +123,8 @@ function damping(s::Membrane, dom::IntegrationDomains, x_t, y)
   sym = variable_symbol(s)
   ηₜ = x_t[sym]
   v = y[sym]
-  ∫(s.Tᵨ * s.τ * ∇(v) ⋅ ∇(ηₜ))dom[:dΓη]
+  dΩ = _space_measure(dom, s)
+  ∫(s.Tᵨ * s.τ * ∇(v) ⋅ ∇(ηₜ))dΩ
 end
 
 """
@@ -151,10 +153,11 @@ function stiffness(s::Membrane, dom::IntegrationDomains, x, y)
   sym = variable_symbol(s)
   η = x[sym]
   v = y[sym]
+  dΩ = _space_measure(dom, s)
   # Membrane structural bilinear form:
   # ∫_Γη (g·v·η + Tρ·∇v·∇η) dΓ.
   # Reference: [A24] (viscoelastic floating membrane formulation).
-  ∫(v * (s.g * η) + s.Tᵨ * ∇(v) ⋅ ∇(η))dom[:dΓη]
+  ∫(v * (s.g * η) + s.Tᵨ * ∇(v) ⋅ ∇(η))dΩ
 end
 
 """
@@ -179,5 +182,6 @@ Assembles the body-force or pressure load contribution:
 function rhs(s::Membrane, dom::IntegrationDomains, f, y)
   sym = variable_symbol(s)
   v = y[sym]
-  ∫(v * f[sym])dom[:dΓη]
+  dΩ = _space_measure(dom, s)
+  ∫(v * f[sym])dΩ
 end

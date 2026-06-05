@@ -25,6 +25,16 @@ function _add_contribution(a, b)
     return a + b
 end
 
+_space_measure_key(s) = Symbol("d", getfield(s, :space_domain_symbol))
+_space_measure(dom::IntegrationDomains, s) = dom[_space_measure_key(s)]
+
+function _space_measure(dom::IntegrationDomains, entities::AbstractVector)
+    isempty(entities) && throw(ArgumentError("Cannot resolve a space-domain measure for an empty entity vector."))
+    symbols = unique(getfield.(entities, :space_domain_symbol))
+    length(symbols) == 1 || throw(ArgumentError("Entity vector has inconsistent `space_domain_symbol` values: $symbols"))
+    return dom[Symbol("d", first(symbols))]
+end
+
 
 """
     _as_space_function(v)
