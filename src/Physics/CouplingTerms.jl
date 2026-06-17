@@ -19,15 +19,35 @@
 # Fluid-structure coupling only contributes through damping terms.
 has_damping_form(::PotentialFlow, ::Structure) = true
 
+"""
+    damping(pf::PotentialFlow, s::Structure, dom::IntegrationDomains, x_t, y)
+
+Fluid-structure kinematic coupling damping form on the wet surface `\u0393_s`.
+
+Ensures continuity of normal velocity at the fluid-structure interface:
+
+    \u222b_\u0393s (v \u2202t\u03d5 - w \u2202t\u03b7) d\u0393
+
+# Arguments
+- `pf::PotentialFlow`: fluid entity
+- `s::Structure`: structural entity
+- `dom::IntegrationDomains`: requires `:d\u0393\u03b7`
+- `x_t`: first time-derivative trial `FieldMap`
+- `y`: test `FieldMap`
+
+# Reference
+[C23] Colom\u00e9s et al. (2023), Section 3.1, Eq. (21).
+"""
 function damping(pf::PotentialFlow, s::Structure, dom::IntegrationDomains, x_t, y)
     ϕ_sym = variable_symbol(pf)
     η_sym = variable_symbol(s)
     ϕₜ = x_t[ϕ_sym];  ηₜ = x_t[η_sym]
     w  = y[ϕ_sym];     v  = y[η_sym]
+    dΩ = _space_measure(dom, s)
     # FSI kinematic condition in weak form:
     # ∫_Γs (v·∂tϕ - w·∂tη) dΓ.
     # Reference: [C23] Section 3.1, Eq. (21).
-    ∫(v * ϕₜ - w * ηₜ)dom[:dΓη]
+    ∫(v * ϕₜ - w * ηₜ)dΩ
 end
 
 # =========================================================================
@@ -48,6 +68,15 @@ has_damping_form(::PotentialFlow, ::FreeSurface) = true
 has_stiffness_form(::PotentialFlow, ::FreeSurface) = true
 has_rhs_form(::PotentialFlow, ::FreeSurface) = true
 
+"""
+    active_forms(ctx, pf::PotentialFlow, fs::FreeSurface)
+
+Return the active form flags for the PotentialFlow/FreeSurface coupling.
+
+In the frequency domain, mass and damping are always active; stiffness and RHS
+are active only when damping-zone BCs are present.  In the time domain, when
+stabilization is enabled the mass term is folded into stiffness.
+"""
 function active_forms(::AC.FrequencyAssemblyContext, pf::PotentialFlow, fs::FreeSurface)
     has_zone_rhs = _damping_zone_enabled(pf)
     return (mass=true, damping=true, stiffness=has_zone_rhs, rhs=has_zone_rhs)
@@ -64,13 +93,25 @@ function active_forms(ctx::AC.TimeAssemblyContext, pf::PotentialFlow, fs::FreeSu
     )
 end
 
+"""
+    mass(pf::PotentialFlow, fs::FreeSurface, ctx, x_tt, y)
+
+PotentialFlow/FreeSurface coupling mass form.
+
+Contributes the inertia coupling between the velocity potential `\u03d5` and the
+free-surface elevation `\u03ba`.
+
+# Reference
+[C23] Colom\u00e9s et al. (2023), Section 2.2.
+"""
 function mass(pf::PotentialFlow, fs::FreeSurface, ctx::AC.FrequencyAssemblyContext, x_tt, y)
     ϕ_sym = variable_symbol(pf)
     ϕₜₜ = x_tt[ϕ_sym]
     w    = y[ϕ_sym]
     βₕ   = fs.βₕ
     g    = fs.g
-    ∫((1 - βₕ) / g * w * ϕₜₜ)AC.domains(ctx)[:dΓκ]
+    dΩ   = _space_measure(AC.domains(ctx), fs)
+    ∫((1 - βₕ) / g * w * ϕₜₜ)dΩ
 end
 
 function mass(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyContext, x_tt, y)
@@ -80,9 +121,20 @@ function mass(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyContext, x
     w    = y[ϕ_sym]
     βₕ   = fs.βₕ
     g    = fs.g
-    ∫((1 - βₕ) / g * w * ϕₜₜ)AC.domains(ctx)[:dΓκ]
+    dΩ   = _space_measure(AC.domains(ctx), fs)
+    ∫((1 - βₕ) / g * w * ϕₜₜ)dΩ
 end
 
+"""
+    damping(pf::PotentialFlow, fs::FreeSurface, ctx, x_t, y)
+
+PotentialFlow/FreeSurface coupling damping form.
+
+Captures the dynamic free-surface condition coupling term between `\u03d5` and `\u03ba`.
+
+# Reference
+[C23] Colom\u00e9s et al. (2023), Section 2.2.
+"""
 function damping(pf::PotentialFlow, fs::FreeSurface, ctx::AC.FrequencyAssemblyContext, x_t, y)
     ϕ_sym = variable_symbol(pf)
     κ_sym = variable_symbol(fs)
@@ -91,7 +143,8 @@ function damping(pf::PotentialFlow, fs::FreeSurface, ctx::AC.FrequencyAssemblyCo
     w  = y[ϕ_sym]
     u  = y[κ_sym]
     βₕ = fs.βₕ
-    ∫(βₕ * u * ϕₜ - βₕ * w * κₜ)AC.domains(ctx)[:dΓκ]
+    dΩ = _space_measure(AC.domains(ctx), fs)
+    ∫(βₕ * u * ϕₜ - βₕ * w * κₜ)dΩ
 end
 
 function damping(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyContext, x_t, y)
@@ -103,13 +156,22 @@ function damping(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyContext
     w  = y[ϕ_sym]
     u  = y[κ_sym]
     βₕ = fs.βₕ
+    dΩ = _space_measure(dom, fs)
     if AC.has_stabilization(ctx)
         αₕ = stabilization_parameter(fs, ctx)
-        return ∫(βₕ * (u + αₕ * w) * ϕₜ - w * κₜ)dom[:dΓκ]
+        return ∫(βₕ * (u + αₕ * w) * ϕₜ - w * κₜ)dΩ
     end
-    ∫(βₕ * u * ϕₜ - βₕ * w * κₜ)dom[:dΓκ]
+    ∫(βₕ * u * ϕₜ - βₕ * w * κₜ)dΩ
 end
 
+"""
+    stiffness(pf::PotentialFlow, fs::FreeSurface, ctx, x, y)
+
+PotentialFlow/FreeSurface coupling stiffness form (damping-zone sponge contribution).
+
+# Reference
+[C23] Colom\u00e9s et al. (2023), Section 4.1.
+"""
 function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.FrequencyAssemblyContext, x, y)
     ϕ_sym = variable_symbol(pf)
     κ_sym = variable_symbol(fs)
@@ -148,7 +210,8 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyConte
     val = nothing
     if AC.has_stabilization(ctx)
         αₕ = stabilization_parameter(fs, ctx)
-        val = ∫(fs.βₕ * fs.g * αₕ * w * κ)dom[:dΓκ]
+        dΩ = _space_measure(dom, fs)
+        val = ∫(fs.βₕ * fs.g * αₕ * w * κ)dΩ
     end
 
     for bc in _active_damping_zone_bcs(pf)
@@ -166,6 +229,14 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyConte
     return val
 end
 
+"""
+    rhs(pf::PotentialFlow, fs::FreeSurface, ctx, f, y)
+
+PotentialFlow/FreeSurface coupling right-hand side (damping-zone forcing).
+
+# Reference
+[C23] Colom\u00e9s et al. (2023), Section 4.1.
+"""
 function rhs(pf::PotentialFlow, fs::FreeSurface, ctx::AC.AbstractAssemblyContext, f, y)
     κ_sym = variable_symbol(fs)
     u = y[κ_sym]
@@ -195,6 +266,14 @@ end
 has_damping_form(resn::Vector{ResonatorSingle}, ::Structure) = !isempty(resn)
 has_stiffness_form(resn::Vector{ResonatorSingle}, ::Structure) = !isempty(resn)
 
+"""
+    damping(resn::Vector{ResonatorSingle}, s::Structure, dom::IntegrationDomains, x_t, y)
+
+Resonator-structure coupling damping form.
+
+Contributes cross-damping terms between each resonator DOF `q_i` and the
+structural displacement `\u03b7` at resonator attachment points.
+"""
 function damping(resn::Vector{ResonatorSingle}, s::Structure,
                  dom::IntegrationDomains, x_t, y)
     δ_p   = dom[:δ_p]
@@ -204,7 +283,8 @@ function damping(resn::Vector{ResonatorSingle}, s::Structure,
     î1    = VectorValue(1.0)
     ξ1    = y[Symbol("q_1")]
     q1    = x_t[Symbol("q_1")]
-    val   = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
+    dΩ    = _space_measure(dom, resn)
+    val   = ∫((ξ1 ⋅ q1) * 0.0)dΩ
     for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
         qₜi = x_t[Symbol("q_$i")]
         ξi  = y[Symbol("q_$i")]
@@ -216,6 +296,14 @@ function damping(resn::Vector{ResonatorSingle}, s::Structure,
     return val
 end
 
+"""
+    stiffness(resn::Vector{ResonatorSingle}, s::Structure, dom::IntegrationDomains, x, y)
+
+Resonator-structure coupling stiffness form.
+
+Contributes cross-stiffness terms between each resonator DOF `q_i` and the
+structural displacement `\u03b7` at resonator attachment points.
+"""
 function stiffness(resn::Vector{ResonatorSingle}, s::Structure,
                    dom::IntegrationDomains, x, y)
     δ_p   = dom[:δ_p]
@@ -225,7 +313,8 @@ function stiffness(resn::Vector{ResonatorSingle}, s::Structure,
     î1    = VectorValue(1.0)
     ξ1    = y[Symbol("q_1")]
     q1    = x[Symbol("q_1")]
-    val   = ∫((ξ1 ⋅ q1) * 0.0)dom[:dΩ]
+    dΩ    = _space_measure(dom, resn)
+    val   = ∫((ξ1 ⋅ q1) * 0.0)dΩ
     for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
         qi = x[Symbol("q_$i")]
         ξi = y[Symbol("q_$i")]

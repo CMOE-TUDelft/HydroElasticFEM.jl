@@ -52,6 +52,14 @@ end
 variable_symbol(s::FreeSurface) = s.symbol
 ambient_dimension(fs::FreeSurface) = fs.dim
 
+"""
+    stabilization_parameter(fs::FreeSurface, ctx)
+
+Return the stabilisation coefficient `α_h` for the free-surface condition from
+the assembly context `ctx`.
+
+Raises an error if the context was built without a stabilisation parameter.
+"""
 function stabilization_parameter(fs::FreeSurface, ctx::AC.FrequencyAssemblyContext)
     AC.has_stabilization(ctx) || error("Frequency-domain free-surface stabilization requires `αₕ` in the assembly context.")
     return AC.stabilization_parameter(ctx)
@@ -75,9 +83,10 @@ function stiffness(fs::FreeSurface, dom::IntegrationDomains, x, y)
     u = y[κ_sym]
     βₕ = fs.βₕ
     g  = fs.g
+    dΩ = _space_measure(dom, fs)
     # Free-surface gravity restoring term.
     # Standalone weak form: ∫_Γκ βₕ·g·u·κ dΓ.
     # Full stabilized PF-FS coupling is in CouplingTerms.jl.
     # Reference: [C23] Section 2.2, Eq. (7)-(10).
-    ∫(βₕ * g * u * κ)dom[:dΓκ]
+    ∫(βₕ * g * u * κ)dΩ
 end

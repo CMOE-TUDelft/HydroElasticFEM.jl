@@ -178,9 +178,9 @@ function _find_volume_symbol(entities, fmap)
     return nothing
 end
 
-function _zero_mass_contribution(ctx::AC.TimeAssemblyContext, fmap, x_tt, y, sym::Symbol)
+function _zero_contribution(ctx::AC.TimeAssemblyContext, fmap, x, y, sym::Symbol)
     haskey(AC.domains(ctx), :dΩ) || error("Cannot build zero mass fallback: domain measure `:dΩ` is missing.")
-    xd = FieldMap(x_tt, fmap)
+    xd = FieldMap(x, fmap)
     yd = FieldMap(y, fmap)
     return ∫(0.0 * xd[sym] * yd[sym])AC.domains(ctx)[:dΩ]
 end
@@ -543,14 +543,22 @@ function build_time_fe_operator(entities::Vector{<:P.PhysicsParameters},
     volume_sym = _find_volume_symbol(entities, fmap)
 
     a(t, x, y) = _assemble_form(:stiffness, P.stiffness, entities, coupling_pairs, AC.with_time(base_ctx, t), fmap, x, y)
-    c(t, x_t, y) = _assemble_form(:damping, P.damping, entities, coupling_pairs, AC.with_time(base_ctx, t), fmap, x_t, y)
+    c(t, x_t, y) = begin
+        ctx = AC.with_time(base_ctx, t)
+        if _has_active_form(:damping, entities, coupling_pairs, ctx)
+            _assemble_form(:damping, P.damping, entities, coupling_pairs, ctx, fmap, x_t, y)
+        else
+            # No active damping forms → zero contribution (not zero operator!)
+            _zero_contribution(ctx, fmap, x_t, y, volume_sym)
+        end
+    end
     m(t, x_tt, y) = begin
         ctx = AC.with_time(base_ctx, t)
         if _has_active_form(:mass, entities, coupling_pairs, ctx)
             _assemble_form(:mass, P.mass, entities, coupling_pairs, ctx, fmap, x_tt, y)
         else
             isnothing(volume_sym) && error("No active mass contributions found and no volume field is available for zero-mass fallback.")
-            _zero_mass_contribution(ctx, fmap, x_tt, y, volume_sym)
+            _zero_contribution(ctx, fmap, x_tt, y, volume_sym)
         end
     end
     l(t, y) = begin

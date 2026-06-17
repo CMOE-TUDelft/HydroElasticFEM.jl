@@ -1,7 +1,7 @@
 name = "HydroElasticFEM"
 uuid = "e85360b2-c40c-44d1-92ad-66f8d48f49a1"
 authors = ["Shagun Agarwal <shagun.1994@gmail.com>", "Oriol Colomes <J.O.ColomesGene@tudelft.nl>"]
-version = "0.1.0"
+version = "0.1.2"
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
@@ -19,7 +19,7 @@ DataFrames = "1.8.1"
 Gridap = "0.20"
 GridapGmsh = "0.7.4"
 JLD2 = "0.6.4"
-Parameters = "0.12.3"
+Parameters = "0.12.3, 0.13"
 Plots = "1.41.6"
 WaveSpec = "0.3.1"
 julia = "1.10, 1.11"
