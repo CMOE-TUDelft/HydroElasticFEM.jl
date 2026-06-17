@@ -82,6 +82,10 @@ Base.keys(d::IntegrationDomains) = keys(d.data)
 # Examples: :Ω -> :dΩ, :Γ_s -> :dΓ_s, :Λη -> :dΛη.
 _measure_key(domain_symbol::Symbol) = Symbol("d", domain_symbol)
 
+# Convert a triangulation key into the matching normal key used by weak forms.
+# Examples: :Γ_s -> :nΓ_s, :Λη -> :n_Λη.
+_normal_key(domain_symbol::Symbol) = Symbol("n", domain_symbol)
+
 # Convert a measure key back to its triangulation key.  This lets callers pass
 # either :Γ_s or :dΓ_s in a degree dictionary and get the same quadrature order.
 _domain_key(measure_symbol::Symbol) = Symbol(string(measure_symbol)[2:end])
@@ -221,10 +225,12 @@ function get_integration_domains(
   for domain_symbol in _degree_domain_keys(degree)
     haskey(tri, domain_symbol) || continue
     measure_symbol = _measure_key(domain_symbol)
+    normal_symbol = _normal_key(domain_symbol)
     haskey(d, measure_symbol) && continue
-    trian = tri[domain_symbol]
+    trian = tri[domain_symbol]  
     _can_define_measure(trian) || continue
     d[measure_symbol] = Measure(trian, get_deg(domain_symbol))
+    d[normal_symbol] = get_normal_vector(trian)
   end
 
   IntegrationDomains(d)

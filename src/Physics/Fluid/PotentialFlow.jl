@@ -166,7 +166,7 @@ function stiffness(pf::PotentialFlow, ctx::AC.AbstractAssemblyContext, x, y)
     dΩ = _space_measure(dom, pf)
     # Fluid bulk term: Laplace equation for velocity potential.
     # Weak form: ∫_Ω ∇ϕ·∇w dΩ = 0 (no sources).
-    # Reference: [C23] Section 2.1, Eq. (1)-(3).
+    # Reference: [C23] Section 2.1, Eq. (1)-(3).    
     val = ∫(∇(w) ⋅ ∇(ϕ))dΩ
     bc_val = _stiffness_bc_contributions(pf, ctx, ϕ, w)
     return _add_contribution(val, bc_val)
@@ -236,6 +236,7 @@ function _stiffness_bc_contribution(pf::PotentialFlow, bc::RadiationBC, dom::Int
     _ = _radiation_frequency(pf)
     k = _radiation_wavenumber(pf)
     dΓ = dom[bc.domain]
+    println("Computing stiffness contribution for RadiationBC on domain $(bc.domain) with wavenumber k=$(k)." )
     return ∫(-im * k * w * ϕ)dΓ
 end
 
