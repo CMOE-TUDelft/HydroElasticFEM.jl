@@ -1,8 +1,8 @@
 """
     HydroElasticFEM
 
-Finite element analysis of hydroelastic wave–structure interaction
-for very large floating structures.
+Finite element analysis of hydroelastic wave–structure interaction problems
+in very large floating structures.
 
 Uses a continuous/discontinuous Galerkin (C/DG) formulation coupling linearised
 potential flow fluid models with structural models (membranes, Euler–Bernoulli beams,
