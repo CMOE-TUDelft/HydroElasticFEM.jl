@@ -3,13 +3,21 @@
 
 Unified type hierarchy for all physical entities in HydroElasticFEM.
 
-Each entity file may define any subset of `mass`, `damping`,
-`stiffness`, and `rhs` methods that access FE fields by symbol
-(e.g. `x[:ϕ]`, `x[:η_m]`) via a `FieldMap` wrapper provided by
-`FEOperators`.
+Each physics entity is a subtype of `PhysicsParameters` and may define any 
+subset of `mass`, `damping`, `stiffness`, and `rhs` methods that access FE 
+fields by symbol (e.g. `x[:ϕ]`, `x[:η_m]`) via a `FieldMap` wrapper provided 
+by `FEOperators`.
 
 Generic composed forms (`weakform`, `residual`, `jacobian`, ...)
 are defined at module level and dispatch to the linear forms.
+
+The following functions have to be implemented for every concrete subtype of `PhysicsParameters`:
+- `print_parameters(params::PhysicsParameters)`
+- `variable_symbol(s::PhysicsParameters) -> Symbol`
+
+For multi-field entities, the following should be overridden:
+- `variable_symbols(s::PhysicsParameters) -> Tuple{Vararg{Symbol}}`
+- `field_fe_configs(s::PhysicsParameters) -> Tuple{Vararg{FESpaceConfig}}`
 """
 module Physics
 
@@ -38,7 +46,11 @@ Abstract base type for all physics parameter structures.
 """
 abstract type PhysicsParameters end
 
-"""Abstract base type for structure physics entities (beams, plates, membranes)."""
+"""
+    abstract type Structure <:PhysicsParameters
+
+Abstract base type for structure physics entities (beams, plates, membranes).
+"""
 abstract type Structure <:PhysicsParameters end
 
 """
@@ -101,9 +113,6 @@ derivative in the equation of motion: `M * ẍ`.
 
 # Returns
 - `Gridap.FESpaces.DomainContribution`: assembled bilinear form contribution
-
-# Reference
-[C23] Colomés et al. (2023), Int. J. Numer. Methods Eng., 124(3), 714-751.
 """
 function mass(s::PhysicsParameters, dom, x_tt, y)
     error("mass not implemented for $(typeof(s))")
@@ -127,9 +136,6 @@ derivative in the equation of motion: `C * ẋ`.
 
 # Returns
 - `Gridap.FESpaces.DomainContribution`: assembled bilinear form contribution
-
-# Reference
-[C23] Colomés et al. (2023), Int. J. Numer. Methods Eng., 124(3), 714-751.
 """
 function damping(s::PhysicsParameters, dom, x_t, y)
     error("damping not implemented for $(typeof(s))")
@@ -152,9 +158,6 @@ Must be implemented by every concrete subtype for which `has_stiffness_form(s)` 
 
 # Returns
 - `Gridap.FESpaces.DomainContribution`: assembled bilinear form contribution
-
-# Reference
-[C23] Colomés et al. (2023), Int. J. Numer. Methods Eng., 124(3), 714-751.
 """
 function stiffness(s::PhysicsParameters, dom, x, y)
     error("stiffness not implemented for $(typeof(s))")
@@ -177,9 +180,6 @@ Must be implemented by every concrete subtype for which `has_rhs_form(s)` return
 
 # Returns
 - `Gridap.FESpaces.DomainContribution`: assembled linear form contribution
-
-# Reference
-[C23] Colomés et al. (2023), Int. J. Numer. Methods Eng., 124(3), 714-751.
 """
 function rhs(s::PhysicsParameters, dom, f, y)
     error("rhs not implemented for $(typeof(s))")
@@ -194,13 +194,13 @@ stiffness(s::PhysicsParameters, ctx::AC.AbstractAssemblyContext, x, y) =
 rhs(s::PhysicsParameters, ctx::AC.AbstractAssemblyContext, f, y) =
     rhs(s, AC.domains(ctx), f, y)
 
-mass(a, b, ctx::AC.AbstractAssemblyContext, x_tt, y) =
+mass(a::PhysicsParameters, b::PhysicsParameters, ctx::AC.AbstractAssemblyContext, x_tt, y) =
     mass(a, b, AC.domains(ctx), x_tt, y)
-damping(a, b, ctx::AC.AbstractAssemblyContext, x_t, y) =
+damping(a::PhysicsParameters, b::PhysicsParameters, ctx::AC.AbstractAssemblyContext, x_t, y) =
     damping(a, b, AC.domains(ctx), x_t, y)
-stiffness(a, b, ctx::AC.AbstractAssemblyContext, x, y) =
+stiffness(a::PhysicsParameters, b::PhysicsParameters, ctx::AC.AbstractAssemblyContext, x, y) =
     stiffness(a, b, AC.domains(ctx), x, y)
-rhs(a, b, ctx::AC.AbstractAssemblyContext, f, y) =
+rhs(a::PhysicsParameters, b::PhysicsParameters, ctx::AC.AbstractAssemblyContext, f, y) =
     rhs(a, b, AC.domains(ctx), f, y)
 
 # Optional form-presence traits.
@@ -243,14 +243,14 @@ to `false` unless specialized.
 has_rhs_form(::PhysicsParameters) = true
 
 # Two-entity coupling forms default to absent unless enabled.
-has_mass_form(a, b) = false
-has_damping_form(a, b) = false
-has_stiffness_form(a, b) = false
-has_rhs_form(a, b) = false
+has_mass_form(a::PhysicsParameters, b::PhysicsParameters) = false
+has_damping_form(a::PhysicsParameters, b::PhysicsParameters) = false
+has_stiffness_form(a::PhysicsParameters, b::PhysicsParameters) = false
+has_rhs_form(a::PhysicsParameters, b::PhysicsParameters) = false
 
 """
     active_forms(ctx::AC.AbstractAssemblyContext, s::PhysicsParameters)
-    active_forms(ctx::AC.AbstractAssemblyContext, a, b)
+    active_forms(ctx::AC.AbstractAssemblyContext, a::PhysicsParameters, b::PhysicsParameters)
 
 Return a named tuple with active form flags for `mass`, `damping`,
 `stiffness`, and `rhs` in the provided assembly context.
@@ -262,7 +262,7 @@ active_forms(::AC.AbstractAssemblyContext, s::PhysicsParameters) = (
     rhs=has_rhs_form(s),
 )
 
-active_forms(::AC.AbstractAssemblyContext, a, b) = (
+active_forms(::AC.AbstractAssemblyContext, a::PhysicsParameters, b::PhysicsParameters) = (
     mass=has_mass_form(a, b),
     damping=has_damping_form(a, b),
     stiffness=has_stiffness_form(a, b),

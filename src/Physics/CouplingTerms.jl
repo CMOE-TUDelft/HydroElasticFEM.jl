@@ -9,7 +9,7 @@
 # Fluid ↔ Structure coupling (kinematic / dynamic BC on Γ_s)
 #
 # Time-domain coupling lives only in damping:
-#     ∫( y[η] * x_t[:ϕ] − y[:ϕ] * x_t[η] ) dΓ_s
+#     ∫( y[:η] * x_t[:ϕ] − y[:ϕ] * x_t[:η] ) dΓ_s
 # Kinematic interface coupling reference:
 #   [C23] Section 3.1, Eq. (21) and Section 3.2, Eq. (26).
 # Dynamic/restoring contributions are represented in structure self-forms
@@ -41,8 +41,10 @@ Ensures continuity of normal velocity at the fluid-structure interface:
 function damping(pf::PotentialFlow, s::Structure, dom::IntegrationDomains, x_t, y)
     ϕ_sym = variable_symbol(pf)
     η_sym = variable_symbol(s)
-    ϕₜ = x_t[ϕ_sym];  ηₜ = x_t[η_sym]
-    w  = y[ϕ_sym];     v  = y[η_sym]
+    ϕₜ = x_t[ϕ_sym]
+    ηₜ = x_t[η_sym]
+    w  = y[ϕ_sym]
+    v  = y[η_sym]
     dΩ = _space_measure(dom, s)
     # FSI kinematic condition in weak form:
     # ∫_Γs (v·∂tϕ - w·∂tη) dΓ.
@@ -62,7 +64,8 @@ end
 # weakform = −ω²·mass + (−iω)·damping + stiffness reproduces the above.
 # =========================================================================
 
-# Free-surface coupling has mass and damping terms only.
+# Free-surface coupling has mass and damping terms. The stabilization term leads to additional
+# stiffness and the presence of damping zones to additional stiffness and RHS terms.
 has_mass_form(::PotentialFlow, ::FreeSurface) = true
 has_damping_form(::PotentialFlow, ::FreeSurface) = true
 has_stiffness_form(::PotentialFlow, ::FreeSurface) = true
