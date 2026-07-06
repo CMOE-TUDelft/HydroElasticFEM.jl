@@ -10,10 +10,10 @@ tags:
   - fully differentiable
 authors:
   - name: Oriol Colomés
-    orcid: 0000-0002-5552-9695   # TODO: fill in from https://orcid.org
+    orcid: 0000-0002-5552-9695   
     affiliation: 1
   - name: Shagun Agarwal
-    orcid: 0000-0003-1922-4242   # TODO: fill in from https://orcid.org
+    orcid: 0000-0003-1922-4242   
     affiliation: 1
 affiliations:
   - name: Civil Engineering and Geosciences Faculty, Delft University of Technology, the Netherlands
@@ -46,6 +46,12 @@ In the past years the authors of this package developed a formulation for the hy
 # Software Design
 
 HydroElasticFEM.jl is organized into three layered modules: Geometry, Physics, and Simulation.
+
+Figure 1 summarizes the software architecture and highlights the four main
+design contributions of HydroElasticFEM.jl.
+
+![Figure 1: Software architecture of HydroElasticFEM.jl, showing the Geometry,
+Physics, and Simulation layers.](./figure1_software_design.pdf)
 
 The **Geometry layer** converts a user-specified domain into named Gridap triangulations and quadrature measures.  `TankDomain{D}` generates Cartesian meshes for 2D and 3D numerical wave tanks, including embedded structural sub-domains and sponge-layer damping zones.  `GmshDomain` wraps an external `.msh` file where boundaries are identified by physical-group names, so the same
 physics code runs on any mesh that defines the required groups.
