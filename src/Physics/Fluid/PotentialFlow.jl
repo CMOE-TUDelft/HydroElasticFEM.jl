@@ -473,11 +473,8 @@ function _radiation_damping_coefficient(pf::PotentialFlow,
     return _radiation_wavenumber(pf) / _radiation_frequency(pf)
 end
 
-function _active_radiation_bcs(pf::PotentialFlow)
-    [bc for bc in pf.boundary_conditions if bc isa RadiationBC && bc.enabled]
-end
-
-_radiation_enabled(pf::PotentialFlow) = !isempty(_active_radiation_bcs(pf))
+_radiation_enabled(pf::PotentialFlow) =
+    any(bc -> bc isa RadiationBC && bc.enabled, pf.boundary_conditions)
 
 # Filter the BC list to enabled DampingZoneBC instances.
 _active_damping_zone_bcs(pf::PotentialFlow) = [bc for bc in pf.boundary_conditions if bc isa DampingZoneBC && bc.enabled]
