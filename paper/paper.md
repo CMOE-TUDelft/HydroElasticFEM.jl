@@ -51,7 +51,7 @@ Figure 1 summarizes the software architecture and highlights the four main
 design contributions of HydroElasticFEM.jl.
 
 ![Figure 1: Software architecture of HydroElasticFEM.jl, showing the Geometry,
-Physics, and Simulation layers.](./figure1_software_design.pdf)
+Physics, and Simulation layers.](figure1_software_design.pdf)
 
 The **Geometry layer** converts a user-specified domain into named Gridap triangulations and quadrature measures.  `TankDomain{D}` generates Cartesian meshes for 2D and 3D numerical wave tanks, including embedded structural sub-domains and sponge-layer damping zones.  `GmshDomain` wraps an external `.msh` file where boundaries are identified by physical-group names, so the same
 physics code runs on any mesh that defines the required groups.
