@@ -142,6 +142,19 @@ ambient_dimension(pf::PotentialFlow) = pf.dim
 has_mass_form(::PotentialFlow) = false
 has_damping_form(::PotentialFlow) = false
 
+function active_forms(::AC.FrequencyAssemblyContext, ::PotentialFlow)
+    return (mass=false, damping=false, stiffness=true, rhs=true)
+end
+
+function active_forms(::AC.TimeAssemblyContext, pf::PotentialFlow)
+    return (
+        mass=false,
+        damping=_radiation_enabled(pf),
+        stiffness=true,
+        rhs=true,
+    )
+end
+
 # ── Single-variable weak forms ─────────────────────────────
 #    Field access via variable_symbol (velocity potential)
 
@@ -191,6 +204,20 @@ function rhs(pf::PotentialFlow, ctx::AC.AbstractAssemblyContext, f, y)
     return _add_contribution(val, bc_val)
 end
 
+function damping(pf::PotentialFlow, dom::IntegrationDomains, x_t, y)
+    sym = variable_symbol(pf)
+    ϕₜ = x_t[sym]
+    w = y[sym]
+    return _damping_bc_contributions(pf, dom, ϕₜ, w)
+end
+
+function damping(pf::PotentialFlow, ctx::AC.AbstractAssemblyContext, x_t, y)
+    sym = variable_symbol(pf)
+    ϕₜ = x_t[sym]
+    w = y[sym]
+    return _damping_bc_contributions(pf, ctx, ϕₜ, w)
+end
+
 # ----────────────────────────────────────────────────────────────
 # Stiffness contributions from boundary conditions (e.g., radiation BC)
 # -----────────────────────────────────────────────────────────────
@@ -233,16 +260,21 @@ _stiffness_bc_contribution(::PotentialFlow, ::AbstractPotentialFlowBC, ::AC.Abst
 
 function _stiffness_bc_contribution(pf::PotentialFlow, bc::RadiationBC, dom::IntegrationDomains, ϕ, w)
     bc.enabled || return nothing
-    _ = _radiation_frequency(pf)
-    k = _radiation_wavenumber(pf)
+    coeff = _radiation_stiffness_coefficient(pf, AC.FrequencyAssemblyContext(dom, _radiation_frequency(pf), nothing))
     dΓ = dom[bc.domain]
-    println("Computing stiffness contribution for RadiationBC on domain $(bc.domain) with wavenumber k=$(k)." )
-    return ∫(-im * k * w * ϕ)dΓ
+    return ∫(coeff * w * ϕ)dΓ
 end
 
-function _stiffness_bc_contribution(pf::PotentialFlow, bc::RadiationBC, ctx::AC.AbstractAssemblyContext, ϕ, w)
+function _stiffness_bc_contribution(pf::PotentialFlow, bc::RadiationBC, ctx::AC.FrequencyAssemblyContext, ϕ, w)
     dom = AC.domains(ctx)
-    return _stiffness_bc_contribution(pf, bc, dom, ϕ, w)
+    coeff = _radiation_stiffness_coefficient(pf, ctx)
+    dΓ = dom[bc.domain]
+    return ∫(coeff * w * ϕ)dΓ
+end
+
+function _stiffness_bc_contribution(::PotentialFlow, bc::RadiationBC, ::AC.TimeAssemblyContext, ϕ, w)
+    bc.enabled || return nothing
+    return nothing
 end
 
 function _stiffness_bc_contribution(::PotentialFlow, bc::DampingZoneBC, dom::IntegrationDomains, ϕ, w)
@@ -317,7 +349,7 @@ end
 function _rhs_bc_contribution(pf::PotentialFlow, bc::PrescribedInletPotentialBC, ctx::AC.AbstractAssemblyContext, w)
     dom = AC.domains(ctx)
     forcing = _resolve_space_function(bc.forcing, ctx)
-    return _prescribed_rhs_contribution(Val(bc.quantity), pf, forcing, dom[bc.domain], w)
+    return _prescribed_rhs_contribution(Val(bc.quantity), pf, forcing, dom[bc.domain], ctx, w)
 end
 
 function _rhs_bc_contribution(::PotentialFlow, bc::DampingZoneBC, dom::IntegrationDomains, w)
@@ -350,8 +382,70 @@ function _prescribed_rhs_contribution(::Val{:potential}, pf::PotentialFlow, forc
     k = _radiation_wavenumber(pf)
     return ∫(-im * k * w * forcing)dΓ
 end
+function _prescribed_rhs_contribution(::Val{:traction}, ::PotentialFlow, forcing, dΓ,
+                                      ::AC.AbstractAssemblyContext, w)
+    return ∫(w * forcing)dΓ
+end
+function _prescribed_rhs_contribution(::Val{:normal_gradient}, ::PotentialFlow, forcing,
+                                      dΓ, ::AC.AbstractAssemblyContext, w)
+    return ∫(w * forcing)dΓ
+end
+function _prescribed_rhs_contribution(::Val{:potential}, pf::PotentialFlow, forcing, dΓ,
+                                      ::AC.FrequencyAssemblyContext, w)
+    k = _radiation_wavenumber(pf)
+    return ∫(-im * k * w * forcing)dΓ
+end
+function _prescribed_rhs_contribution(::Val{:potential}, ::PotentialFlow, forcing, dΓ,
+                                      ::AC.TimeAssemblyContext, w)
+    error("PrescribedInletPotentialBC with quantity=:potential is only supported in frequency-domain assembly contexts.")
+end
+function _prescribed_rhs_contribution(::Val{Q}, ::PotentialFlow, forcing, dΓ,
+                                      ::AC.AbstractAssemblyContext, w) where {Q}
+    error("Unsupported PrescribedInletPotentialBC quantity `$(Q)`. Expected one of :potential, :normal_gradient, or :traction.")
+end
 function _prescribed_rhs_contribution(::Val{Q}, ::PotentialFlow, forcing, dΓ, w) where {Q}
     error("Unsupported PrescribedInletPotentialBC quantity `$(Q)`. Expected one of :potential, :normal_gradient, or :traction.")
+end
+
+function _damping_bc_contributions(pf::PotentialFlow, dom::IntegrationDomains, ϕₜ, w)
+    val = nothing
+    for bc in pf.boundary_conditions
+        val = _add_contribution(val, _damping_bc_contribution(pf, bc, dom, ϕₜ, w))
+    end
+    return val
+end
+
+function _damping_bc_contributions(pf::PotentialFlow, ctx::AC.AbstractAssemblyContext, ϕₜ, w)
+    val = nothing
+    for bc in pf.boundary_conditions
+        val = _add_contribution(val, _damping_bc_contribution(pf, bc, ctx, ϕₜ, w))
+    end
+    return val
+end
+
+_damping_bc_contribution(::PotentialFlow, ::AbstractPotentialFlowBC, ::IntegrationDomains, ϕₜ, w) = nothing
+_damping_bc_contribution(::PotentialFlow, ::AbstractPotentialFlowBC,
+                         ::AC.AbstractAssemblyContext, ϕₜ, w) = nothing
+
+function _damping_bc_contribution(pf::PotentialFlow, bc::RadiationBC,
+                                  ::IntegrationDomains, ϕₜ, w)
+    bc.enabled || return nothing
+    return nothing
+end
+
+function _damping_bc_contribution(pf::PotentialFlow, bc::RadiationBC,
+                                  ctx::AC.TimeAssemblyContext, ϕₜ, w)
+    bc.enabled || return nothing
+    dom = AC.domains(ctx)
+    coeff = _radiation_damping_coefficient(pf, ctx)
+    dΓ = dom[bc.domain]
+    return ∫(coeff * w * ϕₜ)dΓ
+end
+
+function _damping_bc_contribution(::PotentialFlow, bc::RadiationBC,
+                                  ::AC.FrequencyAssemblyContext, ϕₜ, w)
+    bc.enabled || return nothing
+    return nothing
 end
 
 # -----────────────────────────────────────────────────────────────
@@ -369,6 +463,21 @@ end
 # Wavenumber and angular frequency extracted from the single-component sea state.
 _radiation_wavenumber(pf::PotentialFlow) = _single_frequency_wave(pf).k[1]
 _radiation_frequency(pf::PotentialFlow) = _single_frequency_wave(pf).ω[1]
+
+_radiation_stiffness_coefficient(pf::PotentialFlow,
+                                 ::AC.FrequencyAssemblyContext) =
+    -im * _radiation_wavenumber(pf)
+
+function _radiation_damping_coefficient(pf::PotentialFlow,
+                                        ::AC.TimeAssemblyContext)
+    return _radiation_wavenumber(pf) / _radiation_frequency(pf)
+end
+
+function _active_radiation_bcs(pf::PotentialFlow)
+    [bc for bc in pf.boundary_conditions if bc isa RadiationBC && bc.enabled]
+end
+
+_radiation_enabled(pf::PotentialFlow) = !isempty(_active_radiation_bcs(pf))
 
 # Filter the BC list to enabled DampingZoneBC instances.
 _active_damping_zone_bcs(pf::PotentialFlow) = [bc for bc in pf.boundary_conditions if bc isa DampingZoneBC && bc.enabled]
