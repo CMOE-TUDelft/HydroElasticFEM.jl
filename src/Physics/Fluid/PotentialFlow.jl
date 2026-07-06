@@ -260,16 +260,13 @@ _stiffness_bc_contribution(::PotentialFlow, ::AbstractPotentialFlowBC, ::AC.Abst
 
 function _stiffness_bc_contribution(pf::PotentialFlow, bc::RadiationBC, dom::IntegrationDomains, ϕ, w)
     bc.enabled || return nothing
-    coeff = _radiation_stiffness_coefficient(pf, AC.FrequencyAssemblyContext(dom, _radiation_frequency(pf), nothing))
+    coeff = _radiation_stiffness_coefficient(pf)
     dΓ = dom[bc.domain]
     return ∫(coeff * w * ϕ)dΓ
 end
 
 function _stiffness_bc_contribution(pf::PotentialFlow, bc::RadiationBC, ctx::AC.FrequencyAssemblyContext, ϕ, w)
-    dom = AC.domains(ctx)
-    coeff = _radiation_stiffness_coefficient(pf, ctx)
-    dΓ = dom[bc.domain]
-    return ∫(coeff * w * ϕ)dΓ
+    return _stiffness_bc_contribution(pf, bc, AC.domains(ctx), ϕ, w)
 end
 
 function _stiffness_bc_contribution(::PotentialFlow, bc::RadiationBC, ::AC.TimeAssemblyContext, ϕ, w)
@@ -464,9 +461,7 @@ end
 _radiation_wavenumber(pf::PotentialFlow) = _single_frequency_wave(pf).k[1]
 _radiation_frequency(pf::PotentialFlow) = _single_frequency_wave(pf).ω[1]
 
-_radiation_stiffness_coefficient(pf::PotentialFlow,
-                                 ::AC.FrequencyAssemblyContext) =
-    -im * _radiation_wavenumber(pf)
+_radiation_stiffness_coefficient(pf::PotentialFlow) = -im * _radiation_wavenumber(pf)
 
 function _radiation_damping_coefficient(pf::PotentialFlow,
                                         ::AC.TimeAssemblyContext)
