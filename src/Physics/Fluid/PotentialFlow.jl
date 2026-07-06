@@ -79,7 +79,7 @@ end
     PotentialFlow <: PhysicsParameters
 
 Parameters for the linearised velocity-potential formulation of irrotational,
-incompressible fluid flow (Laplace equation).
+incompressible and inviscid fluid flow (Laplace equation).
 
 The velocity potential `ϕ` [m²/s] satisfies `∇²ϕ = 0` in the fluid volume `Ω`.
 Weak-form boundary conditions (radiation, prescribed inlet, damping zones) are
