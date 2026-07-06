@@ -206,17 +206,11 @@ function build_time_context(domains::G.IntegrationDomains,
         isnothing(tconfig.αₕ) && error("Time-domain damping-zone problems require `TimeConfig.αₕ`.")
     end
 
-    if _has_radiation_bc(physics)
-        for entity in physics
-            if entity isa P.PotentialFlow
-                for bc in entity.boundary_conditions
-                    if bc isa P.RadiationBC && bc.enabled
-                        P._radiation_frequency(entity)
-                    end
-                end
-            end
-        end
+for entity in physics
+    if entity isa P.PotentialFlow && any(bc -> bc isa P.RadiationBC && bc.enabled, entity.boundary_conditions)
+        P._radiation_frequency(entity)
     end
+end
 
     t₀ = isnothing(tconfig) ? config.t₀ : tconfig.t₀
     αₕ = isnothing(tconfig) ? nothing : tconfig.αₕ
