@@ -142,6 +142,13 @@ function _has_damping_zone_bc(physics::Vector{P.PhysicsParameters})
     )
 end
 
+function _has_radiation_bc(physics::Vector{P.PhysicsParameters})
+    any(
+        p -> p isa P.PotentialFlow && any(bc -> bc isa P.RadiationBC && bc.enabled, p.boundary_conditions),
+        physics,
+    )
+end
+
 """
     build_frequency_context(domains, physics, config) -> FrequencyAssemblyContext
 
@@ -198,6 +205,13 @@ function build_time_context(domains::G.IntegrationDomains,
         isnothing(tconfig) && error("Time-domain damping-zone problems require `tconfig` to be passed to `build_problem`.")
         isnothing(tconfig.αₕ) && error("Time-domain damping-zone problems require `TimeConfig.αₕ`.")
     end
+
+for entity in physics
+    if entity isa P.PotentialFlow && any(bc -> bc isa P.RadiationBC && bc.enabled, entity.boundary_conditions)
+        P._radiation_frequency(entity)
+    end
+end
+
     t₀ = isnothing(tconfig) ? config.t₀ : tconfig.t₀
     αₕ = isnothing(tconfig) ? nothing : tconfig.αₕ
     AC.TimeAssemblyContext(domains, t₀, αₕ)

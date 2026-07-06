@@ -29,6 +29,12 @@ function _potential_flow_problem(pf; ω=2π / 5.0)
   SM.build_problem(tank, P.PhysicsParameters[pf], config)
 end
 
+function _potential_flow_time_problem(pf)
+  tank = G.TankDomain(L=20.0, H=10.0, nx=12, ny=4)
+  config = SM.TimeDomainConfig(t₀=0.0, tf=0.1)
+  SM.build_problem(tank, P.PhysicsParameters[pf], config)
+end
+
 @testset "PotentialFlow struct" begin
   pf = P.PotentialFlow()
   @test pf isa P.PhysicsParameters
@@ -73,6 +79,9 @@ end
   )
   @test_throws ErrorException _potential_flow_problem(pf_multi; ω=ω)
 
+  @test_nowarn _potential_flow_time_problem(pf_rad)
+  @test_throws ErrorException _potential_flow_time_problem(pf_multi)
+
   pf_inlet = P.PotentialFlow(
     sea_state=state,
     boundary_conditions=[
@@ -89,4 +98,13 @@ end
   ϕ_l2 = sqrt(abs(sum(∫(ϕₕ * conj(ϕₕ))dΩ)))
   @test ϕ_l2 > 0.0
   @test isfinite(ϕ_l2)
+
+  pf_inlet_time = P.PotentialFlow(
+    sea_state=state,
+    boundary_conditions=[
+      P.PrescribedInletPotentialBC(forcing=(x -> 1.0 + 0.0im), quantity=:potential),
+    ],
+    fe=PH.FESpaceConfig(order=1, vector_type=Vector{ComplexF64}),
+  )
+  @test_throws ErrorException _potential_flow_time_problem(pf_inlet_time)
 end
