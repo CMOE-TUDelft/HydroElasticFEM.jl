@@ -71,7 +71,7 @@ jobs:
       # Upload benchmark results as a downloadable artifact for every run
       - name: Upload results artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-results-${{ github.run_id }}
           path: |
