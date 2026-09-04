@@ -7,6 +7,7 @@
 [![CI Status][ci-img]][ci-url]
 [![Code Coverage][cov-img]][cov-url]
 [![Documentation][docs-img]][docs-url]
+[![DOI](https://zenodo.org/badge/1029609698.svg)](https://doi.org/10.5281/zenodo.16764244)
 
 [ci-img]: https://img.shields.io/github/actions/workflow/status/CMOE-TUDelft/HydroElasticFEM.jl/CI.yml?branch=main
 [ci-url]: https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/actions/workflows/CI.yml
