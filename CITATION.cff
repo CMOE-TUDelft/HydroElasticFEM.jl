@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "HydroElasticFEM.jl"
+abstract: >-
+  A Julia package for finite element (FE) simulation of hydro-elastic
+  wave-structure interaction problems. It couples potential flow fluid
+  models with structural models (membranes, Euler-Bernoulli beams,
+  resonators) using the Gridap.jl FE framework.
+type: software
+authors:
+  - given-names: Oriol
+    family-names: Colomés
+    email: J.O.ColomesGene@tudelft.nl
+    affiliation: "Delft University of Technology"
+    orcid: 0000-0002-5552-9695
+  - given-names: Shagun
+    family-names: Agarwal
+    email: shagun.1994@gmail.com
+    orcid: 0000-0003-1922-4242
+repository-code: "https://github.com/CMOE-TUDelft/HydroElasticFEM.jl"
+url: "https://CMOE-TUDelft.github.io/HydroElasticFEM.jl/"
+license: MIT
+version: 0.1.2
+doi: 10.5281/zenodo.22305832
+keywords:
+  - Julia
+  - finite element method
+  - hydroelasticity
+  - fluid-structure interaction
+  - wave-structure interaction
+  - Gridap
