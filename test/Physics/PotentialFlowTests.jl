@@ -99,12 +99,44 @@ end
   @test ϕ_l2 > 0.0
   @test isfinite(ϕ_l2)
 
+  pf_no_inlet_time = P.PotentialFlow(
+    sea_state=state,
+    boundary_conditions=[],
+    fe=PH.FESpaceConfig(order=1, vector_type=Vector{ComplexF64}),
+  )
+
   pf_inlet_time = P.PotentialFlow(
     sea_state=state,
     boundary_conditions=[
-      P.PrescribedInletPotentialBC(forcing=(x -> 1.0 + 0.0im), quantity=:potential),
+      P.PrescribedInletPotentialBC(forcing=(x -> 1.0 + 0.0im), quantity=:normal_gradient),
     ],
     fe=PH.FESpaceConfig(order=1, vector_type=Vector{ComplexF64}),
   )
-  @test_throws ErrorException _potential_flow_time_problem(pf_inlet_time)
+
+  problem_no_inlet_time = _potential_flow_time_problem(pf_no_inlet_time)
+  problem_inlet_time = _potential_flow_time_problem(pf_inlet_time)
+
+  tconfig = PH.TimeConfig(Δt=0.05, tf=0.1, u0=[0.0])
+  result_no_inlet_time = SM.simulate(problem_no_inlet_time, tconfig)
+  result_inlet_time = SM.simulate(problem_inlet_time, tconfig)
+
+  sol_no = collect(result_no_inlet_time.solution)
+  sol_in = collect(result_inlet_time.solution)
+
+  _, uh_no = sol_no[end]
+  _, uh_in = sol_in[end]
+
+  ϕ_no = uh_no[1]
+  ϕ_in = uh_in[1]
+
+  dΩ = SM.get_integration_domains(problem_inlet_time)[:dΩ]
+  V = SM.get_trial_fe_space(problem_inlet_time)
+  v_no = get_free_dof_values(ϕ_no)
+  v_in = get_free_dof_values(ϕ_in)
+  ϕ_diff_mf = FEFunction(V, v_in - v_no)
+  ϕ_diff = ϕ_diff_mf[1]
+  diff_l2 = sqrt(abs(sum(∫(ϕ_diff * conj(ϕ_diff))dΩ)))
+
+  @test isfinite(diff_l2)
+  @test diff_l2 > 0.0
 end
