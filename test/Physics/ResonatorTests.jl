@@ -32,8 +32,8 @@ end
   @test_throws ArgumentError P.resonator_array(0, Float64[], Float64[], Float64[], P.VectorValue{2,Float64}[])
 end
 
-@testset "has_*_form traits for empty resonator vector" begin
-  empty_resn = P.ResonatorSingle[]
+@testset "has_*_form traits for empty resonator array" begin
+  empty_resn = P.ResonatorArray(P.ResonatorSingle[])
   @test !P.has_mass_form(empty_resn)
   @test !P.has_damping_form(empty_resn)
   @test !P.has_stiffness_form(empty_resn)

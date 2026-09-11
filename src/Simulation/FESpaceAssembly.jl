@@ -83,12 +83,13 @@ function build_test_fe_space(entity::P.PhysicsParameters, trian, config::PH.Time
 end
 
 """
-    build_test_fe_space(resn::Vector{P.ResonatorSingle}, trian, config::PH.SimulationConfig)
+    build_test_fe_space(ra::P.ResonatorArray, trian, config::PH.SimulationConfig)
 
 Build one `ConstantFESpace` per resonator on triangulation `trian`.
 Returns a `Vector` of test spaces.
 """
-function build_test_fe_space(resn::Vector{P.ResonatorSingle}, trian, ::PH.FreqDomainConfig)
+function build_test_fe_space(ra::P.ResonatorArray, trian, ::PH.FreqDomainConfig)
+    resn = ra.resonators
     @assert all(r -> r.fe.vector_type == Vector{ComplexF64}, resn) "Frequency-domain simulations require complex-valued FE spaces."
     [ConstantFESpace(trian;
         vector_type = iresn.fe.vector_type,
@@ -96,11 +97,11 @@ function build_test_fe_space(resn::Vector{P.ResonatorSingle}, trian, ::PH.FreqDo
      for iresn in resn]
 end
 
-function build_test_fe_space(resn::Vector{P.ResonatorSingle}, trian, ::PH.TimeDomainConfig)
+function build_test_fe_space(ra::P.ResonatorArray, trian, ::PH.TimeDomainConfig)
     [ConstantFESpace(trian;
         vector_type = iresn.fe.vector_type,
         field_type  = iresn.fe.space_type) 
-     for iresn in resn]
+     for iresn in ra.resonators]
 end
 
 """
@@ -121,12 +122,12 @@ function build_trial_fe_space(entity::P.PhysicsParameters, V_test, config::PH.Ti
 end
 
 """
-    build_trial_fe_space(resn::Vector{P.ResonatorSingle}, Vs::Vector, config::PH.SimulationConfig)
+    build_trial_fe_space(ra::P.ResonatorArray, Vs::Vector, config::PH.SimulationConfig)
 
 Build trial spaces for each resonator's test space.
 """
-build_trial_fe_space(resn::Vector{P.ResonatorSingle}, Vs::Vector, ::PH.FreqDomainConfig) = [TrialFESpace(V) for V in Vs]
-build_trial_fe_space(resn::Vector{P.ResonatorSingle}, Vs::Vector, ::PH.TimeDomainConfig) = [TransientTrialFESpace(V) for V in Vs]
+build_trial_fe_space(ra::P.ResonatorArray, Vs::Vector, ::PH.FreqDomainConfig) = [TrialFESpace(V) for V in Vs]
+build_trial_fe_space(ra::P.ResonatorArray, Vs::Vector, ::PH.TimeDomainConfig) = [TransientTrialFESpace(V) for V in Vs]
 
 # ─────────────────────────────────────────────────────────────
 # Main manager function
@@ -149,7 +150,7 @@ Build multi-field test and trial FE spaces from a list of entities and a TankTri
 Each entity uses the triangulation from trians[entity.domain_symbol].
 
 # Arguments
-- `entities`: iterable containing `P.PhysicsParameters` and/or `Vector{P.ResonatorSingle}`
+- `entities`: iterable containing `P.PhysicsParameters` and/or `P.ResonatorArray`
 - `trians`: `G.TankTriangulations` (dictionary-like)
 - `config`: `PH.SimulationConfig` (frequency or time-domain)
 
@@ -173,10 +174,11 @@ function build_fe_spaces(entities,
     idx  = 0
 
     for (ientity, entity) in enumerate(entities)
-        if entity isa Vector{P.ResonatorSingle}
-            isempty(entity) && throw(ArgumentError("Resonator array at position $ientity of the `entities` collection must be non-empty."))
-            domain_symbol = entity[1].space_domain_symbol
-            found_symbols = unique(getfield.(entity, :space_domain_symbol))
+        if entity isa P.ResonatorArray
+            resn = entity.resonators
+            isempty(resn) && throw(ArgumentError("Resonator array at position $ientity of the `entities` collection must be non-empty."))
+            domain_symbol = resn[1].space_domain_symbol
+            found_symbols = unique(getfield.(resn, :space_domain_symbol))
             length(found_symbols) > 1 &&
                 throw(ArgumentError("Resonator array at position $ientity in `entities` has inconsistent `space_domain_symbol` values. Expected all to be :$domain_symbol, but found: $found_symbols"))
             trian = trians[domain_symbol]

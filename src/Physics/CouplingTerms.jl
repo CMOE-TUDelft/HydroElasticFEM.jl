@@ -265,20 +265,21 @@ end
 # =========================================================================
 
 # Resonator-structure coupling has damping and stiffness terms only.
-# Return false for empty vectors to avoid BoundsError in form functions.
-has_damping_form(resn::Vector{ResonatorSingle}, ::Structure) = !isempty(resn)
-has_stiffness_form(resn::Vector{ResonatorSingle}, ::Structure) = !isempty(resn)
+# Return false for empty arrays to avoid BoundsError in form functions.
+has_damping_form(ra::ResonatorArray, ::Structure) = !isempty(ra.resonators)
+has_stiffness_form(ra::ResonatorArray, ::Structure) = !isempty(ra.resonators)
 
 """
-    damping(resn::Vector{ResonatorSingle}, s::Structure, dom::IntegrationDomains, x_t, y)
+    damping(ra::ResonatorArray, s::Structure, dom::IntegrationDomains, x_t, y)
 
 Resonator-structure coupling damping form.
 
 Contributes cross-damping terms between each resonator DOF `q_i` and the
-structural displacement `\u03b7` at resonator attachment points.
+structural displacement `η` at resonator attachment points.
 """
-function damping(resn::Vector{ResonatorSingle}, s::Structure,
+function damping(ra::ResonatorArray, s::Structure,
                  dom::IntegrationDomains, x_t, y)
+    resn  = ra.resonators
     δ_p   = dom[:δ_p]
     η_sym = variable_symbol(s)
     ηₜ    = x_t[η_sym]
@@ -300,15 +301,16 @@ function damping(resn::Vector{ResonatorSingle}, s::Structure,
 end
 
 """
-    stiffness(resn::Vector{ResonatorSingle}, s::Structure, dom::IntegrationDomains, x, y)
+    stiffness(ra::ResonatorArray, s::Structure, dom::IntegrationDomains, x, y)
 
 Resonator-structure coupling stiffness form.
 
 Contributes cross-stiffness terms between each resonator DOF `q_i` and the
-structural displacement `\u03b7` at resonator attachment points.
+structural displacement `η` at resonator attachment points.
 """
-function stiffness(resn::Vector{ResonatorSingle}, s::Structure,
+function stiffness(ra::ResonatorArray, s::Structure,
                    dom::IntegrationDomains, x, y)
+    resn  = ra.resonators
     δ_p   = dom[:δ_p]
     η_sym = variable_symbol(s)
     η     = x[η_sym]
