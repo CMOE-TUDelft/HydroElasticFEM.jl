@@ -177,10 +177,10 @@ function build_fe_spaces(entities,
         if entity isa P.ResonatorArray
             resn = entity.resonators
             isempty(resn) && throw(ArgumentError("Resonator array at position $ientity of the `entities` collection must be non-empty."))
-            domain_symbol = resn[1].space_domain_symbol
-            found_symbols = unique(getfield.(resn, :space_domain_symbol))
+            domain_symbol = resn[1].host_domain_symbol
+            found_symbols = unique(getfield.(resn, :host_domain_symbol))
             length(found_symbols) > 1 &&
-                throw(ArgumentError("Resonator array at position $ientity in `entities` has inconsistent `space_domain_symbol` values. Expected all to be :$domain_symbol, but found: $found_symbols"))
+                throw(ArgumentError("Resonator array at position $ientity in `entities` has inconsistent `host_domain_symbol` values. Expected all to be :$domain_symbol, but found: $found_symbols"))
             trian = trians[domain_symbol]
             Vs = build_test_fe_space(entity, trian, config)
             Us = build_trial_fe_space(entity, Vs, config)
@@ -188,7 +188,7 @@ function build_fe_spaces(entities,
                 idx += 1
                 push!(test_spaces, Vi)
                 push!(trial_spaces, Ui)
-                fmap[Symbol("q_$i")] = idx
+                fmap[P.variable_symbol(resn[i])] = idx
             end
         elseif entity isa P.PhysicsParameters
             trian = trians[entity.space_domain_symbol]

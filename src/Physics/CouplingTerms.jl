@@ -280,18 +280,19 @@ structural displacement `η` at resonator attachment points.
 function damping(ra::ResonatorArray, s::Structure,
                  dom::IntegrationDomains, x_t, y)
     resn  = ra.resonators
-    δ_p   = dom[:δ_p]
     η_sym = variable_symbol(s)
     ηₜ    = x_t[η_sym]
     v     = y[η_sym]
     î1    = VectorValue(1.0)
-    ξ1    = y[Symbol("q_1")]
-    q1    = x_t[Symbol("q_1")]
-    dΩ    = _space_measure(dom, resn)
+    ξ1    = y[variable_symbol(resn[1])]
+    q1    = x_t[variable_symbol(resn[1])]
+    δ_p1 = dom[resn[1].delta_domain_symbol]
+    dΩ  = dom[Symbol("d",resn[1].host_domain_symbol)]
     val   = ∫((ξ1 ⋅ q1) * 0.0)dΩ
-    for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
-        qₜi = x_t[Symbol("q_$i")]
-        ξi  = y[Symbol("q_$i")]
+    for (i, ri) in enumerate(resn)
+        δi = dom[ri.delta_domain_symbol]
+        qₜi = x_t[variable_symbol(ri)]
+        ξi  = y[variable_symbol(ri)]
         # force on structure from resonator velocity
         val += (ri.C / ri.ρw) * δi(v * ((qₜi ⋅ î1) - ηₜ))
         # force on resonator from structure velocity
@@ -311,18 +312,19 @@ structural displacement `η` at resonator attachment points.
 function stiffness(ra::ResonatorArray, s::Structure,
                    dom::IntegrationDomains, x, y)
     resn  = ra.resonators
-    δ_p   = dom[:δ_p]
     η_sym = variable_symbol(s)
     η     = x[η_sym]
     v     = y[η_sym]
     î1    = VectorValue(1.0)
-    ξ1    = y[Symbol("q_1")]
-    q1    = x[Symbol("q_1")]
-    dΩ    = _space_measure(dom, resn)
+    ξ1    = y[variable_symbol(resn[1])]
+    q1    = x[variable_symbol(resn[1])]
+    δ_p1 = dom[resn[1].delta_domain_symbol]
+    dΩ  = dom[Symbol("d",resn[1].host_domain_symbol)]
     val   = ∫((ξ1 ⋅ q1) * 0.0)dΩ
-    for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
-        qi = x[Symbol("q_$i")]
-        ξi = y[Symbol("q_$i")]
+    for (i, ri) in enumerate(resn)
+        δi = dom[ri.delta_domain_symbol]
+        qi = x[variable_symbol(ri)]
+        ξi = y[variable_symbol(ri)]
         # force on structure from resonator displacement
         val += (-ri.K / ri.ρw) * δi(v * ((qi ⋅ î1) - η))
         # force on resonator from structure displacement

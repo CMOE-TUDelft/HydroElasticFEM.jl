@@ -5,16 +5,16 @@ Parameters for a single lumped-parameter mass-spring-damper resonator,
 used to model locally resonant meta-structures.
 
 The resonator couples to the surrounding fluid via a delta-function
-(`δ_p`) point interaction at `XZ`.
+(`δ_p`) point interaction supplied by `IntegrationDomains`.
 
 # Fields
 - `M::Float64`   — Resonator mass [kg]
 - `K::Float64`   — Spring stiffness [N/m]
 - `C::Float64`   — Viscous damping coefficient [N·s/m]; default 0.0
 - `ρw::Float64`  — Fluid density [kg/m³]; default 1025.0
-- `XZ::VectorValue{2,Float64}` — Resonator position `(x, z)` [m]
 - `symbol::Symbol` — Field unknown symbol; default `:q`
-- `space_domain_symbol::Symbol` — Triangulation key; default `:Ω`
+- `host_domain_symbol::Symbol` — Triangulation key for the host domain; default `:Γη`
+- `delta_domain_symbol::Symbol` — DiractDelta key; default `:δ_p`
 - `fe::FESpaceConfig` — FE space parameters
 - `ωn1::Float64` — Undamped natural frequency [rad/s], derived as `√(K/M)`
 
@@ -25,10 +25,10 @@ See also: [`resonator_array`](@ref)
     K::Float64
     C::Float64     = 0.0
     ρw::Float64    = 1025.0
-    XZ::VectorValue{2,Float64} = VectorValue(0.0, 0.0)
     ωn1::Float64   = sqrt(K / M)
     symbol::Symbol = :q
-    space_domain_symbol::Symbol = :Ω
+    host_domain_symbol::Symbol = :Γη
+    delta_domain_symbol::Symbol = :δ_p
     fe::FESpaceConfig = FESpaceConfig()
 end
 
@@ -64,8 +64,8 @@ function print_parameters(resn::ResonatorSingle)
     @printf("[VAL] M = %.4f kg\n", resn.M)
     @printf("[VAL] K = %.4f N/m\n", resn.K)
     @printf("[VAL] C = %.4f Ns/m\n", resn.C)
-    @printf("[VAL] XZ = (%.4f, %.4f) m\n", resn.XZ[1], resn.XZ[2])
     @printf("[VAL] ωn1 = %.4f rad/s\n", resn.ωn1)
+    @printf("[VAL] delta_domain_symbol = %s\n", resn.delta_domain_symbol)
     println()
 end
 
@@ -80,30 +80,51 @@ function print_parameters(ra::ResonatorArray)
 end
 
 """
-    resonator_array(N, M, K, C, XZ; ρw=1025.0, fe=FESpaceConfig()) -> ResonatorArray
+    resonator_array(N, M, K, C; ρw=1025.0, fe=FESpaceConfig()) -> ResonatorArray
 
-Create `N` identical resonators positioned at the locations in `XZ`.
+Create `N` identical resonator DOFs.
+
+Point locations are geometry data and are supplied separately through
+`ResonatorDomain`, which populates the `:δ_p` entries in `IntegrationDomains`. We
+assume that all the resonators are attached to the same host domain (e.g., the fluid-structure interface `Γη`), 
+so the `host_domain_symbol` is shared across all resonators. If multiple host domains are needed, the user should
+create multiple `ResonatorArray` objects, one for each host domain.
 
 # Arguments
 - `N::Int`  — Number of resonators (must be positive)
 - `M::Real` — Mass [kg]
 - `K::Real` — Spring stiffness [N/m]
 - `C::Real` — Viscous damping [N·s/m]
-- `XZ::Vector{VectorValue{2,Float64}}` — Position list of length `N` [m]
+- `host_domain_symbol::Symbol` — Triangulation key for the host domain; default `:Γη`
+- `delta_domain_symbols::Vector{Symbol}` — Symbols for the DiracDelta point interactions; default `[:δ_p]`
+- `variable_symbols::Vector{Symbol}` — Symbols for the resonator DOF unknowns; default `[:q\$i for i in 1:N]`
 - `ρw::Real` — Fluid density [kg/m³]; default 1025.0
 - `fe::FESpaceConfig` — FE space parameters; default `FESpaceConfig()`
 """
-function resonator_array(N::Int, M::Real, K::Real, C::Real,
-                         XZ::Vector{VectorValue{2,Float64}};
-                         ρw::Real=1025.0,
-                         fe::FESpaceConfig=FESpaceConfig())
+function resonator_array(N::Int, M::Real, K::Real, C::Real;
+    host_domain_symbol::Symbol = :Γη,
+    delta_domain_symbols::Vector{Symbol} = [:δ_p],
+    variable_symbols::Vector{Symbol} = [Symbol("q$i") for i in 1:N],
+    ρw::Real=1025.0,
+    fe::FESpaceConfig=FESpaceConfig())
     N > 0 || throw(ArgumentError("N must be positive (got $N)"))
-    length(XZ) == N || throw(ArgumentError("XZ must be of length N"))
-    ResonatorArray([ResonatorSingle(M=M, K=K, C=C, ρw=ρw, XZ=xz, fe=fe) for xz in XZ])
+    length(delta_domain_symbols) == N || throw(ArgumentError(
+    "delta_domain_symbols must be of length N (got $(length(delta_domain_symbols)))"))
+    ResonatorArray([ResonatorSingle(
+            M=M, 
+            K=K, 
+            C=C, 
+            ρw=ρw, 
+            host_domain_symbol=host_domain_symbol, 
+            delta_domain_symbol=delta_domain_symbols[i], 
+            symbol=variable_symbols[i],
+            fe=fe
+        ) for (i, _) in enumerate(1:N)]
+    )
 end
 
 """
-    resonator_array(N, M, K, C, XZ; ρw=1025.0, fe=FESpaceConfig()) -> ResonatorArray
+    resonator_array(N, M, K, C; ρw=1025.0, fe=FESpaceConfig()) -> ResonatorArray
 
 Create `N` resonators with individually specified parameters.
 
@@ -112,20 +133,33 @@ Create `N` resonators with individually specified parameters.
 - `M::Vector{<:Real}` — Masses [kg], length `N`
 - `K::Vector{<:Real}` — Spring stiffnesses [N/m], length `N`
 - `C::Vector{<:Real}` — Viscous damping coefficients [N·s/m], length `N`
-- `XZ::Vector{VectorValue{2,Float64}}` — Positions [m], length `N`
+- `host_domain_symbol::Symbol` — Triangulation key for the host domain; default `:Γη`
+- `delta_domain_symbols::Vector{Symbol}` — Symbols for the DiracDelta point interactions; default `[:δ_p]`
+- `variable_symbols::Vector{Symbol}` — Symbols for the resonator DOF unknowns; default `[:q\$i for i in 1:N]`
 - `ρw::Real`          — Fluid density [kg/m³]; default 1025.0
 - `fe::FESpaceConfig` — FE space parameters; default `FESpaceConfig()`
 """
 function resonator_array(N::Int, M::Vector{<:Real}, K::Vector{<:Real},
-                         C::Vector{<:Real},
-                         XZ::Vector{VectorValue{2,Float64}};
-                         ρw::Real=1025.0, 
-                         fe::FESpaceConfig=FESpaceConfig())
+    C::Vector{<:Real};
+    host_domain_symbol::Symbol = :Γη,
+    delta_domain_symbols::Vector{Symbol} = [:δ_p],
+    variable_symbols::Vector{Symbol} = [Symbol("q$i") for i in 1:N],
+    ρw::Real=1025.0, 
+    fe::FESpaceConfig=FESpaceConfig())
     N > 0 || throw(ArgumentError("N must be positive (got $N)"))
-    (length(M) == N && length(K) == N &&
-     length(C) == N && length(XZ) == N) ||
-        throw(ArgumentError("M, K, C, and XZ must be of length N"))
-    ResonatorArray([ResonatorSingle(M=m, K=k, C=c, ρw=ρw, XZ=xz, fe=fe) for (m, k, c, xz) in zip(M, K, C, XZ)])
+    (length(M) == N && length(K) == N && length(C) == N && length(delta_domain_symbols) == N) ||
+    throw(ArgumentError("M, K, C, and delta_domain_symbols must be of length N"))
+    ResonatorArray([ResonatorSingle(
+    M=m, 
+    K=k, 
+    C=c, 
+    ρw=ρw, 
+    host_domain_symbol=host_domain_symbol, 
+    delta_domain_symbol=delta_domain_symbols[i], 
+    symbol=variable_symbols[i], 
+    fe=fe
+        ) for (i, (m, k, c)) in enumerate(zip(M, K, C))]
+    )
 end
 
 # ── Single-variable weak forms: mass, damping, stiffness, rhs ──
@@ -145,7 +179,7 @@ attachment locations using the delta-function distributions `δ_p`:
 
 # Arguments
 - `ra::ResonatorArray`: array of resonator entities
-- `dom::IntegrationDomains`: integration measures (requires `:delta_p`, `:dΩ`)
+- `dom::IntegrationDomains`: integration measures (requires `:δ_p`, `:dΩ`)
 - `x_tt`: second time-derivative trial `FieldMap`
 - `y`: test `FieldMap`
 
@@ -154,12 +188,13 @@ attachment locations using the delta-function distributions `δ_p`:
 """
 function mass(ra::ResonatorArray, dom::IntegrationDomains, x_tt, y)
     resn = ra.resonators
-    δ_p = dom[:δ_p]
     ξ1  = y[variable_symbol(resn[1])]
     q1  = x_tt[variable_symbol(resn[1])]
-    dΩ  = _space_measure(dom, resn)
+    δ_p1 = dom[resn[1].delta_domain_symbol]
+    dΩ  = dom[Symbol("d",resn[1].host_domain_symbol)]
     val = ∫((ξ1 ⋅ q1) * 0.0)dΩ
-    for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
+    for (i, ri) in enumerate(resn)
+        δi = dom[ri.delta_domain_symbol]
         qₜₜi = x_tt[variable_symbol(ri)]
         ξi   = y[variable_symbol(ri)]
         val += ri.M * δi(qₜₜi ⋅ ξi)
@@ -180,7 +215,7 @@ Assembles the sum of viscous damping contributions over all resonators:
 
 # Arguments
 - `ra::ResonatorArray`: array of resonator entities
-- `dom::IntegrationDomains`: integration measures (requires `:delta_p`, `:dΩ`)
+- `dom::IntegrationDomains`: integration measures (requires `:δ_p`, `:dΩ`)
 - `x_t`: first time-derivative trial `FieldMap`
 - `y`: test `FieldMap`
 
@@ -189,12 +224,13 @@ Assembles the sum of viscous damping contributions over all resonators:
 """
 function damping(ra::ResonatorArray, dom::IntegrationDomains, x_t, y)
     resn = ra.resonators
-    δ_p = dom[:δ_p]
     ξ1  = y[variable_symbol(resn[1])]
     q1  = x_t[variable_symbol(resn[1])]
-    dΩ  = _space_measure(dom, resn)
+    δ_p1 = dom[resn[1].delta_domain_symbol]
+    dΩ  = dom[Symbol("d",resn[1].host_domain_symbol)]
     val = ∫((ξ1 ⋅ q1) * 0.0)dΩ
-    for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
+    for (i, ri) in enumerate(resn)
+        δi = dom[ri.delta_domain_symbol]
         qₜi = x_t[variable_symbol(ri)]
         ξi  = y[variable_symbol(ri)]
         val += ri.C * δi(qₜi ⋅ ξi)
@@ -215,7 +251,7 @@ Assembles the sum of spring contributions over all resonators:
 
 # Arguments
 - `ra::ResonatorArray`: array of resonator entities
-- `dom::IntegrationDomains`: integration measures (requires `:delta_p`, `:dΩ`)
+- `dom::IntegrationDomains`: integration measures (requires `:δ_p`, `:dΩ`)
 - `x`: trial `FieldMap`
 - `y`: test `FieldMap`
 
@@ -224,12 +260,13 @@ Assembles the sum of spring contributions over all resonators:
 """
 function stiffness(ra::ResonatorArray, dom::IntegrationDomains, x, y)
     resn = ra.resonators
-    δ_p = dom[:δ_p]
     ξ1  = y[variable_symbol(resn[1])]
     q1  = x[variable_symbol(resn[1])]
-    dΩ  = _space_measure(dom, resn)
+    δ_p1 = dom[resn[1].delta_domain_symbol]
+    dΩ  = dom[Symbol("d",resn[1].host_domain_symbol)]
     val = ∫((ξ1 ⋅ q1) * 0.0)dΩ
-    for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
+    for (i, ri) in enumerate(resn)
+        δi = dom[ri.delta_domain_symbol]
         qi = x[variable_symbol(ri)]
         ξi = y[variable_symbol(ri)]
         val += ri.K * δi(qi ⋅ ξi)
@@ -254,7 +291,7 @@ provided.
 
 # Arguments
 - `ra::ResonatorArray`: array of resonator entities
-- `dom::IntegrationDomains`: integration measures (requires `:delta_p`, `:dΩ`)
+- `dom::IntegrationDomains`: integration measures (requires `:δ_p`, `:dΩ`)
 - `f`: forcing `FieldMap`
 - `y`: test `FieldMap`
 
@@ -263,12 +300,13 @@ provided.
 """
 function rhs(ra::ResonatorArray, dom::IntegrationDomains, f, y)
     resn = ra.resonators
-    δ_p = dom[:δ_p]
     ξ1  = y[variable_symbol(resn[1])]
     q1  = f[variable_symbol(resn[1])]
-    dΩ  = _space_measure(dom, resn)
+    δ_p1 = dom[resn[1].delta_domain_symbol]
+    dΩ  = dom[Symbol("d"*resn[1].host_domain_symbol)]
     val = ∫((ξ1 ⋅ q1) * 0.0)dΩ
-    for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
+    for (i, ri) in enumerate(resn)
+        δi = dom[ri.delta_domain_symbol]
         fi = f[variable_symbol(ri)]
         ξi = y[variable_symbol(ri)]
         val += δi(fi ⋅ ξi)

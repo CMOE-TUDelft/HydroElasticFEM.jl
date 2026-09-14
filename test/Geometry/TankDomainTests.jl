@@ -9,10 +9,12 @@ import HydroElasticFEM.Geometry as G
   damping_a = G.DampingZone(L=0.5, x₀=[0.0,1.0], domain_symbol=:Γ_d_a)
   damping_b = G.DampingZone(L=0.5, x₀=[3.5,1.0], domain_symbol=:Γ_d_b)
   joint_a = G.JointDomain(location=[1.0, 1.0], domain_symbol=:dΛj_1, normal_symbol=:n_Λ_j_1)
+  resonator_a = G.ResonatorDomain(location=[1.0, 1.0])
   tank = G.TankDomain(L=10.0, H=1.0, nx=20, ny=2,
     structure_domains=[structure_a, structure_b],
     damping_zones=[damping_a, damping_b],
-    joint_domains=[joint_a])
+    joint_domains=[joint_a],
+    resonator_domains=[resonator_a])
 
   @test tank.L == 10.0
   @test tank.H == 1.0
@@ -26,6 +28,9 @@ import HydroElasticFEM.Geometry as G
   @test tank.damping_zones[2].x₀ == [3.5, 1.0]
   @test length(tank.joint_domains) == 1
   @test tank.joint_domains[1].location == [1.0, 1.0]
+  @test length(tank.resonator_domains) == 1
+  @test tank.resonator_domains[1].location == [1.0, 1.0]
+  @test tank.resonator_domains[1].trian_symbol == :Γη
 
 end
 
@@ -33,6 +38,21 @@ end
   tank = G.TankDomain()
   model = G.build_model(tank)
   @test model isa Gridap.Geometry.CartesianDiscreteModel
+end
+
+@testset "build_triangulations — resonator domains metadata" begin
+  s1 = G.StructureDomain(L=1.0, x₀=[1.5, 1.0])
+  r1 = G.ResonatorDomain(location=[2.0, 1.0])
+  tank = G.TankDomain(L=4.0, H=1.0, nx=40, ny=4,
+    structure_domains=[s1],
+    resonator_domains=[r1])
+
+  model = G.build_model(tank)
+  trian = G.build_triangulations(tank, model)
+
+  @test haskey(trian, :resonator_domains)
+  @test length(trian[:resonator_domains]) == 1
+  @test trian[:resonator_domains][1].location == [2.0, 1.0]
 end
 
 @testset "surface_mask - StructureDomain" begin

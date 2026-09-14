@@ -27,6 +27,7 @@ Access entries with `trians[:key]` or `haskey(trians, :key)`.
 | `:Λη`            | `Triangulation`  | Beam skeleton on `Γη` (excluding joint facets)       |
 | `:Λ_joints`      | `Vector`         | One skeleton sub-triangulation per `JointDomain`     |
 | `:joint_domains` | `Vector`         | `JointDomain` objects in the same order as `:Λ_joints` |
+| `:resonator_domains` | `Vector`    | `ResonatorDomain` point descriptors                  |
 
 Named sub-triangulations are also stored directly under their
 `domain_symbol` keys (e.g. `:Γ_s_a` for a structure, `:Γ_d_1` for a damping
@@ -54,7 +55,8 @@ Base.keys(t::TankTriangulations) = keys(t.data)
 """
     _tank_triangulation_dict(; Ω, Γ, Γbot, Γin, Γout,
                                Γ_structures, Γ_dampings,
-                               Γfs, Γκ, Γη, Λη, Λ_joints, joint_domains)
+                               Γfs, Γκ, Γη, Λη, Λ_joints, joint_domains,
+                               resonator_domains)
                              -> Dict{Symbol,Any}
 
 Assemble the canonical `Dict{Symbol,Any}` used to construct a
@@ -77,6 +79,7 @@ function _tank_triangulation_dict(;
   Λη,
   Λ_joints,
   joint_domains,
+  resonator_domains = Any[],
 )
   Dict{Symbol, Any}(
     :Ω            => Ω,
@@ -92,5 +95,6 @@ function _tank_triangulation_dict(;
     :Λη           => Λη,
     :Λ_joints     => Λ_joints,
     :joint_domains => joint_domains,
+    :resonator_domains => resonator_domains,
   )
 end

@@ -153,6 +153,7 @@ to `4`).
 | `:dΓd_i`, `:nΓd_i`  | `:Γ_dampings[i]`               | `DampingZoneBC`     |
 | `:dΛη`, `:n_Λ_η`, `:h_η` | skeleton of `:Γη`         | `EulerBernoulliBeam` DG |
 | `joint.domain_symbol`, `joint.normal_symbol` | `:Λ_joints` | `JointRotationalSpring` |
+| `resonator.delta_symbol` | `resonator.trian_symbol` | `ResonatorArray` |
 
 ## Example
 
@@ -216,6 +217,18 @@ function get_integration_domains(
     d[:dΛη]   = Measure(Λη, get_deg(:dΛη))
     d[:n_Λ_η] = get_normal_vector(Λη)
     d[:h_η]   = minimum(get_cell_measure(tri[:Γη]))
+  end
+
+  # Resonator point interactions
+  if haskey(tri, :resonator_domains)
+    for resonator in tri[:resonator_domains]
+      haskey(tri, resonator.trian_symbol) || error(
+        "ResonatorDomain at location $(resonator.location) requested " *
+        "unknown triangulation key :$(resonator.trian_symbol).",
+      )
+      δ = DiracDelta(tri[resonator.trian_symbol], [Point(resonator.location...)])
+      d[resonator.delta_symbol] = δ
+    end
   end
 
   # User-defined space domains declared by physics entities arrive through

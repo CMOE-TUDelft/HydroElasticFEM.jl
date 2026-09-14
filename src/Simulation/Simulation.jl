@@ -332,6 +332,9 @@ function get_integration_degrees(trians::G.TankTriangulations, physics::Vector{P
     # Get max FE order across all entities for each domain
     degrees = Dict{Symbol, Int}()
     for p in physics
+        # exclude ResonatorSingle and ResonatorArray from degree calculations, 
+        # since they are pointwise and don't require integration
+        ( isa(p, P.ResonatorSingle) || isa(p, P.ResonatorArray) ) && continue
         fe = p.fe
         if fe !== nothing
             domain_symbol = p.space_domain_symbol

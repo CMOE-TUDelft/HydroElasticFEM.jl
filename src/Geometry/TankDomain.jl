@@ -111,16 +111,63 @@ beam = EulerBernoulliBeam(L=1.0, mᵨ=0.5, EIᵨ=100.0,
 end
 
 """
+    ResonatorDomain
+
+Declares a point interaction used by lumped resonators attached to a tank
+sub-domain.
+
+`ResonatorDomain` is a geometry-level descriptor.  After you add it to
+`TankDomain.resonator_domains`, `build_triangulations` stores the
+descriptor together with the other tank sub-domain metadata.  Then
+`get_integration_domains` automatically builds a Gridap `DiracDelta` on
+`trian_symbol` at `location` and stores it in `IntegrationDomains` under
+`delta_symbol`.  Multiple resonators sharing the same `delta_symbol` are
+grouped in input order, matching the DOF order expected by `ResonatorArray`.
+
+# Fields
+- `location::Vector{Float64}` — Coordinates of the point interaction [m]
+  (e.g. `[2.0, 1.0]` on the structure surface of a 2D tank).
+- `trian_symbol::Symbol` — Key in `TankTriangulations` of the triangulation
+  that supports the point interaction.  Defaults to `:Γη`, the union of
+  structure-surface cells.
+  For plain tanks without `:Γη`, pass another existing key such as `:Ω` or
+  `:Γfs`.
+- `delta_symbol::Symbol` — Key under which the vector of `DiracDelta`
+  functionals is stored in `IntegrationDomains`.  Defaults to `:δ_p`, the key
+  consumed by resonator weak forms.
+
+# Example
+
+```julia
+s1 = StructureDomain(L=1.0, x₀=[1.5, 1.0])
+r1 = ResonatorDomain(location=[2.0, 1.0])
+
+tank = TankDomain(L=4.0, H=1.0, nx=40, ny=4,
+    structure_domains=[s1],
+    resonator_domains=[r1])
+model  = build_model(tank)
+trians = build_triangulations(tank, model)
+dom    = get_integration_domains(trians)      # :δ_p populated
+```
+"""
+@with_kw struct ResonatorDomain
+  location::Vector{Float64}
+  trian_symbol::Symbol = :Γη
+  delta_symbol::Symbol = :δ_p
+end
+
+"""
     TankDomain{D} <: AbstractDomain
 
 Structured Cartesian tank domain with embedded sub-domain descriptors.
 
-`TankDomain` wraps a [`CartesianDomain`](@ref) and extends it with three
+`TankDomain` wraps a [`CartesianDomain`](@ref) and extends it with four
 optional lists of sub-domain descriptors:
 
 - `structure_domains` — beam / plate segments on the free surface
 - `damping_zones`     — numerical wave absorbers on the free surface
 - `joint_domains`     — rotational-spring joints between beam segments
+- `resonator_domains` — point interactions for lumped resonators
 
 At `build_triangulations` time, the top-surface `Boundary` is partitioned
 into named sub-triangulations using coordinate masks derived from each
@@ -132,7 +179,8 @@ The dimension `D` is inferred from the keyword arguments:
 - 3D: provide `L, W, H, nx, ny, nz`
 
 Only `TankDomain{2}` currently supports `structure_domains`, `damping_zones`,
-and `joint_domains`; `TankDomain{3}` models a plain tank.
+and `joint_domains`; `resonator_domains` can be attached to any
+`TankDomain{D}` when `trian_symbol` names an available triangulation.
 
 ## Periodicity
 
@@ -153,11 +201,12 @@ backwards compatibility: `domain.L`, `domain.H`, `domain.nx`, `domain.ny`,
 These are read-only derived values; the canonical data lives in
 `domain.cartesian`.
 """
-struct TankDomain{D, C, SZ, DZ, JZ} <: AbstractDomain
+struct TankDomain{D, C, SZ, DZ, JZ, RZ} <: AbstractDomain
   cartesian::C
   structure_domains::SZ
   damping_zones::DZ
   joint_domains::JZ
+  resonator_domains::RZ
 end
 
 function _validate_tank_domain_inputs(
@@ -165,6 +214,7 @@ function _validate_tank_domain_inputs(
   structure_domains,
   damping_zones,
   joint_domains,
+  resonator_domains,
 )
   nothing
 end
@@ -174,6 +224,7 @@ function _validate_tank_domain_inputs(
   structure_domains,
   damping_zones,
   joint_domains,
+  resonator_domains,
 )
   isempty(structure_domains) ||
     error("TankDomain{3} does not yet support structure_domains.")
@@ -185,7 +236,7 @@ function _validate_tank_domain_inputs(
 end
 
 """
-    TankDomain(cartesian; structure_domains=[], damping_zones=[], joint_domains=[])
+    TankDomain(cartesian; structure_domains=[], damping_zones=[], joint_domains=[], resonator_domains=[])
 
 Construct a `TankDomain` from an existing `CartesianDomain`.
 
@@ -198,6 +249,7 @@ for a one-shot variant that builds the `CartesianDomain` internally.
 - `structure_domains::Vector{StructureDomain}`: structural subregions on the free surface
 - `damping_zones::Vector{DampingZone}`: sponge-layer regions on the free surface
 - `joint_domains::Vector{JointDomain}`: interior skeleton facets for beam joints (2D only)
+- `resonator_domains::Vector{ResonatorDomain}`: point interactions for lumped resonators
 
 # Returns
 - `TankDomain{D,...}`: configured tank domain
@@ -213,6 +265,7 @@ function TankDomain(
   structure_domains = StructureDomain[],
   damping_zones = DampingZone[],
   joint_domains = JointDomain[],
+  resonator_domains = ResonatorDomain[],
 )
   D = ambient_dimension(cartesian)
   _validate_tank_domain_inputs(
@@ -220,6 +273,7 @@ function TankDomain(
     structure_domains,
     damping_zones,
     joint_domains,
+    resonator_domains,
   )
   TankDomain{
     D,
@@ -227,23 +281,26 @@ function TankDomain(
     typeof(structure_domains),
     typeof(damping_zones),
     typeof(joint_domains),
+    typeof(resonator_domains),
   }(
     cartesian,
     structure_domains,
     damping_zones,
     joint_domains,
+    resonator_domains,
   )
 end
 
 """
     TankDomain(; L, H, nx, ny, W=nothing, nz=nothing, map=identity,
-               is_periodic=nothing, structure_domains=[], damping_zones=[], joint_domains=[])
+               is_periodic=nothing, structure_domains=[], damping_zones=[],
+               joint_domains=[], resonator_domains=[])
 
 Build a `TankDomain` from scratch using keyword arguments.
 
 Creates the underlying `CartesianDomain` internally and wraps it with the
-given structural, damping-zone, and joint sub-regions.  Use `W` and `nz` to
-create a 3D domain; omit them for 2D.
+given structural, damping-zone, joint, and resonator sub-regions.  Use `W`
+and `nz` to create a 3D domain; omit them for 2D.
 
 # Arguments
 - `L::Real`: domain length in x [m]
@@ -257,6 +314,7 @@ create a 3D domain; omit them for 2D.
 - `structure_domains::Vector{StructureDomain}`: structural subregions
 - `damping_zones::Vector{DampingZone}`: sponge-layer regions
 - `joint_domains::Vector{JointDomain}`: interior beam-joint facets (2D only)
+- `resonator_domains::Vector{ResonatorDomain}`: point interactions for lumped resonators
 
 # Returns
 - `TankDomain{D,...}` with D = 2 (no `W`/`nz`) or D = 3
@@ -278,6 +336,7 @@ function TankDomain(;
   structure_domains = StructureDomain[],
   damping_zones = DampingZone[],
   joint_domains = JointDomain[],
+  resonator_domains = ResonatorDomain[],
 )
   cartesian = CartesianDomain(
     L = L,
@@ -294,6 +353,7 @@ function TankDomain(;
     structure_domains = structure_domains,
     damping_zones = damping_zones,
     joint_domains = joint_domains,
+    resonator_domains = resonator_domains,
   )
 end
 
@@ -339,6 +399,7 @@ function _tank_public_property_names(::Val{D}) where {D}
     :structure_domains,
     :damping_zones,
     :joint_domains,
+    :resonator_domains,
     _tank_legacy_property_names(Val(D))...,
   )
 end
@@ -653,6 +714,10 @@ Each descriptor also produces its own named triangulation stored under its
 `domain_symbol` key.  If `joint_domains` are present, the `Skeleton(Γη)` is
 further split into per-joint facets plus a remainder `Λη`.
 
+`domain.resonator_domains` are carried as metadata so
+`get_integration_domains` can build grouped `DiracDelta` functionals under
+`:δ_p`.
+
 ## Labelling convention (Cartesian 2D, entity ids)
 - `"surface"` → entities 3, 4, 6 (top side + top corners)
 - `"bottom"`  → entities 1, 2, 5 (bottom side + bottom corners)
@@ -712,6 +777,7 @@ function build_triangulations(domain::TankDomain{2}, model)
     Λη = joint_partition.Λη,
     Λ_joints = joint_partition.Λ_joints,
     joint_domains = domain.joint_domains,
+    resonator_domains = domain.resonator_domains,
   )
   _add_triangulations_by_symbol!(
     trian_dict,
@@ -849,7 +915,9 @@ wrapped [`CartesianDomain`](@ref).
 """
 function build_triangulations(domain::TankDomain{D}, model) where {D}
   d = _cartesian_domain(domain)
-  _cartesian_boundary_triangulations(Val(D), model, d.mins, d.maxs)
+  trians = _cartesian_boundary_triangulations(Val(D), model, d.mins, d.maxs)
+  trians[:resonator_domains] = domain.resonator_domains
+  trians
 end
 
 

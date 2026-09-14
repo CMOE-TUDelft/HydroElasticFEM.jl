@@ -141,10 +141,7 @@ import HydroElasticFEM.Geometry as G
     trians = G.TankTriangulations(Dict(:Ω => Ω))
 
     fluid = P.PotentialFlow(fe=PH.FESpaceConfig(order=1), space_domain_symbol=:Ω)
-    resn = P.resonator_array(
-      2, 100.0, 500.0, 5.0,
-      [P.VectorValue(0.25, 0.0), P.VectorValue(0.75, 0.0)],
-    )
+    resn = P.resonator_array(2, 100.0, 500.0, 5.0)
 
     X, Y, fmap = FEA.build_fe_spaces(Any[fluid, resn], trians, PH.FreqDomainConfig())
 

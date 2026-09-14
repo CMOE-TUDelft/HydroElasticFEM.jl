@@ -49,7 +49,7 @@ time.
 | `AbstractDomain.jl`     | `AbstractDomain` interface, `STANDARD_TAGS`          |
 | `Triangulations.jl`     | `TankTriangulations` container                       |
 | `CartesianDomain.jl`    | `CartesianDomain{D}`, `build_model` / `build_triangulations` (plain box), `map_fn` / `f_z` |
-| `TankDomain.jl`         | `TankDomain{D}`, `StructureDomain`, `DampingZone`, `JointDomain`, surface-mask partition, `get_plate_triangulation` |
+| `TankDomain.jl`         | `TankDomain{D}`, `StructureDomain`, `DampingZone`, `JointDomain`, `ResonatorDomain`, surface-mask partition, `get_plate_triangulation` |
 | `GmshDomain.jl`         | `GmshDomain`, tag-based triangulations, `validate_gmsh_tags` |
 | `IntegrationDomains.jl` | `IntegrationDomains` container, `get_integration_domains` |
 
@@ -82,7 +82,7 @@ using Gridap
 include("AbstractDomain.jl")       # AbstractDomain, STANDARD_TAGS
 include("Triangulations.jl")       # TankTriangulations, _tank_triangulation_dict
 include("CartesianDomain.jl")      # CartesianDomain{D}, centroid helpers, map_fn/f_z
-include("TankDomain.jl")           # TankDomain{D}, StructureDomain, DampingZone, JointDomain
+include("TankDomain.jl")           # TankDomain{D}, StructureDomain, DampingZone, JointDomain, ResonatorDomain
 include("GmshDomain.jl")           # GmshDomain, validate_gmsh_tags
 include("IntegrationDomains.jl")   # IntegrationDomains, get_integration_domains
 
@@ -90,7 +90,7 @@ export TankTriangulations
 export IntegrationDomains
 export TankDomain
 export StructureDomain, DampingZone
-export JointDomain
+export JointDomain, ResonatorDomain
 export AbstractDomain, STANDARD_TAGS
 export GmshDomain
 export validate_gmsh_tags
