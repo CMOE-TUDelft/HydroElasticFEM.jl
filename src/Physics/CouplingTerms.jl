@@ -182,6 +182,7 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.FrequencyAssembly
     κ = x[κ_sym]
     w = y[ϕ_sym]
     u = y[κ_sym]
+    βₕ = fs.βₕ
 
     val = nothing
     dom = AC.domains(ctx)
@@ -194,7 +195,7 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.FrequencyAssembly
         ∇ₙϕ = ∇(ϕ) ⋅ nΓ
         # Sponge-layer damping-zone contributions.
         # Reference: [C23] Section 4.1, Eq. (33)-(36).
-        zone_val = ∫(μ₁ * ∇ₙϕ * u - (μ₂ * κ * w))dΓ
+        zone_val = ∫(βₕ * (μ₁ * ∇ₙϕ * u) - (μ₂ * κ * w))dΓ
         val = _add_contribution(val, zone_val)
     end
 
@@ -209,12 +210,13 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyConte
     κ = x[κ_sym]
     w = y[ϕ_sym]
     u = y[κ_sym]
+    βₕ = fs.βₕ
 
     val = nothing
     if AC.has_stabilization(ctx)
         αₕ = stabilization_parameter(fs, ctx)
         dΩ = _space_measure(dom, fs)
-        val = ∫(fs.βₕ * fs.g * αₕ * w * κ)dΩ
+        val = ∫(βₕ * fs.g * αₕ * w * κ)dΩ
     end
 
     for bc in _active_damping_zone_bcs(pf)
@@ -225,7 +227,7 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyConte
         ∇ₙϕ = ∇(ϕ) ⋅ nΓ
         # Sponge-layer damping-zone contributions.
         # Reference: [C23] Section 4.1, Eq. (33)-(36).
-        zone_val = ∫(μ₁ * ∇ₙϕ * u - (μ₂ * κ * w))dΓ
+        zone_val = ∫(βₕ * (μ₁ * ∇ₙϕ * u) - (μ₂ * κ * w))dΓ
         val = _add_contribution(val, zone_val)
     end
 
@@ -243,13 +245,14 @@ PotentialFlow/FreeSurface coupling right-hand side (damping-zone forcing).
 function rhs(pf::PotentialFlow, fs::FreeSurface, ctx::AC.AbstractAssemblyContext, f, y)
     κ_sym = variable_symbol(fs)
     u = y[κ_sym]
+    βₕ = fs.βₕ
 
     val = nothing
     dom = AC.domains(ctx)
     for bc in _active_damping_zone_bcs(pf)
         dΓ = dom[bc.domain]
         ∇ₙϕd = _normal_damped(bc, ctx)
-        zone_val = ∫(∇ₙϕd * u)dΓ
+        zone_val = ∫( βₕ * (∇ₙϕd * u))dΓ
         val = _add_contribution(val, zone_val)
     end
 

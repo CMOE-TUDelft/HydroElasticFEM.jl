@@ -60,6 +60,8 @@ Users provide the incident free-surface elevation `η_in` and vertical velocity
 - `μ₂` — Multiplicative coefficient for damped free-surface elevation contribution; default `0.0`
 - `η_in` — Prescribed incident free-surface elevation input; default `0.0`
 - `vz_in` — Prescribed incident vertical-velocity input; default `0.0`
+- `βₕ::Float64` — Free-surface stabilisation parameter ∈ (0, 1]; default 0.5. It should be the same as 
+the `βₕ` used in the `FreeSurface` physics instance to ensure consistent stabilization.
 - `enabled::Bool` — Toggle for activating/deactivating this BC; default `true`
 """
 @with_kw struct DampingZoneBC <: AbstractPotentialFlowBC
@@ -68,6 +70,7 @@ Users provide the incident free-surface elevation `η_in` and vertical velocity
     μ₂::Any = 0.0
     η_in::Any = 0.0
     vz_in::Any = 0.0
+    βₕ::Float64 = 0.5
     enabled::Bool = true
 end
 
@@ -280,8 +283,9 @@ function _stiffness_bc_contribution(::PotentialFlow, bc::DampingZoneBC, dom::Int
     nΓ = _boundary_normal(dom, bc.domain)
     μ₁ = _as_space_function(bc.μ₁)
     αₕ = _stabilization_parameter(dom)
+    βₕ = bc.βₕ
     ∇ₙϕ = ∇(ϕ) ⋅ nΓ
-    μ₁αₕ(x) = μ₁(x) * αₕ
+    μ₁αₕ(x) = βₕ * μ₁(x) * αₕ
     return ∫(μ₁αₕ * w * ∇ₙϕ)dΓ
 end
 
@@ -292,8 +296,9 @@ function _stiffness_bc_contribution(::PotentialFlow, bc::DampingZoneBC, ctx::AC.
     nΓ = _boundary_normal(dom, bc.domain)
     μ₁ = _as_space_function(bc.μ₁)
     αₕ = _stabilization_parameter(ctx)
+    βₕ = bc.βₕ
     ∇ₙϕ = ∇(ϕ) ⋅ nΓ
-    μ₁αₕ(x) = μ₁(x) * αₕ
+    μ₁αₕ(x) = βₕ * μ₁(x) * αₕ
     return ∫(μ₁αₕ * w * ∇ₙϕ)dΓ
 end
 
