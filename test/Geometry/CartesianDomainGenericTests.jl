@@ -145,8 +145,7 @@ end
 
   @test length(trians[:resonator_domains]) == 1
   @test haskey(d, :δ_p)
-  @test length(d[:δ_p]) == 1
-  @test d[:δ_p][1] isa Gridap.CellData.GenericDiracDelta
+  @test d[:δ_p] isa Gridap.CellData.GenericDiracDelta
 end
 
 @testset "CartesianDomain explicit graded 3D bounds uses structured boundaries" begin

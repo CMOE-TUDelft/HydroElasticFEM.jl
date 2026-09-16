@@ -138,18 +138,35 @@ import HydroElasticFEM.Geometry as G
   @testset "build_fe_spaces — mixed entities with resonator array" begin
     model = CartesianDiscreteModel((0, 1, -1, 0), (8, 4))
     Ω = Interior(model)
-    trians = G.TankTriangulations(Dict(:Ω => Ω))
+
+    labels_Ω = get_face_labeling(model)
+    add_tag_from_tags!(labels_Ω, "surface", [3, 4, 6])
+    add_tag_from_tags!(labels_Ω, "bottom",  [1, 2, 5])
+
+    Ω = Interior(model)
+    Γ = Boundary(model, tags="surface")
+
+    # Surface masking
+    xm₀, xm₁ = 0.2, 0.8
+    is_mem(xs) = let n=length(xs); x=(1/n)*sum(xs); (xm₀ <= x[1] <= xm₁) * (x[2] ≈ 0.0) end
+    xΓ = get_cell_coordinates(Γ)
+    Γm_mask = lazy_map(is_mem, xΓ)
+    Γη  = Triangulation(Γ, findall(Γm_mask))
+    Γκ  = Triangulation(Γ, findall(!, Γm_mask))
+    trians = G.TankTriangulations(Dict(:Ω => Ω, :Γκ => Γκ, :Γη => Γη))
 
     fluid = P.PotentialFlow(fe=PH.FESpaceConfig(order=1), space_domain_symbol=:Ω)
+    structure = P.Membrane(L=1.0, mᵨ=1.0, Tᵨ=100.0, fe=PH.FESpaceConfig(order=1), space_domain_symbol=:Γη)
     resn = P.resonator_array(2, 100.0, 500.0, 5.0)
 
-    X, Y, fmap = FEA.build_fe_spaces(Any[fluid, resn], trians, PH.FreqDomainConfig())
+    X, Y, fmap = FEA.build_fe_spaces(Any[fluid, structure, resn], trians, PH.FreqDomainConfig())
 
     @test fmap[:ϕ] == 1
-    @test fmap[:q_1] == 2
-    @test fmap[:q_2] == 3
-    @test length(X) == 3
-    @test length(Y) == 3
+    @test fmap[:η_m] == 2
+    @test fmap[:q1] == 3
+    @test fmap[:q2] == 4
+    @test length(X) == 4
+    @test length(Y) == 4
   end
 
   # -----------------------------------------------------------------------

@@ -66,8 +66,8 @@ end
 
 @testset "get_integration_domains — resonator DiracDelta keys" begin
   s1 = G.StructureDomain(L=1.0, x₀=[1.5, 1.0])
-  r1 = G.ResonatorDomain(location=[2.0, 1.0])
-  r2 = G.ResonatorDomain(location=[2.25, 1.0])
+  r1 = G.ResonatorDomain(location=[2.0, 1.0], delta_symbol=:δ_p1)
+  r2 = G.ResonatorDomain(location=[2.25, 1.0], delta_symbol=:δ_p2)
   tank = G.TankDomain(L=4.0, H=1.0, nx=40, ny=4,
     structure_domains=[s1],
     resonator_domains=[r1, r2])
@@ -76,25 +76,10 @@ end
   trians = G.build_triangulations(tank, model)
   d = G.get_integration_domains(trians; degree=4)
 
-  @test haskey(d, :δ_p)
-  @test length(d[:δ_p]) == 2
-  @test all(δ -> δ isa Gridap.CellData.GenericDiracDelta, d[:δ_p])
-end
-
-@testset "get_integration_domains — resonator custom delta group" begin
-  s1 = G.StructureDomain(L=1.0, x₀=[1.5, 1.0])
-  r1 = G.ResonatorDomain(location=[2.0, 1.0], delta_symbol=:δ_custom)
-  tank = G.TankDomain(L=4.0, H=1.0, nx=40, ny=4,
-    structure_domains=[s1],
-    resonator_domains=[r1])
-
-  model = G.build_model(tank)
-  trians = G.build_triangulations(tank, model)
-  d = G.get_integration_domains(trians; degree=4)
-
-  @test haskey(d, :δ_custom)
-  @test length(d[:δ_custom]) == 1
-  @test d[:δ_custom][1] isa Gridap.CellData.GenericDiracDelta
+  @test haskey(d, :δ_p1)
+  @test haskey(d, :δ_p2)
+  @test isa(d[:δ_p1], Gridap.CellData.GenericDiracDelta)
+  @test isa(d[:δ_p2], Gridap.CellData.GenericDiracDelta)
 end
 
 @testset "get_integration_domains — user-defined space domains" begin

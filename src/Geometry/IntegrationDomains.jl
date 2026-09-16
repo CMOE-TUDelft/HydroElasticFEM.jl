@@ -227,6 +227,11 @@ function get_integration_domains(
         "unknown triangulation key :$(resonator.trian_symbol).",
       )
       δ = DiracDelta(tri[resonator.trian_symbol], [Point(resonator.location...)])
+      # error if symbol already exists, since this would overwrite a previous resonator
+      haskey(d, resonator.delta_symbol) && error(
+        "ResonatorDomain at location $(resonator.location) requested " *
+        "duplicate delta_symbol :$(resonator.delta_symbol).",
+      )
       d[resonator.delta_symbol] = δ
     end
   end

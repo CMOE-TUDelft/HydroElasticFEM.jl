@@ -103,7 +103,7 @@ create multiple `ResonatorArray` objects, one for each host domain.
 """
 function resonator_array(N::Int, M::Real, K::Real, C::Real;
     host_domain_symbol::Symbol = :Γη,
-    delta_domain_symbols::Vector{Symbol} = [:δ_p],
+    delta_domain_symbols::Vector{Symbol} = [Symbol("δ_p$i") for i in 1:N],
     variable_symbols::Vector{Symbol} = [Symbol("q$i") for i in 1:N],
     ρw::Real=1025.0,
     fe::FESpaceConfig=FESpaceConfig())
@@ -142,7 +142,7 @@ Create `N` resonators with individually specified parameters.
 function resonator_array(N::Int, M::Vector{<:Real}, K::Vector{<:Real},
     C::Vector{<:Real};
     host_domain_symbol::Symbol = :Γη,
-    delta_domain_symbols::Vector{Symbol} = [:δ_p],
+    delta_domain_symbols::Vector{Symbol} = [Symbol("δ_p$i") for i in 1:N],
     variable_symbols::Vector{Symbol} = [Symbol("q$i") for i in 1:N],
     ρw::Real=1025.0, 
     fe::FESpaceConfig=FESpaceConfig())
