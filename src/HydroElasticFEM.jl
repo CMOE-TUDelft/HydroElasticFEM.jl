@@ -65,6 +65,10 @@ module HydroElasticFEM
   include(joinpath(@__DIR__, "Simulation", "Simulation.jl"))
   using .Simulation
 
+  # PostProcessing (reflection/transmission/absorption coefficients, etc.)
+  include(joinpath(@__DIR__, "PostProcessing", "PostProcessing.jl"))
+  using .PostProcessing
+
   include(joinpath(PKG_ROOT, "src", "Utilities.jl"))
 
   ## Utilities.jl functions included here
@@ -113,5 +117,16 @@ module HydroElasticFEM
   export build_problem
   export SimResult
   export simulate
+
+  # ── PostProcessing public API ───────────────────────────────────────────────
+  # Wave decomposition building blocks (physics-agnostic)
+  export WaveProbeFit, fit_wave_components
+  export suggest_probe_offsets, probe_positions, sample_probe_line
+  # Reflection / transmission / absorption coefficients
+  export ReflectionTransmissionResult, reflection_transmission_coefficients
+  export absorption_coefficient
+  # Energy flux and dissipation-based absorption (cross-check route)
+  export group_velocity, energy_flux
+  export absorption_from_dissipated_power, resonator_dissipated_power
 
 end # module HydroElasticFEM
