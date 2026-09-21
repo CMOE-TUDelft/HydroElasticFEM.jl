@@ -200,5 +200,6 @@ Cartesian mesh has the free surface at `z = H0`, *not* `z = 0` — see the
 coordinate-convention note in [`reflection_transmission_coefficients`](@ref).
 """
 function sample_probe_line(field, xs::AbstractVector{<:Real}, y::Real)
-    return ComplexF64[ComplexF64(field(Point(x, y))) for x in xs]
+    points = Point.(xs, y)
+    return field_values = field(points)
 end
