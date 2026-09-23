@@ -125,7 +125,7 @@ descriptor together with the other tank sub-domain metadata.  Then
 grouped in input order, matching the DOF order expected by `ResonatorArray`.
 
 # Fields
-- `location::Vector{Float64}` — Coordinates of the point interaction [m]
+- `location::Vector{Float64}` — Coordinates of the point interaction (in meters)
   (e.g. `[2.0, 1.0]` on the structure surface of a 2D tank).
 - `trian_symbol::Symbol` — Key in `TankTriangulations` of the triangulation
   that supports the point interaction.  Defaults to `:Γη`, the union of
