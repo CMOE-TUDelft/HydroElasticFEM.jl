@@ -16,7 +16,8 @@ module Simulation
 using Parameters
 using Gridap
 using Gridap.ODEs
-using Gridap.FESpaces: get_vector_type, SingleFieldFESpace, MultiFieldFESpace, FESpace
+using Gridap.FESpaces: get_vector_type, SingleFieldFESpace, FESpace
+using Gridap.MultiField: MultiFieldFESpace
 
 import ..Geometry as G
 import ..ParameterHandler as PH
