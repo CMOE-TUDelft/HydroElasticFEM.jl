@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+- `RadiationBC` now supports both frequency-domain and time-domain assembly contexts, fixing issue [#44](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/issues/44). Since [PR#46](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/46).
 
 ### Fixed
 

@@ -419,11 +419,11 @@ end
     rhs_fn(t, y) = [1.0 * t, 0.0, 0.0]  # corresponds to ϕ, κ, η order in fmap
 
     fluid_real = P.PotentialFlow(ρw=1025.0, g=9.81,
-      fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Ω)
+      fe=FES.FESpaceConfig(order=order,vector_type=Vector{Float64}), space_domain_symbol=:Ω)
     fsurf_real = P.FreeSurface(ρw=1025.0, g=9.81, βₕ=0.5,
-      fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γκ)
+      fe=FES.FESpaceConfig(order=order,vector_type=Vector{Float64}), space_domain_symbol=:Γκ)
     mem_real   = P.Membrane(L=20.0, mᵨ=0.9, Tᵨ=98.1,
-      fe=FES.FESpaceConfig(order=order), space_domain_symbol=:Γη)
+      fe=FES.FESpaceConfig(order=order,vector_type=Vector{Float64}), space_domain_symbol=:Γη)
 
     entities = [fluid_real, fsurf_real, mem_real]
     problem = SM.build_problem(tank, entities, config; rhs_fn=rhs_fn)

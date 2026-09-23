@@ -17,7 +17,7 @@ import HydroElasticFEM.Physics as P
   @test_nowarn P.print_parameters(mem)
   beam = P.EulerBernoulliBeam(L=20.0, mᵨ=192.956/ρw, EIᵨ=500e6*6.667e-4/ρw, τ=0.0)
   @test_nowarn P.print_parameters(beam)
-  resn = P.ResonatorSingle(M=1e3, K=5.9e3, C=0.0, XZ=VectorValue(10.0, 0.0))
+  resn = P.ResonatorSingle(M=1e3, K=5.9e3, C=0.0)
   @test_nowarn P.print_parameters(resn)
 end
 

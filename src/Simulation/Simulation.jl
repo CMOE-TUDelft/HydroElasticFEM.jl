@@ -16,6 +16,8 @@ module Simulation
 using Parameters
 using Gridap
 using Gridap.ODEs
+using Gridap.FESpaces: get_vector_type, SingleFieldFESpace, FESpace
+using Gridap.MultiField: MultiFieldFESpace
 
 import ..Geometry as G
 import ..ParameterHandler as PH
@@ -142,6 +144,13 @@ function _has_damping_zone_bc(physics::Vector{P.PhysicsParameters})
     )
 end
 
+function _has_radiation_bc(physics::Vector{P.PhysicsParameters})
+    any(
+        p -> p isa P.PotentialFlow && any(bc -> bc isa P.RadiationBC && bc.enabled, p.boundary_conditions),
+        physics,
+    )
+end
+
 """
     build_frequency_context(domains, physics, config) -> FrequencyAssemblyContext
 
@@ -198,6 +207,13 @@ function build_time_context(domains::G.IntegrationDomains,
         isnothing(tconfig) && error("Time-domain damping-zone problems require `tconfig` to be passed to `build_problem`.")
         isnothing(tconfig.αₕ) && error("Time-domain damping-zone problems require `TimeConfig.αₕ`.")
     end
+
+for entity in physics
+    if entity isa P.PotentialFlow && any(bc -> bc isa P.RadiationBC && bc.enabled, entity.boundary_conditions)
+        P._radiation_frequency(entity)
+    end
+end
+
     t₀ = isnothing(tconfig) ? config.t₀ : tconfig.t₀
     αₕ = isnothing(tconfig) ? nothing : tconfig.αₕ
     AC.TimeAssemblyContext(domains, t₀, αₕ)
@@ -229,6 +245,36 @@ function _check_ambient_dimension_consistency(domain,
     nothing
 end
 
+# --- Time domain: vector_type must be Real ---
+
+function _check_fe_space_vector_type(X::SingleFieldFESpace, config::PH.TimeDomainConfig)
+    T = eltype(get_vector_type(X))
+    if !(T <: Real)
+        error("FE space vector type must be Real for time-domain simulations, got $T.")
+    end
+end
+
+function _check_fe_space_vector_type(X::MultiFieldFESpace, config::PH.TimeDomainConfig)
+    for space in X.spaces
+        _check_fe_space_vector_type(space, config)
+    end
+end
+
+# --- Frequency domain: vector_type must be Complex ---
+
+function _check_fe_space_vector_type(X::SingleFieldFESpace, config::PH.FreqDomainConfig)
+    T = eltype(get_vector_type(X))
+    if !(T <: Complex)
+        error("FE space vector type must be Complex for frequency-domain simulations, got $T.")
+    end
+end
+
+function _check_fe_space_vector_type(X::MultiFieldFESpace, config::PH.FreqDomainConfig)
+    for space in X.spaces
+        _check_fe_space_vector_type(space, config)
+    end
+end
+
 function _build_problem_parts(domain, physics::Vector{P.PhysicsParameters}, config::PH.SimulationConfig)
     _check_ambient_dimension_consistency(domain, physics)
     model = G.build_model(domain)
@@ -236,6 +282,7 @@ function _build_problem_parts(domain, physics::Vector{P.PhysicsParameters}, conf
     degrees = get_integration_degrees(trians, physics)
     measures = G.get_integration_domains(trians, degree=degrees)
     X, Y, fmap = FA.build_fe_spaces(physics, trians, config)
+    _check_fe_space_vector_type(Y, config)
     return model, trians, measures, X, Y, fmap
 end
 
@@ -318,6 +365,9 @@ function get_integration_degrees(trians::G.TankTriangulations, physics::Vector{P
     # Get max FE order across all entities for each domain
     degrees = Dict{Symbol, Int}()
     for p in physics
+        # exclude ResonatorSingle and ResonatorArray from degree calculations, 
+        # since they are pointwise and don't require integration
+        ( isa(p, P.ResonatorSingle) || isa(p, P.ResonatorArray) ) && continue
         fe = p.fe
         if fe !== nothing
             domain_symbol = p.space_domain_symbol

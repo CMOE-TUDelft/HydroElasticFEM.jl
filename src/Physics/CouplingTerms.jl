@@ -182,6 +182,7 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.FrequencyAssembly
     κ = x[κ_sym]
     w = y[ϕ_sym]
     u = y[κ_sym]
+    βₕ = fs.βₕ
 
     val = nothing
     dom = AC.domains(ctx)
@@ -194,7 +195,7 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.FrequencyAssembly
         ∇ₙϕ = ∇(ϕ) ⋅ nΓ
         # Sponge-layer damping-zone contributions.
         # Reference: [C23] Section 4.1, Eq. (33)-(36).
-        zone_val = ∫(μ₁ * ∇ₙϕ * u - (μ₂ * κ * w))dΓ
+        zone_val = ∫(βₕ * (μ₁ * ∇ₙϕ * u) - (μ₂ * κ * w))dΓ
         val = _add_contribution(val, zone_val)
     end
 
@@ -209,12 +210,13 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyConte
     κ = x[κ_sym]
     w = y[ϕ_sym]
     u = y[κ_sym]
+    βₕ = fs.βₕ
 
     val = nothing
     if AC.has_stabilization(ctx)
         αₕ = stabilization_parameter(fs, ctx)
         dΩ = _space_measure(dom, fs)
-        val = ∫(fs.βₕ * fs.g * αₕ * w * κ)dΩ
+        val = ∫(βₕ * fs.g * αₕ * w * κ)dΩ
     end
 
     for bc in _active_damping_zone_bcs(pf)
@@ -225,7 +227,7 @@ function stiffness(pf::PotentialFlow, fs::FreeSurface, ctx::AC.TimeAssemblyConte
         ∇ₙϕ = ∇(ϕ) ⋅ nΓ
         # Sponge-layer damping-zone contributions.
         # Reference: [C23] Section 4.1, Eq. (33)-(36).
-        zone_val = ∫(μ₁ * ∇ₙϕ * u - (μ₂ * κ * w))dΓ
+        zone_val = ∫(βₕ * (μ₁ * ∇ₙϕ * u) - (μ₂ * κ * w))dΓ
         val = _add_contribution(val, zone_val)
     end
 
@@ -243,13 +245,14 @@ PotentialFlow/FreeSurface coupling right-hand side (damping-zone forcing).
 function rhs(pf::PotentialFlow, fs::FreeSurface, ctx::AC.AbstractAssemblyContext, f, y)
     κ_sym = variable_symbol(fs)
     u = y[κ_sym]
+    βₕ = fs.βₕ
 
     val = nothing
     dom = AC.domains(ctx)
     for bc in _active_damping_zone_bcs(pf)
         dΓ = dom[bc.domain]
         ∇ₙϕd = _normal_damped(bc, ctx)
-        zone_val = ∫(∇ₙϕd * u)dΓ
+        zone_val = ∫( βₕ * (∇ₙϕd * u))dΓ
         val = _add_contribution(val, zone_val)
     end
 
@@ -265,32 +268,34 @@ end
 # =========================================================================
 
 # Resonator-structure coupling has damping and stiffness terms only.
-# Return false for empty vectors to avoid BoundsError in form functions.
-has_damping_form(resn::Vector{ResonatorSingle}, ::Structure) = !isempty(resn)
-has_stiffness_form(resn::Vector{ResonatorSingle}, ::Structure) = !isempty(resn)
+# Return false for empty arrays to avoid BoundsError in form functions.
+has_damping_form(ra::ResonatorArray, ::Structure) = !isempty(ra.resonators)
+has_stiffness_form(ra::ResonatorArray, ::Structure) = !isempty(ra.resonators)
 
 """
-    damping(resn::Vector{ResonatorSingle}, s::Structure, dom::IntegrationDomains, x_t, y)
+    damping(ra::ResonatorArray, s::Structure, dom::IntegrationDomains, x_t, y)
 
 Resonator-structure coupling damping form.
 
 Contributes cross-damping terms between each resonator DOF `q_i` and the
-structural displacement `\u03b7` at resonator attachment points.
+structural displacement `η` at resonator attachment points.
 """
-function damping(resn::Vector{ResonatorSingle}, s::Structure,
+function damping(ra::ResonatorArray, s::Structure,
                  dom::IntegrationDomains, x_t, y)
-    δ_p   = dom[:δ_p]
+    resn  = ra.resonators
     η_sym = variable_symbol(s)
     ηₜ    = x_t[η_sym]
     v     = y[η_sym]
     î1    = VectorValue(1.0)
-    ξ1    = y[Symbol("q_1")]
-    q1    = x_t[Symbol("q_1")]
-    dΩ    = _space_measure(dom, resn)
+    ξ1    = y[variable_symbol(resn[1])]
+    q1    = x_t[variable_symbol(resn[1])]
+    δ_p1 = dom[resn[1].delta_domain_symbol]
+    dΩ  = dom[Symbol("d",resn[1].host_domain_symbol)]
     val   = ∫((ξ1 ⋅ q1) * 0.0)dΩ
-    for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
-        qₜi = x_t[Symbol("q_$i")]
-        ξi  = y[Symbol("q_$i")]
+    for (i, ri) in enumerate(resn)
+        δi = dom[ri.delta_domain_symbol]
+        qₜi = x_t[variable_symbol(ri)]
+        ξi  = y[variable_symbol(ri)]
         # force on structure from resonator velocity
         val += (ri.C / ri.ρw) * δi(v * ((qₜi ⋅ î1) - ηₜ))
         # force on resonator from structure velocity
@@ -300,27 +305,29 @@ function damping(resn::Vector{ResonatorSingle}, s::Structure,
 end
 
 """
-    stiffness(resn::Vector{ResonatorSingle}, s::Structure, dom::IntegrationDomains, x, y)
+    stiffness(ra::ResonatorArray, s::Structure, dom::IntegrationDomains, x, y)
 
 Resonator-structure coupling stiffness form.
 
 Contributes cross-stiffness terms between each resonator DOF `q_i` and the
-structural displacement `\u03b7` at resonator attachment points.
+structural displacement `η` at resonator attachment points.
 """
-function stiffness(resn::Vector{ResonatorSingle}, s::Structure,
+function stiffness(ra::ResonatorArray, s::Structure,
                    dom::IntegrationDomains, x, y)
-    δ_p   = dom[:δ_p]
+    resn  = ra.resonators
     η_sym = variable_symbol(s)
     η     = x[η_sym]
     v     = y[η_sym]
     î1    = VectorValue(1.0)
-    ξ1    = y[Symbol("q_1")]
-    q1    = x[Symbol("q_1")]
-    dΩ    = _space_measure(dom, resn)
+    ξ1    = y[variable_symbol(resn[1])]
+    q1    = x[variable_symbol(resn[1])]
+    δ_p1 = dom[resn[1].delta_domain_symbol]
+    dΩ  = dom[Symbol("d",resn[1].host_domain_symbol)]
     val   = ∫((ξ1 ⋅ q1) * 0.0)dΩ
-    for (i, (δi, ri)) in enumerate(zip(δ_p, resn))
-        qi = x[Symbol("q_$i")]
-        ξi = y[Symbol("q_$i")]
+    for (i, ri) in enumerate(resn)
+        δi = dom[ri.delta_domain_symbol]
+        qi = x[variable_symbol(ri)]
+        ξi = y[variable_symbol(ri)]
         # force on structure from resonator displacement
         val += (-ri.K / ri.ρw) * δi(v * ((qi ⋅ î1) - η))
         # force on resonator from structure displacement

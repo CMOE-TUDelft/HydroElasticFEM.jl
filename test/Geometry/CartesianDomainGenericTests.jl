@@ -127,6 +127,27 @@ end
   )
 end
 
+@testset "TankDomain{3} supports resonator domains on explicit triangulation" begin
+  r1 = G.ResonatorDomain(location = [1.0, 1.0, 1.0], trian_symbol = :Ω)
+  tank = G.TankDomain(
+    L = 8.0,
+    W = 3.0,
+    H = 2.0,
+    nx = 8,
+    ny = 3,
+    nz = 2,
+    resonator_domains = [r1],
+  )
+
+  model = G.build_model(tank)
+  trians = G.build_triangulations(tank, model)
+  d = G.get_integration_domains(trians)
+
+  @test length(trians[:resonator_domains]) == 1
+  @test haskey(d, :δ_p)
+  @test d[:δ_p] isa Gridap.CellData.GenericDiracDelta
+end
+
 @testset "CartesianDomain explicit graded 3D bounds uses structured boundaries" begin
   d = G.CartesianDomain(
     mins = (0.0, -1.5, 0.0),

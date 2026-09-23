@@ -90,7 +90,7 @@ This happens when:
 BoundsError: attempt to access 0-element Vector{...} at index [1]
 ```
 
-You passed an empty `Vector{ResonatorSingle}` to the physics array.
+You passed an empty `ResonatorArray` to the physics array.
 The resonator assembler expects at least one element.
 Either remove the resonator from the `physics` vector, or initialize it with at least
 one `ResonatorSingle`.

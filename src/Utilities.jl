@@ -67,7 +67,7 @@ function print_properties(ele::Membrane)
   print_parameters(ele)
 end
 
-function print_properties(ele::Union{Physics.ResonatorSingle, Vector{Physics.ResonatorSingle}})
+function print_properties(ele::Union{Physics.ResonatorSingle, Physics.ResonatorArray})
   print_parameters(ele)
 end
 # ----------------------End---------------------

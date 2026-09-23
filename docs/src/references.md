@@ -28,6 +28,28 @@ This reference supports membrane-oriented formulation details and the
 monolithic treatment of viscoelastic floating membranes used by the
 `Membrane` implementation.
 
+## Post-processing references
+
+### Goda & Suzuki (1976)
+Y. Goda and Y. Suzuki,
+"Estimation of incident and reflected waves in random wave experiments,"
+*Proceedings of the 15th International Conference on Coastal Engineering*,
+828-845, 1976.
+
+Basis for the three-gauge reflection/transmission separation method
+generalized by [`HydroElasticFEM.PostProcessing.fit_wave_components`](@ref)
+to an arbitrary number of probes.
+
+### Zelt & Skjelbreia (1992)
+J. A. Zelt and J. E. Skjelbreia,
+"Estimating incident and reflected wave fields using an arbitrary number of
+wave gauges,"
+*Proceedings of the 23rd International Conference on Coastal Engineering*,
+777-789, 1992.
+
+Least-squares generalization of the Goda & Suzuki method to `N > 3` gauges,
+used by the `PostProcessing` module.
+
 ## Software dependencies
 
 - **Gridap.jl**: F. Verdugo and S. Badia, "The software design of Gridap:
