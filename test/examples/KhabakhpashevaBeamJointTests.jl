@@ -16,8 +16,9 @@ using Test
 # high-accuracy values.
 # =========================================================================
 
-include(joinpath(@__DIR__, "..", "..", "examples", "KhabakhpashevaBeamJointExample.jl"))
-using .KhabakhpashevaBeamJointExample
+isdefined(@__MODULE__, :KhabakhpashevaBeamJointExample) ||
+      include(joinpath(@__DIR__, "..", "..", "examples", "KhabakhpashevaBeamJointExample.jl"))
+# using .KhabakhpashevaBeamJointExample
 
 @testset "Khabakhpasheva beam-joint (two stiffness cases)" begin
 
