@@ -79,7 +79,7 @@ end
   )
   @test_throws ErrorException _potential_flow_problem(pf_multi; ω=ω)
 
-  @test_nowarn _potential_flow_time_problem(pf_rad)
+  @test_throws ErrorException _potential_flow_time_problem(pf_rad)
   @test_throws ErrorException _potential_flow_time_problem(pf_multi)
 
   pf_inlet = P.PotentialFlow(

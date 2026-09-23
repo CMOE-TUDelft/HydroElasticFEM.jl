@@ -16,6 +16,7 @@ module Simulation
 using Parameters
 using Gridap
 using Gridap.ODEs
+using Gridap.FESpaces: get_vector_type, SingleFieldFESpace, MultiFieldFESpace, FESpace
 
 import ..Geometry as G
 import ..ParameterHandler as PH
@@ -243,6 +244,36 @@ function _check_ambient_dimension_consistency(domain,
     nothing
 end
 
+# --- Time domain: vector_type must be Real ---
+
+function _check_fe_space_vector_type(X::SingleFieldFESpace, config::PH.TimeDomainConfig)
+    T = eltype(get_vector_type(X))
+    if !(T <: Real)
+        error("FE space vector type must be Real for time-domain simulations, got $T.")
+    end
+end
+
+function _check_fe_space_vector_type(X::MultiFieldFESpace, config::PH.TimeDomainConfig)
+    for space in X.spaces
+        _check_fe_space_vector_type(space, config)
+    end
+end
+
+# --- Frequency domain: vector_type must be Complex ---
+
+function _check_fe_space_vector_type(X::SingleFieldFESpace, config::PH.FreqDomainConfig)
+    T = eltype(get_vector_type(X))
+    if !(T <: Complex)
+        error("FE space vector type must be Complex for frequency-domain simulations, got $T.")
+    end
+end
+
+function _check_fe_space_vector_type(X::MultiFieldFESpace, config::PH.FreqDomainConfig)
+    for space in X.spaces
+        _check_fe_space_vector_type(space, config)
+    end
+end
+
 function _build_problem_parts(domain, physics::Vector{P.PhysicsParameters}, config::PH.SimulationConfig)
     _check_ambient_dimension_consistency(domain, physics)
     model = G.build_model(domain)
@@ -250,6 +281,7 @@ function _build_problem_parts(domain, physics::Vector{P.PhysicsParameters}, conf
     degrees = get_integration_degrees(trians, physics)
     measures = G.get_integration_domains(trians, degree=degrees)
     X, Y, fmap = FA.build_fe_spaces(physics, trians, config)
+    _check_fe_space_vector_type(Y, config)
     return model, trians, measures, X, Y, fmap
 end
 

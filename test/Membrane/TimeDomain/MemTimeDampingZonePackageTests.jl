@@ -62,7 +62,7 @@ import HydroElasticFEM.Geometry as G
         vz_in=(x -> 0.0),
       ),
     ],
-    fe=PH.FESpaceConfig(order=order),
+    fe=PH.FESpaceConfig(order=order,vector_type=Vector{Float64}),
     space_domain_symbol=:Ω,
   )
 
@@ -70,7 +70,7 @@ import HydroElasticFEM.Geometry as G
     ρw=1025.0,
     g=9.81,
     βₕ=βₕ,
-    fe=PH.FESpaceConfig(order=order),
+    fe=PH.FESpaceConfig(order=order,vector_type=Vector{Float64}),
     space_domain_symbol=:Γκ,
   )
 
@@ -80,7 +80,7 @@ import HydroElasticFEM.Geometry as G
     Tᵨ=98.1,
     τ=0.0,
     g=9.81,
-    fe=PH.FESpaceConfig(order=order),
+    fe=PH.FESpaceConfig(order=order,vector_type=Vector{Float64}),
     space_domain_symbol=:Γη,
   )
 

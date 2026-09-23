@@ -30,6 +30,7 @@ end
             return T_true * η0 * exp(im * k * x)
         end
     end
+    κ_synthetic(points::AbstractVector{<:Point}) = [κ_synthetic(p) for p in points]
 
     Lwave = 2π / k
     xs_in = PP.probe_positions(x_split, :upwave, Lwave, 10.0; n=4)
@@ -66,6 +67,7 @@ end
             η0 * exp(im * k * x) + R_true * η0 * exp(-im * k * x) :
             T_true * η0 * exp(im * k * x)
     end
+    κ_synthetic(points::AbstractVector{<:Point}) = [κ_synthetic(p) for p in points]
 
     Lwave = 2π / k
     xs_in = PP.probe_positions(x_split, :upwave, Lwave, 8.0; n=5)

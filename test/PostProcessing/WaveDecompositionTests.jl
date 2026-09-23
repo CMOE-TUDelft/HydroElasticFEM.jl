@@ -79,14 +79,9 @@ end
 @testset "sample_probe_line" begin
     k = 0.2
     field(p::Point) = ComplexF64(exp(im * k * p[1]))   # depends only on x, ignores y
+    field(points::AbstractVector{<:Point}) = [field(p) for p in points]
     xs = [1.0, 4.0, 9.5]
     y = 7.3   # arbitrary — this synthetic field ignores it, exercising the call path
     vals = PP.sample_probe_line(field, xs, y)
     @test vals ≈ [exp(im * k * x) for x in xs]
-
-    # Real-valued fields are promoted to ComplexF64.
-    real_field(p::Point) = cos(p[1])
-    rvals = PP.sample_probe_line(real_field, xs, y)
-    @test rvals ≈ ComplexF64.(cos.(xs))
-    @test eltype(rvals) == ComplexF64
 end

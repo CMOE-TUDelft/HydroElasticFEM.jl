@@ -199,7 +199,7 @@ mesh/domain convention. In particular, `TankDomain`'s default (unshifted)
 Cartesian mesh has the free surface at `z = H0`, *not* `z = 0` — see the
 coordinate-convention note in [`reflection_transmission_coefficients`](@ref).
 """
-function sample_probe_line(field, xs::AbstractVector{<:Real}, y::Real)
+function sample_probe_line(field::Union{CellField,Function}, xs::AbstractVector{<:Real}, y::Real)
     points = Point.(xs, y)
     return field_values = field(points)
 end

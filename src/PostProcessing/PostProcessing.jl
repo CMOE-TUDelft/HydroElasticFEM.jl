@@ -59,6 +59,7 @@ module PostProcessing
 using LinearAlgebra
 using Printf
 using Gridap: Point
+using Gridap.CellData
 
 include("WaveDecomposition.jl")
 include("Coefficients.jl")
