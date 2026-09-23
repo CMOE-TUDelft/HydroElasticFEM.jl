@@ -95,6 +95,7 @@ module HydroElasticFEM
   # Entity types — users construct instances of these
   export PhysicsParameters, print_parameters
   export PotentialFlow, FreeSurface, Membrane, EulerBernoulliBeam
+  export TensionedEulerBernoulliBeam
   export KirchhoffLovePlate
   export TimoshenkoBeam
   export ResonatorSingle, ResonatorArray, resonator_array
@@ -104,6 +105,10 @@ module HydroElasticFEM
   # Extension interface — needed by users implementing new physics models
   export variable_symbol
   export has_mass_form, has_damping_form, has_stiffness_form, has_rhs_form
+  # AbstractHydroelasticStructure extension interface — needed by users adding
+  # a new single-field hydroelastic structure (see Membrane, EulerBernoulliBeam,
+  # TensionedEulerBernoulliBeam for reference implementations)
+  export mass_density, damping_parameter, stiffness_operator
   # Assembly context types — needed for custom physics dispatch
   export AbstractAssemblyContext, FrequencyAssemblyContext, TimeAssemblyContext
 

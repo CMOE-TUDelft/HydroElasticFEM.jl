@@ -20,6 +20,15 @@ damping-zone radiation condition.
 Demonstrates how coupling terms are detected automatically.
 The setup uses the generic `TankDomain` constructor for 2D Cartesian meshes.
 
+## Floating tensioned Euler-Bernoulli beam
+
+`examples/FloatingTensionedBeamExample.jl` — compares `Membrane`,
+`EulerBernoulliBeam`, and `TensionedEulerBernoulliBeam` on the same tank
+geometry, structure span, and wave conditions, using the structured
+`TankDomain`/`build_problem`/`simulate` API. Run
+`FloatingTensionedBeamExample.compare_structures()` to solve all three and
+print the maximum combined surface/structure probe response for each.
+
 ## Euler-Bernoulli beam with joints
 
 `scripts/EulerBernoulliBeam_example.jl` — standalone beam problem using the

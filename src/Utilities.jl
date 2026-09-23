@@ -67,6 +67,10 @@ function print_properties(ele::Membrane)
   print_parameters(ele)
 end
 
+function print_properties(ele::TensionedEulerBernoulliBeam)
+  print_parameters(ele)
+end
+
 function print_properties(ele::Union{Physics.ResonatorSingle, Physics.ResonatorArray})
   print_parameters(ele)
 end

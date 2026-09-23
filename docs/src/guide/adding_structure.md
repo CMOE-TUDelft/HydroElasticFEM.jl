@@ -23,6 +23,24 @@ Every structural entity must:
 Coupling to `PotentialFlow` is detected automatically if you add a specialization of
 `has_damping_form(::PotentialFlow, ::LinearSpring)` to `CouplingTerms.jl`.
 
+!!! note "Shortcut for standard hydroelastic structures"
+    If your entity follows the common hydroelastic pattern — inertia
+    `∫ mᵨ v ηₜₜ dΓ`, hydrostatic restoring `∫ g v η dΓ`, and
+    stiffness-proportional Rayleigh damping `τ · (your stiffness operator)`,
+    exactly like `Membrane`, `EulerBernoulliBeam`, and
+    `TensionedEulerBernoulliBeam` — subtype `AbstractHydroelasticStructure`
+    instead of `Structure` directly. You then only implement
+    `mass_density`, `damping_parameter`, and `stiffness_operator` (and,
+    optionally, `extra_stiffness_form` for contributions such as joints
+    that should *not* be scaled by `τ`); `mass`, `damping`, `stiffness`, and
+    `rhs` are supplied for free. See
+    `src/Physics/Structures/TensionedEulerBernoulliBeam.jl` for a worked
+    example, and the [Hydroelastic structure
+    abstraction](@ref "Hydroelastic structure abstraction") section of the
+    Physics API reference. `LinearSpring` below does *not* use this
+    shortcut, since it has no damping form — the walkthrough stays the
+    general-purpose path for entities that don't fit the pattern.
+
 ## 2. Create the Entity File
 
 Create `src/Physics/Structures/LinearSpring.jl`:

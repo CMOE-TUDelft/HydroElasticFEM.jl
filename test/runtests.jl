@@ -43,6 +43,7 @@ using Test
   # ==========================================================================
 
   include("examples/EulerBernoulliBeamWeakFormTests.jl")
+  include("examples/TensionedEulerBernoulliBeamWeakFormTests.jl")
   include("examples/KhabakhpashevaBeamJointTests.jl")
   include("examples/test_liu_benchmark.jl")
   include("examples/test_yago_3d_freq.jl")

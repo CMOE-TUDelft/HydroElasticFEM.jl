@@ -125,6 +125,7 @@ which key in `TankTriangulations` to use when building the FE space for that ent
 | `PotentialFlow` | `(:ϕ,)` | `:Ω` |
 | `FreeSurface` | `(:κ,)` | `:Γκ` |
 | `EulerBernoulliBeam` | `(:η_b,)` | `:Γη` |
+| `TensionedEulerBernoulliBeam` | `(:η_tb,)` | `:Γη` |
 | `TimoshenkoBeam` | `(:w, :θ)` | `:Γη` |
 | `KirchhoffLovePlate` | `(:η,)` | `:Γη` |
 | `Membrane` | `(:η_m,)` | `:Γη` |

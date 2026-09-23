@@ -8,8 +8,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `TensionedEulerBernoulliBeam`, a structural model combining membrane
+  pre-tension stiffness with Euler-Bernoulli bending stiffness (governing
+  equation `m·ηₜₜ + EI·Δ²η - ∇·(T∇η) = p`). Reduces exactly to `Membrane`
+  when `EIᵨ = 0` and to `EulerBernoulliBeam` when `Tᵨ = 0`, verified at the
+  assembled-matrix level. Supports the same `JointRotationalSpring`
+  connections as `EulerBernoulliBeam`.
+- `AbstractHydroelasticStructure`, a shared base type for `Membrane`,
+  `EulerBernoulliBeam`, and `TensionedEulerBernoulliBeam` that factors out
+  their common `mass`, hydrostatic `stiffness`, `rhs`, and
+  stiffness-proportional Rayleigh `damping` weak forms. New structures
+  following this pattern now only implement `mass_density`,
+  `damping_parameter`, and `stiffness_operator` (see the "Shortcut for
+  standard hydroelastic structures" note in the "Adding a New Structure"
+  guide).
+- `examples/FloatingTensionedBeamExample.jl`, comparing `Membrane`,
+  `EulerBernoulliBeam`, and `TensionedEulerBernoulliBeam` under identical
+  wave conditions.
 
 ### Changed
+- `Membrane` and `EulerBernoulliBeam` now subtype `AbstractHydroelasticStructure`
+  instead of `Structure` directly. Their assembled weak forms are unchanged;
+  `mass`, `damping`, `stiffness`, and `rhs` are now provided by the shared
+  base type instead of being implemented per-structure. `EulerBernoulliBeam`'s
+  C/DG bending operator and joint-penalty assembly are now shared helper
+  functions (`_eb_bending_stiffness_operator`, `_joint_stiffness_form`),
+  reused by `TensionedEulerBernoulliBeam`.
 - `RadiationBC` now supports both frequency-domain and time-domain assembly contexts, fixing issue [#44](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/issues/44). Since [PR#46](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/46).
 
 ### Fixed
