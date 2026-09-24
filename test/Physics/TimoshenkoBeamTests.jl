@@ -1,5 +1,6 @@
 using Test
 using Gridap
+using Gridap.FESpaces
 using Printf
 
 import HydroElasticFEM.Physics as P
@@ -264,4 +265,53 @@ end
 
   @test abs(m_A_h - m_A_exact) / m_A_exact < 1e-10
   @test abs(m_I_h - m_I_exact) / m_I_exact < 1e-10
+end
+
+@testset "TimoshenkoBeam — hydrostatic term applies to w only (AbstractHydroelasticStructure)" begin
+  # AbstractHydroelasticStructure's shared `stiffness` default assembles the
+  # hydrostatic term g·v_w·w *separately* from `stiffness_operator` (using
+  # variable_symbol(s) == s.symbol_w to pick out the deflection field only)
+  # and sums the two DomainContributions, rather than combining them inside
+  # one ∫(...)dΩ call as the pre-refactor code did. Verify this produces an
+  # identical matrix: stiffness(g) - stiffness(0) must equal exactly
+  # g * (plain L2 mass matrix ∫ v_w·w dΓ on the w block only — zero on the
+  # θ block and on the w-θ coupling blocks).
+  E, ν, κ = 210e9, 0.3, 5 / 6
+  h, b    = 0.1, 0.05
+  L, n    = 1.0, 10
+  g_val   = 4.2
+
+  model = CartesianDiscreteModel((0.0, L), (n,))
+  Ω  = Triangulation(model)
+  dΩ = Measure(Ω, 6)
+  dom = D.IntegrationDomains(dΓη = dΩ)
+
+  reffe_w = ReferenceFE(lagrangian, Float64, 2)
+  V_w = TestFESpace(model, reffe_w; conformity=:H1, vector_type=Vector{Float64})
+  U_w = TrialFESpace(V_w)
+  reffe_θ = ReferenceFE(lagrangian, Float64, 1)
+  V_θ = TestFESpace(model, reffe_θ; conformity=:H1, vector_type=Vector{Float64})
+  U_θ = TrialFESpace(V_θ)
+
+  X = MultiFieldFESpace([U_w, U_θ])
+  Y = MultiFieldFESpace([V_w, V_θ])
+  fmap = Dict(:w => 1, :θ => 2)
+
+  common = (E=E, ν=ν, h_beam=h, b_beam=b, ρ_s=2700.0, ρ_w=1.0, κ=κ,
+            tangent=VectorValue(1.0),
+            fe_w=FES.FESpaceConfig(order=2, vector_type=Vector{Float64}),
+            fe_θ=FES.FESpaceConfig(order=1, vector_type=Vector{Float64}))
+  beam_g0 = P.TimoshenkoBeam(; common..., g=0.0)
+  beam_g  = P.TimoshenkoBeam(; common..., g=g_val)
+
+  a0((w, θ), (v_w, v_θ)) = P.stiffness(beam_g0, dom, FO.FieldMap((w, θ), fmap), FO.FieldMap((v_w, v_θ), fmap))
+  ag((w, θ), (v_w, v_θ)) = P.stiffness(beam_g,  dom, FO.FieldMap((w, θ), fmap), FO.FieldMap((v_w, v_θ), fmap))
+
+  K0 = Matrix(assemble_matrix(a0, X, Y))
+  Kg = Matrix(assemble_matrix(ag, X, Y))
+
+  aM((w, θ), (v_w, v_θ)) = ∫(v_w * w)dΩ   # plain L2 mass, w block only
+  M = Matrix(assemble_matrix(aM, X, Y))
+
+  @test maximum(abs.((Kg .- K0) .- g_val .* M)) / maximum(abs.(M)) < 1e-10
 end

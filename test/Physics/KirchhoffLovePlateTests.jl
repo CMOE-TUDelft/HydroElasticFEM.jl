@@ -238,6 +238,44 @@ end
   @test_nowarn P.print_parameters(plate)
 end
 
+@testset "KirchhoffLovePlate — hydrostatic term is additive (AbstractHydroelasticStructure)" begin
+  # AbstractHydroelasticStructure's shared `stiffness` default assembles the
+  # hydrostatic term g·v·η *separately* from `stiffness_operator` and sums
+  # the two DomainContributions, rather than combining them inside one ∫(...)dΩ
+  # call as the pre-refactor code did. Verify this produces an identical
+  # matrix: stiffness(g) - stiffness(0) must equal exactly g * (plain L2
+  # mass matrix ∫ v·η dΓ), with no other terms disturbed.
+  L = 1.0;  n = 4;  order = 2
+  E = 10.92e6;  ν = 0.3;  h = 0.01;  ρ = 1.0
+  g_val = 3.7
+
+  prob  = _build_plate_problem(L=L, n=n, order=order)
+  reffe = ReferenceFE(lagrangian, Float64, order)
+  V = TestFESpace(prob.model, reffe; conformity=:H1, vector_type=Vector{Float64})
+  U = TrialFESpace(V)
+  X = MultiFieldFESpace([U])
+  Y = MultiFieldFESpace([V])
+
+  common = (E=E, ν=ν, hb=h, ρ=ρ, ambient_dim=2, manifold_dim=2,
+            fe=FES.FESpaceConfig(order=order, vector_type=Vector{Float64}))
+  plate_g0 = P.KirchhoffLovePlate(; common..., g=0.0)
+  plate_g  = P.KirchhoffLovePlate(; common..., g=g_val)
+
+  sym  = P.variable_symbol(plate_g0)
+  fmap = Dict(sym => 1)
+  a0((u,), (v,)) = P.stiffness(plate_g0, prob.dom, FO.FieldMap((u,), fmap), FO.FieldMap((v,), fmap))
+  ag((u,), (v,)) = P.stiffness(plate_g,  prob.dom, FO.FieldMap((u,), fmap), FO.FieldMap((v,), fmap))
+
+  K0 = Matrix(assemble_matrix(a0, X, Y))
+  Kg = Matrix(assemble_matrix(ag, X, Y))
+
+  dΩ = prob.dom[:dΓη]
+  aM((u,), (v,)) = ∫(v * u)dΩ
+  M  = Matrix(assemble_matrix(aM, X, Y))
+
+  @test maximum(abs.((Kg .- K0) .- g_val .* M)) / maximum(abs.(M)) < 1e-10
+end
+
 # =========================================================================
 # Hessian SIPG form — targeted tests
 # =========================================================================
