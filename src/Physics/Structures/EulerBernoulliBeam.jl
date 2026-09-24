@@ -102,7 +102,7 @@ consistency + penalty scheme for the fourth-order bending operator.
 `mass`, `damping`, `stiffness`, and `rhs` are inherited from
 [`AbstractHydroelasticStructure`](@ref); this file supplies the beam's
 elastic operator via [`stiffness_operator`](@ref) (bending, via
-[`_eb_bending_stiffness_operator`](@ref)) and the joint contribution via
+`_eb_bending_stiffness_operator`) and the joint contribution via
 [`extra_stiffness_form`](@ref) (which is *not* subject to Rayleigh damping).
 
 # Fields
@@ -170,7 +170,7 @@ damping_parameter(s::EulerBernoulliBeam) = s.τ
     stiffness_operator(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
 
 Euler-Bernoulli C/DG bending stiffness operator (bulk + interior-penalty
-skeleton), via [`_eb_bending_stiffness_operator`](@ref).
+skeleton), via `_eb_bending_stiffness_operator`.
 
 Combined with the shared hydrostatic term (in [`stiffness`](@ref)) and the
 joint contribution (in [`extra_stiffness_form`](@ref)) this reproduces the
@@ -193,7 +193,7 @@ end
     extra_stiffness_form(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
 
 Rotational-spring joint contributions at `s.joints`, via
-[`_joint_stiffness_form`](@ref). Not subject to Rayleigh damping (joints are
+`_joint_stiffness_form`. Not subject to Rayleigh damping (joints are
 purely elastic connections).
 """
 function extra_stiffness_form(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)

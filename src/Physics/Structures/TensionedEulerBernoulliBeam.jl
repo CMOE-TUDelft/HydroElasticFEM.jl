@@ -116,7 +116,7 @@ damping_parameter(s::TensionedEulerBernoulliBeam) = s.τ
     stiffness_operator(s::TensionedEulerBernoulliBeam, dom::IntegrationDomains, x, y)
 
 Combined elastic stiffness operator: Euler-Bernoulli C/DG bending (via
-[`_eb_bending_stiffness_operator`](@ref), identical to
+`_eb_bending_stiffness_operator`, identical to
 [`EulerBernoulliBeam`](@ref)'s) plus membrane pre-tension (identical in form
 to [`Membrane`](@ref)'s `stiffness_operator`):
 
@@ -144,7 +144,7 @@ end
     extra_stiffness_form(s::TensionedEulerBernoulliBeam, dom::IntegrationDomains, x, y)
 
 Rotational-spring joint contributions at `s.joints`, via
-[`_joint_stiffness_form`](@ref) (identical mechanism to
+`_joint_stiffness_form` (identical mechanism to
 [`EulerBernoulliBeam`](@ref)'s). Not subject to Rayleigh damping.
 """
 function extra_stiffness_form(s::TensionedEulerBernoulliBeam, dom::IntegrationDomains, x, y)

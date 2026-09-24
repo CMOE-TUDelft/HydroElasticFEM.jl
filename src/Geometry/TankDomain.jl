@@ -81,7 +81,7 @@ defined by the physics layer (`DampingZoneBC`).
 - `ambient_dim::Int`         — ambient dimension (default `length(x₀)`)
 - `manifold_dim::Int`        — manifold dimension (default `ambient_dim - 1`)
 - `domain_symbol::Symbol`    — key used in `TankTriangulations` (default `:Γ_d`)
-- `W::Union{Nothing,Float64}` — extent along y [m] (3D only); `nothing`
+- `W::Union{Nothing,Float64}` — extent along y, in m (3D only); `nothing`
   (default) spans the full tank width
 """
 @with_kw struct DampingZone <: AbstractSurfaceZone
@@ -712,7 +712,7 @@ end
     _tank_label_map(::Val{D}) -> Dict{String, String}
 
 Internal mapping from [`STANDARD_TAGS`](@ref) (plus `"lateral_walls"` in 3D)
-to the Gridap face-label strings added by [`_label_tank_model!`](@ref).
+to the Gridap face-label strings added by `_label_tank_model!`.
 
 `"fluid"` maps to the interior label `"water"`.  `"structure"` is handled
 separately via coordinate masks in [`get_boundary`](@ref).

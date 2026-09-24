@@ -26,6 +26,7 @@ HydroElasticFEM.Geometry.get_boundary
 ```@docs
 HydroElasticFEM.Geometry.CartesianDomain
 HydroElasticFEM.Geometry.TankDomain
+HydroElasticFEM.Geometry.AbstractSurfaceZone
 HydroElasticFEM.Geometry.StructureDomain
 HydroElasticFEM.Geometry.DampingZone
 HydroElasticFEM.Geometry.JointDomain
@@ -40,6 +41,9 @@ HydroElasticFEM.Geometry.joint_mask
 
 ## 3D Cartesian helpers
 
+`get_plate_triangulation` is kept for backward compatibility; prefer a 3D
+`StructureDomain` (see above).
+
 ```@docs
 HydroElasticFEM.Geometry.f_z
 HydroElasticFEM.Geometry.map_fn
@@ -52,6 +56,38 @@ HydroElasticFEM.Geometry.get_plate_triangulation
 HydroElasticFEM.Geometry.GmshDomain
 HydroElasticFEM.Geometry.validate_gmsh_tags
 ```
+
+## Floating structures in 3D
+
+In a 3D `TankDomain`, a `StructureDomain` is a rectangle on the free surface
+(`x ∈ [x₀₁, x₀₁+L]`, `y ∈ [x₀₂, x₀₂+W]`, `z = x₀₃`) and a `DampingZone` is a strip
+(full width when `W` is omitted).  For a tank that is not anchored at the origin, build
+the `CartesianDomain` with explicit bounds and wrap it:
+
+```julia
+using HydroElasticFEM
+
+cart  = CartesianDomain(mins = (0.0, -540.0, 0.0), maxs = (3000.0, 540.0, 58.5),
+                        parts = (20, 36, 1))
+plate = StructureDomain(L = 300.0, W = 60.0, x₀ = [1350.0, -30.0, 58.5],
+                        domain_symbol = :Γ_plate)          # edge tag "Γ_plate_boundary"
+tank  = TankDomain(cart;
+    structure_domains = [plate],
+    damping_zones = [DampingZone(L = 600.0, x₀ = [0.0, -540.0, 58.5], domain_symbol = :Γ_d_in),
+                     DampingZone(L = 600.0, x₀ = [2400.0, -540.0, 58.5], domain_symbol = :Γ_d_out)])
+
+model  = build_model(tank)
+trians = build_triangulations(tank, model)
+dom    = get_integration_domains(trians)
+# dom[:dΓη], dom[:dΛη], dom[:h_η]   plate surface, C/DG skeleton, mesh size
+# dom[:dΓκ], dom[:dΓd_1]            free surface (incl. sponges), inlet sponge
+# dom[:dΛ∂η]                        plate edge
+```
+
+To clamp or simply support the plate edge, pass the structure's `boundary_tag`
+(default `"<domain_symbol>_boundary"`, or `"structure_boundary"` for all structures) as
+`dirichlet_tags` in its `FESpaceConfig`.  See `examples/YagoBenchmark3DFreq.jl` for a
+complete 3D hydroelastic plate simulation.
 
 ## Setting up structural joints
 
