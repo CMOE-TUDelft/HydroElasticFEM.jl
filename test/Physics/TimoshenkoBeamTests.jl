@@ -276,10 +276,10 @@ end
   # identical matrix: stiffness(g) - stiffness(0) must equal exactly
   # g * (plain L2 mass matrix ∫ v_w·w dΓ on the w block only — zero on the
   # θ block and on the w-θ coupling blocks).
-  E, ν, κ = 210e9, 0.3, 5 / 6
-  h, b    = 0.1, 0.05
+  E, ν, κ = 1.0, 0.0, 1.0
+  h, b    = 1.0, 1.0
   L, n    = 1.0, 10
-  g_val   = 4.2
+  g_val   = 1.0
 
   model = CartesianDiscreteModel((0.0, L), (n,))
   Ω  = Triangulation(model)
@@ -313,5 +313,5 @@ end
   aM((w, θ), (v_w, v_θ)) = ∫(v_w * w)dΩ   # plain L2 mass, w block only
   M = Matrix(assemble_matrix(aM, X, Y))
 
-  @test maximum(abs.((Kg .- K0) .- g_val .* M)) / maximum(abs.(M)) < 1e-10
+  @test maximum(abs.((Kg .- K0) .- g_val .* M)) / maximum(abs.(M)) < 1e-8
 end

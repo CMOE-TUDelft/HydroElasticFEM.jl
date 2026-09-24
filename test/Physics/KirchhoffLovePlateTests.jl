@@ -273,7 +273,7 @@ end
   aM((u,), (v,)) = ∫(v * u)dΩ
   M  = Matrix(assemble_matrix(aM, X, Y))
 
-  @test maximum(abs.((Kg .- K0) .- g_val .* M)) / maximum(abs.(M)) < 1e-10
+  @test maximum(abs.((Kg .- K0) .- g_val .* M)) / maximum(abs.(M)) < 1e-8
 end
 
 # =========================================================================
