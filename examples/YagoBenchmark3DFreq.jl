@@ -28,7 +28,7 @@ using Plots
 import HydroElasticFEM.Geometry as G
 import HydroElasticFEM.Physics as P
 
-export run_yago_3d_freq, run_yago_case1
+export run_yago_3d_freq, run_yago_case1, yago_tank, solve_yago
 
 @with_kw struct YagoCaseParams
   nx::Int = 32
@@ -101,42 +101,71 @@ function _damping(c, wave, dfactor)
   (; μ₁, μ₂, ηd, ∇ₙϕd)
 end
 
+"""
+    yago_tank(c, nx, ny, nz, dfactor) -> TankDomain{3}
+
+Geometry of the Yago benchmark: graded 3D tank, floating plate on the free
+surface (`z = H`) and full-width inlet/outlet damping zones of length
+`dfactor * L`.  All triangulations and measures derive from this object.
+"""
+function yago_tank(c, nx, ny, nz, dfactor)
+  Ld = dfactor * c.L
+  cartesian = G.CartesianDomain(
+    mins = (0.0, -c.BΩ / 2, 0.0),
+    maxs = (c.LΩ, c.BΩ / 2, c.H),
+    parts = (c.nLΩ * nx, c.nBΩ * ny, nz),
+    map = x -> G.map_fn(x, c.H, nz; grading_base = 2.5),
+  )
+  G.TankDomain(cartesian;
+    structure_domains = [
+      G.StructureDomain(L = c.L, W = c.B, x₀ = [c.xb₀, c.yb₀, c.H], domain_symbol = :Γ_plate),
+    ],
+    damping_zones = [
+      G.DampingZone(L = Ld, x₀ = [0.0, -c.BΩ / 2, c.H], domain_symbol = :Γ_d_in),
+      G.DampingZone(L = Ld, x₀ = [c.LΩ - Ld, -c.BΩ / 2, c.H], domain_symbol = :Γ_d_out),
+    ],
+  )
+end
+
 function run_yago_3d_freq(; nx=32, ny=4, nz=3, order=4, λfactor=0.4,
                           dfactor=4.0, vtk_output=true, verbose=true)
   c = _constants()
   wave = _wave(c, λfactor)
   damping = _damping(c, wave, dfactor)
 
-  nx_total = c.nLΩ * nx
-  ny_total = c.nBΩ * ny
-  domain = G.CartesianDomain(
-    mins = (0.0, -c.BΩ / 2, 0.0),
-    maxs = (c.LΩ, c.BΩ / 2, c.H),
-    parts = (nx_total, ny_total, nz),
-    map = x -> G.map_fn(x, c.H, nz; grading_base = 2.5),
-  )
+  # Geometry: every domain and measure comes from the TankDomain
+  #   Ω   fluid volume           Γκ  free surface incl. damping zones (κ field)
+  #   Γin inlet                  Γη  plate (η field)
+  #   Λη  plate interior skeleton (C/DG terms)
+  tank = yago_tank(c, nx, ny, nz, dfactor)
+  model = G.build_model(tank)
+  trians = G.build_triangulations(tank, model)
+  dom = G.get_integration_domains(trians; degree = 2 * order)
+  geo = (Ω = trians[:Ω], Γf = trians[:Γκ], Γb = trians[:Γη],
+         dΩ = dom[:dΩ], dΓᵢₙ = dom[:dΓin], dΓf = dom[:dΓκ], dΓb = dom[:dΓη],
+         dΛb = dom[:dΛη], nΛb = dom[:n_Λ_η])
 
-  model = G.build_model(domain)
-  trians = G.build_triangulations(domain, model)
-  Ω = trians[:Ω]
-  Γ = trians[:Γfs]
-  Γᵢₙ = trians[:Γin]
-  Γb, Γf, Λb = G.get_plate_triangulation(Γ, c.xb₀, c.xb₁, c.yb₀, c.yb₁)
+  return solve_yago(c, wave, damping, geo; nx, order, λfactor, vtk_output, verbose)
+end
 
-  nΛb = get_normal_vector(Λb)
+"""
+    solve_yago(c, wave, damping, geo; nx, order, λfactor, vtk_output, verbose)
+
+Assemble and solve the Yago frequency-domain problem on the geometry `geo`
+(triangulations `Ω, Γf, Γb` and measures `dΩ, dΓᵢₙ, dΓf, dΓb, dΛb`, skeleton
+normal `nΛb`).  Returns `(ξ, |η|/η₀)` along the plate centreline.
+"""
+function solve_yago(c, wave, damping, geo; nx, order, λfactor, vtk_output, verbose)
+  (; Ω, Γf, Γb, dΩ, dΓᵢₙ, dΓf, dΓb, dΛb, nΛb) = geo
 
   βₕ = 0.5
   αₕ = -im * wave.ω / c.g * (1 - βₕ) / βₕ
 
+  # Penalty length: Δx, as in Colomes et al. (2022).  Note dom[:h_η] is the
+  # isotropic sqrt(Δx·Δy), which differs for the non-square cells used here.
   h = c.LΩ / (c.nLΩ * nx)
   # Yago 3D plate uses order*(order+1)/h (Liu 2D uses order*(order-1)/h).
   γ = 1.0 * order * (order + 1) / h
-
-  dΩ = Measure(Ω, 2 * order)
-  dΓᵢₙ = Measure(Γᵢₙ, 2 * order)
-  dΓf = Measure(Γf, 2 * order)
-  dΓb = Measure(Γb, 2 * order)
-  dΛb = Measure(Λb, 2 * order)
 
   reffeη = ReferenceFE(lagrangian, Float64, order)
   reffeκ = ReferenceFE(lagrangian, Float64, order)
