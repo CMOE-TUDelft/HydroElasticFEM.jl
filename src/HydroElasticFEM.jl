@@ -79,7 +79,7 @@ module HydroElasticFEM
   # Domain constructors — users build one of these to describe the geometry
   export AbstractDomain, STANDARD_TAGS
   export TankDomain
-  export StructureDomain, DampingZone, JointDomain, ResonatorDomain
+  export AbstractSurfaceZone, StructureDomain, DampingZone, JointDomain, ResonatorDomain
   export CartesianDomain
   export GmshDomain
   # Domain query helpers

@@ -28,6 +28,10 @@ Access entries with `trians[:key]` or `haskey(trians, :key)`.
 | `:Λ_joints`      | `Vector`         | One skeleton sub-triangulation per `JointDomain`     |
 | `:joint_domains` | `Vector`         | `JointDomain` objects in the same order as `:Λ_joints` |
 | `:resonator_domains` | `Vector`    | `ResonatorDomain` point descriptors                  |
+| `:Λ_structures`  | `Vector`         | Interior skeleton of each structure (joint facets excluded) |
+| `:∂Γ_structures` | `Vector`         | Boundary of each structure (2D end points, 3D edge curve) |
+| `:∂Γη`           | `Triangulation`  | Boundary of the union `Γη` (`nothing` without structures) |
+| `:Γlateral`      | `Triangulation`  | Lateral walls `y = min`, `y = max` (3D only)         |
 
 Named sub-triangulations are also stored directly under their
 `domain_symbol` keys (e.g. `:Γ_s_a` for a structure, `:Γ_d_1` for a damping
@@ -56,11 +60,13 @@ Base.keys(t::TankTriangulations) = keys(t.data)
     _tank_triangulation_dict(; Ω, Γ, Γbot, Γin, Γout,
                                Γ_structures, Γ_dampings,
                                Γfs, Γκ, Γη, Λη, Λ_joints, joint_domains,
-                               resonator_domains)
+                               resonator_domains, Λ_structures, ∂Γ_structures, ∂Γη)
                              -> Dict{Symbol,Any}
 
 Assemble the canonical `Dict{Symbol,Any}` used to construct a
-[`TankTriangulations`](@ref).  All keyword arguments are required.
+[`TankTriangulations`](@ref).  All keyword arguments are required except
+`resonator_domains`, `Λ_structures`, `∂Γ_structures` (default empty) and
+`∂Γη` (default `nothing`).
 
 This helper is called by both the Cartesian and TankDomain assembly paths so
 the key set is always consistent.
@@ -80,6 +86,9 @@ function _tank_triangulation_dict(;
   Λ_joints,
   joint_domains,
   resonator_domains = Any[],
+  Λ_structures = Any[],
+  ∂Γ_structures = Any[],
+  ∂Γη = nothing,
 )
   Dict{Symbol, Any}(
     :Ω            => Ω,
@@ -96,5 +105,8 @@ function _tank_triangulation_dict(;
     :Λ_joints     => Λ_joints,
     :joint_domains => joint_domains,
     :resonator_domains => resonator_domains,
+    :Λ_structures => Λ_structures,
+    :∂Γ_structures => ∂Γ_structures,
+    :∂Γη          => ∂Γη,
   )
 end
