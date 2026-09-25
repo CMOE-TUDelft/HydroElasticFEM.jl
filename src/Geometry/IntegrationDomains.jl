@@ -26,6 +26,7 @@ No schema is enforced; new keys can be added without changing this type.
 | `:dΓκ`    | `Measure`        | Free surface ∪ damping zones              |
 | `:dΓη`    | `Measure`        | All-structure surface                      |
 | `:dΓη_i`  | `Measure`        | Per-structure measure (`:dΓη_1`, `:dΓη_2`, …)|
+| `:nΓη_i`  | `GenericCellField` | Outward (fluid) normal on structure `i`  |
 | `:dΓin`   | `Measure`        | Inlet boundary                             |
 | `:dΓout`  | `Measure`        | Outlet boundary                            |
 | `:dΓbot`  | `Measure`        | Bottom (seabed) boundary                   |
@@ -41,7 +42,18 @@ No schema is enforced; new keys can be added without changing this type.
 |-----------|------------------|--------------------------------------------|
 | `:dΛη`    | `Measure`        | Interior-facet (skeleton) measure on `Γη`  |
 | `:n_Λ_η`  | `GenericCellField` | Skeleton outward normal                  |
-| `:h_η`    | `Float64`        | Minimum cell length on `Γη` (mesh size)    |
+| `:h_η`    | `Float64`        | Minimum cell size on `Γη`: `minimum(|K|)^(1/d)`, `d` = manifold dim |
+| `:dΛη_i`, `:n_Λ_η_i`, `:h_η_i` | | Same, per structure `i` (joint facets excluded) |
+
+### Structure boundary (`∂Γs`: 2D end points, 3D edge curve)
+| Key          | Type             | Description                                |
+|--------------|------------------|--------------------------------------------|
+| `:dΛ∂η`      | `Measure`        | Boundary of the union `Γη`                 |
+| `:n_Λ∂η`     | `GenericCellField` | In-surface outward conormal on `∂Γη`     |
+| `:dΛ∂η_i`, `:n_Λ∂η_i` | | Same, per structure `i`                    |
+
+For essential (Dirichlet) conditions on `∂Γs`, use the model face tags
+`structure.boundary_tag` / `"structure_boundary"` as `dirichlet_tags` instead.
 
 ### Joint skeleton (one per `JointDomain`)
 Stored under `joint.domain_symbol` / `joint.normal_symbol` as declared in
@@ -120,6 +132,11 @@ end
 
 _degree_domain_keys(::Int) = Symbol[]
 
+# Representative (minimum) cell size of a triangulation: the cell measure is a
+# length in 1D, an area in 2D, so take the `d`-th root with `d` the cell
+# dimension.  Used as `h` in C/DG interior-penalty terms.
+_min_cell_size(trian) = minimum(get_cell_measure(trian))^(1 / num_cell_dims(trian))
+
 # Only scalar triangulations can be wrapped in a Measure here.  Container and
 # metadata entries such as :Γ_structures, :Γ_dampings, and :joint_domains are
 # handled explicitly above or intentionally skipped.
@@ -151,7 +168,9 @@ to `4`).
 | `:dΓη`, `:dΓη_i`    | `:Γη`, `:Γ_structures[i]`     | Structure physics   |
 | `:dΓin`, `:dΓout`, `:dΓbot` | `:Γin`, `:Γout`, `:Γbot` | Wall/radiation BCs  |
 | `:dΓd_i`, `:nΓd_i`  | `:Γ_dampings[i]`               | `DampingZoneBC`     |
-| `:dΛη`, `:n_Λ_η`, `:h_η` | skeleton of `:Γη`         | `EulerBernoulliBeam` DG |
+| `:dΛη`, `:n_Λ_η`, `:h_η` | skeleton of `:Γη`         | `EulerBernoulliBeam`, `KirchhoffLovePlate` C/DG |
+| `:dΛη_i`, `:n_Λ_η_i`, `:h_η_i` | `:Λ_structures[i]` | per-structure C/DG terms |
+| `:dΛ∂η`, `:dΛ∂η_i` (+ normals) | `:∂Γη`, `:∂Γ_structures[i]` | structure-edge terms |
 | `joint.domain_symbol`, `joint.normal_symbol` | `:Λ_joints` | `JointRotationalSpring` |
 | `resonator.delta_symbol` | `resonator.trian_symbol` | `ResonatorArray` |
 
@@ -189,6 +208,7 @@ function get_integration_domains(
   for (i, Γs) in enumerate(tri[:Γ_structures])
     key = Symbol("dΓη_$i")
     d[key] = Measure(Γs, get_deg(key))
+    d[Symbol("nΓη_$i")] = get_normal_vector(Γs)
   end
 
   # Walls
@@ -216,7 +236,26 @@ function get_integration_domains(
     Λη = (haskey(tri, :Λη) && tri[:Λη] !== nothing) ? tri[:Λη] : Skeleton(tri[:Γη])
     d[:dΛη]   = Measure(Λη, get_deg(:dΛη))
     d[:n_Λ_η] = get_normal_vector(Λη)
-    d[:h_η]   = minimum(get_cell_measure(tri[:Γη]))
+    d[:h_η]   = _min_cell_size(tri[:Γη])
+  end
+
+  # Per-structure skeletons (:dΛη_i, :n_Λ_η_i, :h_η_i)
+  for (i, (Γs, Λs)) in enumerate(zip(tri[:Γ_structures], get(tri, :Λ_structures, Any[])))
+    key = Symbol("dΛη_$i")
+    d[key] = Measure(Λs, get_deg(key))
+    d[Symbol("n_Λ_η_$i")] = get_normal_vector(Λs)
+    d[Symbol("h_η_$i")] = _min_cell_size(Γs)
+  end
+
+  # Structure boundaries ∂Γs (:dΛ∂η, :n_Λ∂η, :dΛ∂η_i, :n_Λ∂η_i)
+  if get(tri, :∂Γη, nothing) !== nothing
+    d[:dΛ∂η]  = Measure(tri[:∂Γη], get_deg(:dΛ∂η))
+    d[:n_Λ∂η] = get_normal_vector(tri[:∂Γη])
+  end
+  for (i, ∂Γs) in enumerate(get(tri, :∂Γ_structures, Any[]))
+    key = Symbol("dΛ∂η_$i")
+    d[key] = Measure(∂Γs, get_deg(key))
+    d[Symbol("n_Λ∂η_$i")] = get_normal_vector(∂Γs)
   end
 
   # Resonator point interactions

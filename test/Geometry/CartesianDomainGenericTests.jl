@@ -89,14 +89,14 @@ end
   @test isempty(tank.joint_domains)
 end
 
-@testset "TankDomain{3} delegates to generic Cartesian path" begin
+@testset "TankDomain{3} standard boundaries" begin
   tank = G.TankDomain(L = 8.0, W = 3.0, H = 2.0, nx = 8, ny = 3, nz = 2)
 
   @test G.ambient_dimension(tank) == 3
   @test G.manifold_dimension(tank) == 3
-  @test G.boundary_tags(tank) == G.boundary_tags(
+  @test Set(keys(G.boundary_tags(tank))) == Set(keys(G.boundary_tags(
     G.CartesianDomain(L = 8.0, W = 3.0, H = 2.0, nx = 8, ny = 3, nz = 2),
-  )
+  )))
 
   Γfs = G.get_boundary(tank, "free_surface")
   Γlat = G.get_boundary(tank, "lateral_walls")
@@ -110,7 +110,7 @@ end
   @test num_cells(trians[:Γη]) == 0
 end
 
-@testset "TankDomain{3} rejects unsupported structured subdomains" begin
+@testset "TankDomain{3} rejects dimension-mismatched subdomains" begin
   @test_throws ErrorException G.TankDomain(
     structure_domains = [G.StructureDomain(L = 1.0, x₀ = [1.0, 1.0])],
     W = 2.0,

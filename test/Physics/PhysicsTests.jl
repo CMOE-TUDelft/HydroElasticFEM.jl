@@ -17,6 +17,8 @@ import HydroElasticFEM.Physics as P
   @test_nowarn P.print_parameters(mem)
   beam = P.EulerBernoulliBeam(L=20.0, mᵨ=192.956/ρw, EIᵨ=500e6*6.667e-4/ρw, τ=0.0)
   @test_nowarn P.print_parameters(beam)
+  tbeam = P.TensionedEulerBernoulliBeam(L=20.0, mᵨ=192.956/ρw, EIᵨ=500e6*6.667e-4/ρw, Tᵨ=98.1, τ=0.0)
+  @test_nowarn P.print_parameters(tbeam)
   resn = P.ResonatorSingle(M=1e3, K=5.9e3, C=0.0)
   @test_nowarn P.print_parameters(resn)
 end
@@ -26,6 +28,7 @@ end
   @testset "PotentialFlow" include("PotentialFlowTests.jl")
   @testset "Membrane" include("MembraneTests.jl")
   @testset "EulerBernoulliBeam" include("EulerBernoulliBeamTests.jl")
+  @testset "TensionedEulerBernoulliBeam" include("TensionedEulerBernoulliBeamTests.jl")
   @testset "Resonator" include("ResonatorTests.jl")
   @testset "FreeSurface" include("FreeSurfaceTests.jl")
 

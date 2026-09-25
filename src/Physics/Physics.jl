@@ -289,6 +289,11 @@ _require_nonempty(val, kind, obj) =
 # Structural entities
 # ─────────────────────────────────────────────────────────────
 
+# Shared hydroelastic-structure abstraction (mass/hydrostatic-stiffness/rhs,
+# and stiffness-proportional Rayleigh damping, held in common). Must be
+# included before any Structure that subtypes it.
+include("Structures/AbstractHydroelasticStructure.jl")
+
 # Entity files (struct definition + single-variable weak forms)
 include("Fluid/PotentialFlow.jl")
 include("Fluid/FreeSurface.jl")
@@ -297,6 +302,12 @@ include("Structures/EulerBernoulliBeam.jl")
 include("Structures/KirchhoffLovePlate.jl")
 include("Structures/Resonator.jl")
 include("Structures/TimoshenkoBeam.jl")
+
+# TensionedEulerBernoulliBeam combines Membrane's tension operator with
+# EulerBernoulliBeam's bending operator (via the shared
+# `_eb_bending_stiffness_operator` / `_joint_stiffness_form` helpers defined
+# in EulerBernoulliBeam.jl), so it must be included after both.
+include("Structures/TensionedEulerBernoulliBeam.jl")
 
 # Coupling weak forms (cross-terms between pairs of entities)
 include("CouplingTerms.jl")
@@ -467,8 +478,14 @@ export mass, damping, stiffness, rhs
 export has_mass_form, has_damping_form, has_stiffness_form, has_rhs_form
 export active_forms
 export weakform, residual, jacobian, jacobian_t, jacobian_tt
+# Shared AbstractHydroelasticStructure interface (Membrane, EulerBernoulliBeam,
+# and TensionedEulerBernoulliBeam all implement mass_density/damping_parameter/
+# stiffness_operator instead of mass/damping/stiffness/rhs directly).
+export mass_density, damping_parameter, gravitational_acceleration
+export stiffness_operator, extra_stiffness_form
 export PotentialFlow, FreeSurface, Membrane
 export JointRotationalSpring, EulerBernoulliBeam, Resonator
+export TensionedEulerBernoulliBeam
 export KirchhoffLovePlate
 export TimoshenkoBeam
 export build_kl_tensor, build_KL_tensor, check_major_symmetry

@@ -58,12 +58,32 @@ HydroElasticFEM.Physics.DampingZoneBC
 HydroElasticFEM.Physics.FreeSurface
 ```
 
+## Hydroelastic structure abstraction
+
+`Membrane`, `EulerBernoulliBeam`, and `TensionedEulerBernoulliBeam` share one
+implementation of `mass`, `damping`, `stiffness`, and `rhs` via
+`AbstractHydroelasticStructure`; each only implements `mass_density`,
+`damping_parameter`, and `stiffness_operator` (and, optionally,
+`extra_stiffness_form` for contributions not subject to Rayleigh damping,
+such as `EulerBernoulliBeam`/`TensionedEulerBernoulliBeam` joints). See [How
+to Add a New Structural Entity](@ref) for a worked example.
+
+```@docs
+HydroElasticFEM.Physics.AbstractHydroelasticStructure
+HydroElasticFEM.Physics.mass_density
+HydroElasticFEM.Physics.damping_parameter
+HydroElasticFEM.Physics.gravitational_acceleration
+HydroElasticFEM.Physics.stiffness_operator
+HydroElasticFEM.Physics.extra_stiffness_form
+```
+
 ## Structures
 
 ```@docs
 HydroElasticFEM.Physics.Membrane
 HydroElasticFEM.Physics.EulerBernoulliBeam
 HydroElasticFEM.Physics.JointRotationalSpring
+HydroElasticFEM.Physics.TensionedEulerBernoulliBeam
 HydroElasticFEM.Physics.KirchhoffLovePlate
 HydroElasticFEM.Physics.TimoshenkoBeam
 HydroElasticFEM.Physics.build_kl_tensor

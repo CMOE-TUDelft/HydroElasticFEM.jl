@@ -2,7 +2,8 @@
     JointRotationalSpring
 
 Rotational spring stiffness contribution at an interior joint of an
-`EulerBernoulliBeam`.  Each joint adds the term
+`EulerBernoulliBeam` (or a [`TensionedEulerBernoulliBeam`](@ref)).  Each
+joint adds the term
 
 ```math
 \\int_{\\Lambda_j} k_r \\,
@@ -13,6 +14,9 @@ Rotational spring stiffness contribution at an interior joint of an
 
 to the beam stiffness form, where ``[\\![\\cdot]\\!]`` denotes the jump across
 the skeleton facet ``\\Lambda_j`` and ``n_{\\Lambda_j}`` is its outward normal.
+This contribution is *not* subject to stiffness-proportional Rayleigh
+damping (see [`extra_stiffness_form`](@ref)): joints are purely elastic
+connections.
 
 The `domain_symbol` and `normal_symbol` must match the keys registered in
 `IntegrationDomains` — this is done automatically by `get_integration_domains`
@@ -27,7 +31,7 @@ when the corresponding `JointDomain` is declared in a 2D `TankDomain`.
 
 # See also
 [`JointDomain`](@ref HydroElasticFEM.Geometry.JointDomain),
-[`EulerBernoulliBeam`](@ref)
+[`EulerBernoulliBeam`](@ref), [`TensionedEulerBernoulliBeam`](@ref)
 """
 struct JointRotationalSpring
     domain_symbol::Symbol
@@ -36,13 +40,70 @@ struct JointRotationalSpring
 end
 
 """
-    EulerBernoulliBeam <: Structure
+    _joint_stiffness_form(joints, η, v, dom)
+
+Shared rotational-spring joint penalty contribution, reused by both
+[`EulerBernoulliBeam`](@ref) and [`TensionedEulerBernoulliBeam`](@ref) (both
+discretised with the same C/DG skeleton and `JointRotationalSpring`
+connections). Returns `nothing` when `joints` is empty, matching the
+`_add_contribution` no-op convention.
+"""
+function _joint_stiffness_form(joints::Vector{JointRotationalSpring}, η, v, dom::IntegrationDomains)
+    val = nothing
+    for joint in joints
+        dΛj  = dom[joint.domain_symbol]
+        n_Λj = dom[joint.normal_symbol]
+        val  = _add_contribution(val, ∫(joint.kᵣ * jump(∇(v) ⋅ n_Λj) * jump(∇(η) ⋅ n_Λj))dΛj)
+    end
+    return val
+end
+
+"""
+    _eb_bending_stiffness_operator(EIᵨ, γ, η, v, dom, dΩ)
+
+Shared Euler-Bernoulli C/DG bending stiffness operator (bulk + interior-penalty
+skeleton), reused by both [`EulerBernoulliBeam`](@ref) and
+[`TensionedEulerBernoulliBeam`](@ref):
+
+```math
+\\int_{\\Gamma_\\eta} EI\\,\\Delta v\\,\\Delta \\eta\\,\\mathrm{d}\\Gamma
+- \\int_{\\Lambda_\\eta} \\text{(consistency + symmetry + penalty skeleton terms)}
+```
+
+`EIᵨ` may be a `Float64` or a univariate `Function(x) -> Float64`; it is
+materialised on `get_triangulation(v)`. `γ` is the Nitsche/SIP penalty
+parameter (`fe.γ`).
+
+# Reference
+[C23] Colomés et al. (2023), Section 3.1, Eq. (16)-(20).
+"""
+function _eb_bending_stiffness_operator(EIᵨ, γ::Float64, η, v, dom::IntegrationDomains, dΩ)
+    trian = get_triangulation(v)
+    EI  = materialize(EIᵨ, trian)
+    h   = dom[:h_η]
+    n_Λ = dom[:n_Λ_η]
+
+    ∫(EI * Δ(v) * Δ(η))dΩ +
+    ∫(
+        -jump(∇(v) ⋅ n_Λ) * mean(EI * Δ(η))
+        - mean(EI * Δ(v)) * jump(∇(η) ⋅ n_Λ)
+        + (γ / h) * mean(EI) * jump(∇(v) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ))dom[:dΛη]
+end
+
+"""
+    EulerBernoulliBeam <: AbstractHydroelasticStructure
 
 Parameters for a 2D Euler-Bernoulli beam model, normalised by the ambient
 fluid density `ρw`.
 
 The interior-penalty C/DG formulation uses a Symmetric Interior Penalty (SIP)
 consistency + penalty scheme for the fourth-order bending operator.
+
+`mass`, `damping`, `stiffness`, and `rhs` are inherited from
+[`AbstractHydroelasticStructure`](@ref); this file supplies the beam's
+elastic operator via [`stiffness_operator`](@ref) (bending, via
+`_eb_bending_stiffness_operator`) and the joint contribution via
+[`extra_stiffness_form`](@ref) (which is *not* subject to Rayleigh damping).
 
 # Fields
 - `L::Float64`    — Beam span [m]
@@ -65,7 +126,8 @@ consistency + penalty scheme for the fourth-order bending operator.
 beam = EulerBernoulliBeam(L=10.0, mᵨ=0.5, EIᵨ=1.0e4)
 ```
 
-See also: [`JointRotationalSpring`](@ref), [`JointDomain`](@ref)
+See also: [`JointRotationalSpring`](@ref), [`JointDomain`](@ref),
+[`TensionedEulerBernoulliBeam`](@ref)
 
 # Reference
 - [C23] Colomes, O., Verdugo, F., & Akkerman, I. (2023). A monolithic
@@ -73,7 +135,7 @@ See also: [`JointRotationalSpring`](@ref), [`JointDomain`](@ref)
     floating structures. *Int. J. Numer. Methods Eng.*, 124(3), 714-751.
     DOI: https://doi.org/10.1002/nme.7140
 """
-@with_kw struct EulerBernoulliBeam <: Structure
+@with_kw struct EulerBernoulliBeam <: AbstractHydroelasticStructure
     L::Float64
     mᵨ::Float64
     EIᵨ::Union{Float64, Function}
@@ -101,156 +163,40 @@ end
 
 variable_symbol(s::EulerBernoulliBeam) = s.symbol
 
-# ── Single-variable weak forms: mass, damping, stiffness, rhs ──
-#    Only η_b terms — no coupling to ϕ or other fields
+mass_density(s::EulerBernoulliBeam) = s.mᵨ
+damping_parameter(s::EulerBernoulliBeam) = s.τ
 
 """
-    mass(s::EulerBernoulliBeam, dom::IntegrationDomains, x_tt, y)
+    stiffness_operator(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
 
-Euler-Bernoulli beam inertia (mass) bilinear form.
+Euler-Bernoulli C/DG bending stiffness operator (bulk + interior-penalty
+skeleton), via `_eb_bending_stiffness_operator`.
 
-Assembles:
-```math
-\\int_{\\Gamma_\\eta} m_\\varrho \\, v \\, \\partial_{tt}\\eta \\, \\mathrm{d}\\Gamma_\\eta
-```
-
-# Arguments
-- `s::EulerBernoulliBeam`: beam parameters (provides `mρ`)
-- `dom::IntegrationDomains`: integration measures (requires `:dΓη`)
-- `x_tt`: second time-derivative trial `FieldMap`
-- `y`: test `FieldMap`
-
-# Returns
-- `Gridap.FESpaces.DomainContribution`
-
-# Reference
-[C23] Colomés et al. (2023), Section 3.1, Eq. (16).
-"""
-function mass(s::EulerBernoulliBeam, dom::IntegrationDomains, x_tt, y)
-    sym = variable_symbol(s)
-    ηₜₜ = x_tt[sym]
-    v   = y[sym]
-    dΩ = _space_measure(dom, s)
-    ∫(s.mᵨ * v * ηₜₜ)dΩ
-end
-
-"""
-    damping(s::EulerBernoulliBeam, dom::IntegrationDomains, x_t, y)
-
-Euler-Bernoulli beam stiffness-proportional Rayleigh damping bilinear form.
-
-Uses the symmetric interior-penalty C/DG formulation with penalty parameter `γ`:
-
-```math
-\\int_{\\Gamma_\\eta} EI\\tau \\Delta v \\Delta\\partial_t\\eta \\, \\mathrm{d}\\Gamma_\\eta
-- \\int_{\\Lambda_\\eta} \\text{(consistency + symmetry + penalty skeleton terms)}
-```
-
-# Arguments
-- `s::EulerBernoulliBeam`: beam parameters (provides `EIρ`, `τ`, `fe.gamma`)
-- `dom::IntegrationDomains`: integration measures (requires `:dΓη`, `:dΛη`, `:h_η`, `:n_Λ_η`)
-- `x_t`: first time-derivative trial `FieldMap`
-- `y`: test `FieldMap`
-
-# Returns
-- `Gridap.FESpaces.DomainContribution`
+Combined with the shared hydrostatic term (in [`stiffness`](@ref)) and the
+joint contribution (in [`extra_stiffness_form`](@ref)) this reproduces the
+original beam bilinear form; scaled by `τ` (in [`damping`](@ref)) it
+reproduces the beam's stiffness-proportional Rayleigh damping form exactly,
+since `τ` commutes linearly through `mean`/`jump`/`∫`.
 
 # Reference
 [C23] Colomés et al. (2023), Section 3.1, Eq. (16)-(20).
 """
-function damping(s::EulerBernoulliBeam, dom::IntegrationDomains, x_t, y)
-    sym = variable_symbol(s)
-    ηₜ = x_t[sym]
-    v  = y[sym]
-    τ   = s.τ
-    trian = get_triangulation(v)
-    EIτ_param = s.EIᵨ isa Float64 ? s.EIᵨ * τ : (x -> s.EIᵨ(x) * τ)
-    EIτ = materialize(EIτ_param, trian)
-    γ   = s.fe.γ
-    h   = dom[:h_η]
-    n_Λ = dom[:n_Λ_η]
-    dΩ  = _space_measure(dom, s)
-
-    val = ∫(EIτ * Δ(v) * Δ(ηₜ))dΩ +
-          ∫(
-              -jump(∇(v) ⋅ n_Λ) * mean(EIτ * Δ(ηₜ))
-              - mean(EIτ * Δ(v)) * jump(∇(ηₜ) ⋅ n_Λ)
-              + (γ / h) * mean(EIτ) * jump(∇(v) ⋅ n_Λ) * jump(∇(ηₜ) ⋅ n_Λ))dom[:dΛη]
-    return val
-end
-
-"""
-    stiffness(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
-
-Euler-Bernoulli beam stiffness bilinear form (gravity + C/DG bending + joints).
-
-Assembles the bulk bending term, symmetric interior-penalty skeleton terms,
-and optional rotational-spring contributions at declared joints.
-
-# Arguments
-- `s::EulerBernoulliBeam`: beam parameters (`EIᵨ`, `g`, `fe.γ`, optional `joints`)
-- `dom::IntegrationDomains`: integration domains (`:dΓη`, `:dΛη`, `:h_η`, `:n_Λ_η`, and joint keys)
-- `x`: trial `FieldMap`
-- `y`: test `FieldMap`
-
-# Returns
-- `Gridap.FESpaces.DomainContribution`
-
-# Reference
-[C23] Colomés et al. (2023), Section 3.1, Eq. (16)-(20).
-"""
-function stiffness(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
+function stiffness_operator(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
     sym = variable_symbol(s)
     η = x[sym]
     v = y[sym]
-    trian = get_triangulation(v)
-    EI  = materialize(s.EIᵨ, trian)
-    γ   = s.fe.γ
-    h   = dom[:h_η]
-    n_Λ = dom[:n_Λ_η]
-    dΩ  = _space_measure(dom, s)
-
-    # Euler-Bernoulli C/DG bending formulation on Γb and Skeleton(Γb).
-    # Bulk: ∫_Γb a1·Δη·Δv dΓ, with a1 = EI/ρ.
-    # Skeleton: consistency + symmetry + penalty terms.
-    # Reference: [C23] Section 3.1, Eq. (16)-(20).
-    val = ∫(v * (s.g * η) + EI * Δ(v) * Δ(η))dΩ +
-          ∫(
-              -jump(∇(v) ⋅ n_Λ) * mean(EI * Δ(η))
-              - mean(EI * Δ(v)) * jump(∇(η) ⋅ n_Λ)
-              + (γ / h) * mean(EI) * jump(∇(v) ⋅ n_Λ) * jump(∇(η) ⋅ n_Λ))dom[:dΛη]
-
-    for joint in s.joints
-        dΛj  = dom[joint.domain_symbol]
-        n_Λj = dom[joint.normal_symbol]
-        val  = _add_contribution(val, ∫(joint.kᵣ * jump(∇(v) ⋅ n_Λj) * jump(∇(η) ⋅ n_Λj))dΛj)
-    end
-
-    return val
+    dΩ = _space_measure(dom, s)
+    _eb_bending_stiffness_operator(s.EIᵨ, s.fe.γ, η, v, dom, dΩ)
 end
 
 """
-    rhs(s::EulerBernoulliBeam, dom::IntegrationDomains, f, y)
+    extra_stiffness_form(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
 
-Euler-Bernoulli beam right-hand side (applied load) linear form.
-
-Assembles the distributed load contribution:
-```math
-\\int_{\\Gamma_\\eta} v \\, f_\\eta \\, \\mathrm{d}\\Gamma_\\eta
-```
-
-# Arguments
-- `s::EulerBernoulliBeam`: beam parameters (provides `symbol` for field lookup)
-- `dom::IntegrationDomains`: integration measures (requires `:dΓη`)
-- `f`: forcing `FieldMap`
-- `y`: test `FieldMap`
-
-# Returns
-- `Gridap.FESpaces.DomainContribution`
+Rotational-spring joint contributions at `s.joints`, via
+`_joint_stiffness_form`. Not subject to Rayleigh damping (joints are
+purely elastic connections).
 """
-function rhs(s::EulerBernoulliBeam, dom::IntegrationDomains, f, y)
+function extra_stiffness_form(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
     sym = variable_symbol(s)
-    v = y[sym]
-    dΩ = _space_measure(dom, s)
-    ∫(v * f[sym])dΩ
+    _joint_stiffness_form(s.joints, x[sym], y[sym], dom)
 end

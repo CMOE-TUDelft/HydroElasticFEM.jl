@@ -1,5 +1,5 @@
 # =============================================================================
-# KirchhoffLovePlate — implementation status (last updated 2026-05-08)
+# KirchhoffLovePlate — implementation status (last updated: AbstractHydroelasticStructure refactor)
 #
 # A. KirchhoffLovePlate struct EXISTS here (fields E, ν, hb, ρ, ρb, g,
 #    ambient_dim, manifold_dim, symbol, space_domain_symbol, fe, C).
@@ -11,17 +11,19 @@
 #
 # C. REGISTERED in Physics.jl via
 #    include("Structures/KirchhoffLovePlate.jl") and exported in
-#    HydroElasticFEM.jl.  Inherits Structure <: PhysicsParameters so the
-#    PotentialFlow↔Structure coupling damping in CouplingTerms.jl applies
-#    automatically — no additional coupling code is needed.
+#    HydroElasticFEM.jl.  Subtypes AbstractHydroelasticStructure <: Structure
+#    <: PhysicsParameters, so the PotentialFlow↔Structure coupling damping in
+#    CouplingTerms.jl applies automatically — no additional coupling code is
+#    needed.
 #
-# D. mass / damping / stiffness / rhs were NOT implemented before this edit.
-#    They are added below.
+# D. mass, the hydrostatic part of stiffness, and rhs are inherited from
+#    AbstractHydroelasticStructure (mass_density/stiffness_operator below);
+#    only the elastic Hessian C/DG operator is implemented in this file.
 #
 # E. BeamPlateConsistencyTests.jl has three tests (1D beam-plate consistency
-#    on the tensor scalar C[1,1,1,1]).  No weak-form assembly tests existed.
-#    New weak-form validation tests live in
-#    test/Physics/KirchhoffLovePlateTests.jl.
+#    on the tensor scalar C[1,1,1,1]).  Weak-form assembly (through the
+#    public mass/stiffness/rhs interface, unaffected by the refactor) is
+#    validated in test/Physics/KirchhoffLovePlateTests.jl.
 #
 # Reference: [C23] Colomes, Verdugo, Akkerman (2023), NME.
 #   Section 3.2, eqs. (24)–(25).
@@ -106,7 +108,7 @@ function check_major_symmetry(C; atol=1e-10, dim=3)
 end
 
 """
-    KirchhoffLovePlate <: Structure
+    KirchhoffLovePlate <: AbstractHydroelasticStructure
 
 Generic Kirchhoff-Love plate parameters for 1D or 2D structural manifolds
 embedded in 2D or 3D fluids.
@@ -118,6 +120,12 @@ DOI: 10.1002/nme.7140
 All weak forms are normalised by the ambient fluid density `ρ` so that
 the assembled system matrices are dimensionally consistent with the
 `PotentialFlow` and `FreeSurface` entities.
+
+`mass`, the hydrostatic part of `stiffness`, and `rhs` are inherited from
+[`AbstractHydroelasticStructure`](@ref); this file only supplies
+[`mass_density`](@ref) and the elastic Hessian C/DG
+[`stiffness_operator`](@ref). `has_damping_form(::KirchhoffLovePlate) =
+false`, so `damping_parameter` is not implemented.
 
 # Fields
 - `E::Float64`            — Young's modulus [Pa]
@@ -161,7 +169,7 @@ See also: [`build_kl_tensor`](@ref), [`equivalent_beam_rigidity`](@ref)
   DOI: https://doi.org/10.1002/nme.7140
 - `build_kl_tensor`: [C23] Section 3.2, Eq. (22)-(23)
 """
-@with_kw struct KirchhoffLovePlate <: Structure
+@with_kw struct KirchhoffLovePlate <: AbstractHydroelasticStructure
   E::Float64
   ν::Float64
   hb::Float64
@@ -211,6 +219,10 @@ end
 # Fluid-structure coupling damping is inherited via Structure <: PhysicsParameters
 # through the PotentialFlow↔Structure pair in CouplingTerms.jl.
 #
+# `mass`, the hydrostatic part of `stiffness`, and `rhs` are inherited from
+# AbstractHydroelasticStructure (see mass_density/stiffness_operator below);
+# this file only supplies the elastic (Hessian C/DG) stiffness operator.
+#
 # The Hessian of the scalar deflection η is computed as ε(∇(η)), where
 # ε denotes the symmetric gradient operator. For a scalar field, ε(∇(η)) is
 # the symmetric Hessian and therefore coincides with ∇∇(η):
@@ -228,6 +240,8 @@ end
 # where D_ρ = C[1,1,1,1] = D/ρ_fluid = E·h³/(12(1-ν²)·ρ),
 #       γ   = plate.fe.γ (= 10·p² from FESpaceConfig),
 #       hₑ  = dom[:h_η] (representative element size on Γη).
+# The `+ g·v·η` term above is supplied by AbstractHydroelasticStructure's
+# shared `stiffness` default, not by `stiffness_operator` below.
 #
 # Simply-supported plate BC on Γη: η=0 enforced as Dirichlet; M_n=0 is natural.
 # ==========================================================================
@@ -241,28 +255,26 @@ FSI coupling damping is provided separately via `CouplingTerms.jl`.
 has_damping_form(::KirchhoffLovePlate) = false
 
 """
-    mass(plate, dom, x_tt, y)
+    mass_density(plate::KirchhoffLovePlate) -> Float64
 
-Mass bilinear form: ∫ (ρb·hb/ρ) v·ηtt dΓ.
+Mass per unit area, normalised by fluid density: `ρb·hb/ρ`. Combined with
+the shared [`mass`](@ref) default this reproduces
+`∫ (ρb·hb/ρ) v·ηtt dΓ` exactly.
 """
-function mass(s::KirchhoffLovePlate, dom::IntegrationDomains, x_tt, y)
-  sym  = variable_symbol(s)
-  ηₜₜ = x_tt[sym]
-  v    = y[sym]
-  m_ρ  = s.ρb * s.hb / s.ρ   # mass per unit area / ρ_fluid  [dimensionless]
-  dΩ   = _space_measure(dom, s)
-  ∫(m_ρ * v * ηₜₜ)dΩ
-end
+mass_density(plate::KirchhoffLovePlate) = plate.ρb * plate.hb / plate.ρ
 
 """
-    stiffness(plate, dom, x, y)
+    stiffness_operator(plate::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
 
-  C/DG bilinear form for the Kirchhoff-Love plate (eqs. 24-25 of [C23]).
+Hessian C/DG bilinear form for the Kirchhoff-Love plate (eqs. 24-25 of
+[C23]), *excluding* the hydrostatic restoring term (supplied separately by
+the shared [`stiffness`](@ref) default, via
+`gravitational_acceleration(plate) = plate.g`).
 
 Uses interior-penalty stabilisation with penalty coefficient
 `(γ / h) * C[1,1,1,1]` where γ comes from `plate.fe.γ`.
 """
-function stiffness(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
+function stiffness_operator(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
   sym  = variable_symbol(s)
   η    = x[sym]
   v    = y[sym]
@@ -273,10 +285,10 @@ function stiffness(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
   dΩ   = _space_measure(dom, s)
 
   # Kirchhoff-Love plate C/DG formulation.
-  # Bulk term: ∫_Γb ∇∇v ⊙ (C ⊙ ∇∇η) dΓ + hydrostatic restoring term.
+  # Bulk term: ∫_Γb ∇∇v ⊙ (C ⊙ ∇∇η) dΓ.
   # Skeleton terms: consistency + symmetry + penalty.
   # Reference: [C23] Section 3.2, Eq. (24)-(25).
-  bulk = ∫(( ∇∇(v) ⊙ (s.C ⊙ ∇∇(η))) + s.g * v * η)dΩ
+  bulk = ∫(∇∇(v) ⊙ (s.C ⊙ ∇∇(η)))dΩ
 
   skeleton = ∫(
     -jump(∇(v)) ⊙ (mean(s.C ⊙ ∇∇(η))⋅n_Λ.⁺) 
@@ -284,16 +296,4 @@ function stiffness(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
     + D_ρ*γ/h*jump(∇(v))⊙jump(∇(η)) )dom[:dΛη]
 
   return bulk + skeleton
-end
-
-"""
-    rhs(plate, dom, f, y)
-
-Right-hand side linear form: ∫ v · f[sym] dΓ.
-"""
-function rhs(s::KirchhoffLovePlate, dom::IntegrationDomains, f, y)
-  sym = variable_symbol(s)
-  v   = y[sym]
-  dΩ  = _space_measure(dom, s)
-  ∫(v * f[sym])dΩ
 end

@@ -38,6 +38,25 @@ m_\rho \ddot{\eta} + EI_\rho \nabla^4 \eta + \text{coupling} = 0
 \quad \text{on } \Gamma_\eta.
 ```
 
+**Tensioned Euler–Bernoulli beam:**
+
+`TensionedEulerBernoulliBeam` combines the two operators above — membrane
+pre-tension and Euler–Bernoulli bending — in a single structure:
+
+```math
+m_\rho \ddot{\eta} + EI_\rho \nabla^4 \eta - \nabla\cdot(T_\rho \nabla \eta)
++ \text{coupling} = 0 \quad \text{on } \Gamma_\eta.
+```
+
+Setting `EIᵨ = 0` recovers the `Membrane` operator exactly; setting `Tᵨ = 0`
+recovers the `EulerBernoulliBeam` operator exactly (both are verified at the
+assembled-matrix level, to machine precision, in
+`test/examples/TensionedEulerBernoulliBeamWeakFormTests.jl`). For a mode of
+wavenumber $k$, the two contributions scale as $EI_\rho k^2$ (bending) and
+$T_\rho$ (tension); the crossover wavenumber $k^\star = \sqrt{T_\rho / EI_\rho}$
+separates a tension-dominated regime ($EI_\rho k^2 \ll T_\rho$, membrane-like)
+from a bending-dominated regime ($EI_\rho k^2 \gg T_\rho$, beam-like).
+
 ### Resonators
 
 Point-mass resonators are modelled as locally resonant mass–spring–damper
@@ -51,6 +70,16 @@ reduces to a complex-valued linear FE problem.  The bilinear form is:
 ```math
 a(u,v) = -\omega^2 m(u,v) - i\omega c(u,v) + k(u,v).
 ```
+
+For `Membrane`, `EulerBernoulliBeam`, and `TensionedEulerBernoulliBeam`, the
+mass form $m$, the hydrostatic part of the stiffness form $k$, and the
+right-hand-side form share one common implementation
+(`AbstractHydroelasticStructure`, see [How to Add a New Structural
+Entity](@ref)), and the damping form $c$ is obtained automatically as the
+structure's elastic stiffness operator scaled by its Rayleigh damping
+coefficient $\tau$. Each structure only supplies its own elastic stiffness
+operator — pre-tension for `Membrane`, bending for `EulerBernoulliBeam`, or
+their sum for `TensionedEulerBernoulliBeam`.
 
 ## Time-domain discretisation
 

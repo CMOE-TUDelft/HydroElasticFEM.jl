@@ -1,5 +1,5 @@
 """
-    Membrane <: Structure
+    Membrane <: AbstractHydroelasticStructure
 
 Parameters for an nD membrane model, normalised by fluid density `ρw`.
 
@@ -7,6 +7,11 @@ The membrane manifold can be 1D or 2D, embedded in a 2D or 3D fluid.
 Weak forms are written in a dimension-agnostic way and evaluated on
 `space_domain_symbol`.  The structural damping form uses stiffness-proportional
 Rayleigh damping with coefficient `τ`.
+
+`mass`, `damping`, `stiffness`, and `rhs` are inherited from
+[`AbstractHydroelasticStructure`](@ref); this file only supplies the
+membrane's elastic operator, [`stiffness_operator`](@ref) (pre-tension), via
+[`mass_density`](@ref) and [`damping_parameter`](@ref).
 
 # Fields
 - `L::Float64`         — Characteristic membrane length [m]
@@ -32,7 +37,7 @@ Rayleigh damping with coefficient `τ`.
   floating structures. *Int. J. Numer. Methods Eng.*, 124(3), 714-751.
   DOI: https://doi.org/10.1002/nme.7140
 """
-@with_kw struct Membrane <: Structure
+@with_kw struct Membrane <: AbstractHydroelasticStructure
   L::Float64
   mᵨ::Float64
   Tᵨ::Float64
@@ -64,81 +69,26 @@ variable_symbol(s::Membrane) = s.symbol
 ambient_dimension(s::Membrane) = s.ambient_dim
 manifold_dimension(s::Membrane) = s.manifold_dim
 
-"""
-    mass(s::Membrane, dom::IntegrationDomains, x_tt, y)
+mass_density(s::Membrane) = s.mᵨ
+damping_parameter(s::Membrane) = s.τ
 
-Membrane inertia (mass) bilinear form.
+"""
+    stiffness_operator(m::Membrane, dom::IntegrationDomains, x, y)
+
+Membrane pre-tension elastic stiffness operator.
 
 Assembles:
 ```math
-\\int_{\\Gamma_\\eta} m_\\varrho \\, v \\, \\partial_{tt}\\eta \\, \\mathrm{d}\\Gamma_\\eta
+\\int_{\\Gamma_\\eta} T_\\varrho \\, \\nabla v \\cdot \\nabla \\eta \\, \\mathrm{d}\\Gamma_\\eta
 ```
 
-# Arguments
-- `s::Membrane`: membrane parameters (provides `mρ`)
-- `dom::IntegrationDomains`: integration measures (requires `:dΓη`)
-- `x_tt`: second time-derivative trial `FieldMap`
-- `y`: test `FieldMap`
-
-# Returns
-- `Gridap.FESpaces.DomainContribution`
-
-# Reference
-[A24] Agarwal et al. (2024), J. Fluids Struct., 129, 104167.
-"""
-function mass(s::Membrane, dom::IntegrationDomains, x_tt, y)
-  sym = variable_symbol(s)
-  ηₜₜ = x_tt[sym]
-  v = y[sym]
-  dΩ = _space_measure(dom, s)
-  ∫(s.mᵨ * v * ηₜₜ)dΩ
-end
-
-"""
-    damping(s::Membrane, dom::IntegrationDomains, x_t, y)
-
-Membrane stiffness-proportional Rayleigh damping bilinear form.
-
-Assembles:
-```math
-\\int_{\\Gamma_\\eta} T_\\varrho \\tau \\, \\nabla v \\cdot \\nabla(\\partial_t\\eta) \\, \\mathrm{d}\\Gamma_\\eta
-```
-
-The coefficient `τ` is the stiffness-proportional Rayleigh damping parameter.
-Set `τ = 0` (default) to disable structural damping.
+Combined with the shared hydrostatic term (in [`stiffness`](@ref)) this
+reproduces the classical membrane bilinear form
+`∫ (g·v·η + Tρ·∇v·∇η) dΓ`; scaled by `τ` (in [`damping`](@ref)) it
+reproduces the Rayleigh damping form `∫ Tρ·τ·∇v·∇ηₜ dΓ`.
 
 # Arguments
-- `s::Membrane`: membrane parameters (provides `Tρ`, `τ`)
-- `dom::IntegrationDomains`: integration measures (requires `:dΓη`)
-- `x_t`: first time-derivative trial `FieldMap`
-- `y`: test `FieldMap`
-
-# Returns
-- `Gridap.FESpaces.DomainContribution`
-
-# Reference
-[A24] Agarwal et al. (2024), J. Fluids Struct., 129, 104167.
-"""
-function damping(s::Membrane, dom::IntegrationDomains, x_t, y)
-  sym = variable_symbol(s)
-  ηₜ = x_t[sym]
-  v = y[sym]
-  dΩ = _space_measure(dom, s)
-  ∫(s.Tᵨ * s.τ * ∇(v) ⋅ ∇(ηₜ))dΩ
-end
-
-"""
-    stiffness(s::Membrane, dom::IntegrationDomains, x, y)
-
-Membrane structural stiffness bilinear form (hydrostatic restoring + pre-tension).
-
-Assembles:
-```math
-\\int_{\\Gamma_\\eta} \\bigl( g \\, v \\, \\eta + T_\\varrho \\, \\nabla v \\cdot \\nabla \\eta \\bigr) \\, \\mathrm{d}\\Gamma_\\eta
-```
-
-# Arguments
-- `s::Membrane`: membrane parameters (provides `g`, `Tρ`)
+- `m::Membrane`: membrane parameters (provides `Tρ`)
 - `dom::IntegrationDomains`: integration measures (requires `:dΓη`)
 - `x`: trial `FieldMap`
 - `y`: test `FieldMap`
@@ -149,39 +99,10 @@ Assembles:
 # Reference
 [A24] Agarwal et al. (2024), J. Fluids Struct., 129, 104167.
 """
-function stiffness(s::Membrane, dom::IntegrationDomains, x, y)
-  sym = variable_symbol(s)
+function stiffness_operator(m::Membrane, dom::IntegrationDomains, x, y)
+  sym = variable_symbol(m)
   η = x[sym]
   v = y[sym]
-  dΩ = _space_measure(dom, s)
-  # Membrane structural bilinear form:
-  # ∫_Γη (g·v·η + Tρ·∇v·∇η) dΓ.
-  # Reference: [A24] (viscoelastic floating membrane formulation).
-  ∫(v * (s.g * η) + s.Tᵨ * ∇(v) ⋅ ∇(η))dΩ
-end
-
-"""
-    rhs(s::Membrane, dom::IntegrationDomains, f, y)
-
-Membrane right-hand side (applied load) linear form.
-
-Assembles the body-force or pressure load contribution:
-```math
-\\int_{\\Gamma_\\eta} v \\, f_\\eta \\, \\mathrm{d}\\Gamma_\\eta
-```
-
-# Arguments
-- `s::Membrane`: membrane parameters (provides `symbol` for field lookup)
-- `dom::IntegrationDomains`: integration measures (requires `:dΓη`)
-- `f`: forcing `FieldMap`
-- `y`: test `FieldMap`
-
-# Returns
-- `Gridap.FESpaces.DomainContribution`
-"""
-function rhs(s::Membrane, dom::IntegrationDomains, f, y)
-  sym = variable_symbol(s)
-  v = y[sym]
-  dΩ = _space_measure(dom, s)
-  ∫(v * f[sym])dΩ
+  dΩ = _space_measure(dom, m)
+  ∫(m.Tᵨ * ∇(v) ⋅ ∇(η))dΩ
 end

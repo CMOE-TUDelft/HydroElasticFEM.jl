@@ -61,8 +61,14 @@ Every domain type implements the `AbstractDomain` interface:
 
 `TankDomain{D}` is the built-in Cartesian domain for 2D (`D = 2`) and 3D (`D = 3`)
 numerical wave tanks.
-In 2D it supports embedded structural sub-domains (`StructureDomain`), sponge layers
-(`DampingZone`), and rotational-spring joint locations (`JointDomain`).
+In both dimensions it supports floating structures (`StructureDomain`: a beam or
+membrane segment in 2D, a plate or membrane rectangle in 3D), sponge layers
+(`DampingZone`) and resonator points (`ResonatorDomain`); rotational-spring joints
+(`JointDomain`) are 2D only.  These descriptors carry geometry only — whether a
+structure is a beam, membrane or plate is decided by the physics entity that uses it.
+For every structure, `build_triangulations` also generates its interior skeleton
+(C/DG terms), its boundary (beam end points / plate edge) and a model face tag on that
+boundary that can be passed as `dirichlet_tags` to clamp or simply support it.
 `build_model(domain)` generates a `DiscreteModel` from the Cartesian description, and
 `build_triangulations(domain, model)` extracts and names all sub-triangulations into a
 `TankTriangulations` struct.
@@ -85,16 +91,22 @@ The standard keys are:
 | Key | Sub-domain |
 |---|---|
 | `:Ω` | Fluid bulk |
-| `:Γκ` | Free-surface (elevation field) |
-| `:Γη` | Structure wetted surface |
+| `:Γ` | Whole top surface |
+| `:Γfs` | Open water (no structure, no damping zone) |
+| `:Γκ` | Free-surface (elevation field): open water ∪ damping zones |
+| `:Γη` | Structure wetted surface (union of all structures) |
 | `:Γbot` | Seabed |
-| `:Γin`, `:Γout` | Inlet / outlet lateral boundaries |
-| `:Λη` | DG skeleton facets on the structural surface |
-| `:Γ_dampings` | Damping-zone boundary segments |
+| `:Γin`, `:Γout` | Inlet / outlet boundaries |
+| `:Γlateral` | Lateral walls (3D) |
+| `:Λη` | C/DG skeleton facets on the structural surface |
+| `:∂Γη` | Boundary of the structural surface (end points in 2D, edge in 3D) |
+| `:Γ_structures`, `:Λ_structures`, `:∂Γ_structures` | Per-structure surface, skeleton, boundary |
+| `:Γ_dampings` | Damping-zone surface patches |
 
 `IntegrationDomains` wraps a `TankTriangulations` and converts each triangulation into a
-Gridap `Measure` object (`:dΩ`, `:dΓκ`, `:dΓη`, `:dΛη`, etc.) at user-specified
-quadrature orders.
+Gridap `Measure` object (`:dΩ`, `:dΓκ`, `:dΓη`, `:dΛη`, `:dΛ∂η`, `:dΓd_1`, and
+per-structure `:dΓη_i`, `:dΛη_i`, `:dΛ∂η_i`) at user-specified quadrature orders,
+together with normals and the C/DG mesh size `:h_η` (a length in 2D and 3D).
 Physics entities receive an `IntegrationDomains` during assembly and index it by symbol,
 for example `dom[:dΓη]`.
 
@@ -125,6 +137,7 @@ which key in `TankTriangulations` to use when building the FE space for that ent
 | `PotentialFlow` | `(:ϕ,)` | `:Ω` |
 | `FreeSurface` | `(:κ,)` | `:Γκ` |
 | `EulerBernoulliBeam` | `(:η_b,)` | `:Γη` |
+| `TensionedEulerBernoulliBeam` | `(:η_tb,)` | `:Γη` |
 | `TimoshenkoBeam` | `(:w, :θ)` | `:Γη` |
 | `KirchhoffLovePlate` | `(:η,)` | `:Γη` |
 | `Membrane` | `(:η_m,)` | `:Γη` |

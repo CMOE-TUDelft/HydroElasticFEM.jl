@@ -3,33 +3,65 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 """
-  StructureDomain
+    AbstractSurfaceZone
+
+Supertype of axis-aligned sub-domain descriptors that partition the tank's
+top (free) surface: [`StructureDomain`](@ref) and [`DampingZone`](@ref).
+
+A surface zone is a codimension-1 box on the free surface:
+
+- 2D tank (`ambient_dim = 2`): a segment `x ∈ [x₀[1], x₀[1] + L]` at `y = x₀[2]`.
+- 3D tank (`ambient_dim = 3`): a rectangle `x ∈ [x₀[1], x₀[1] + L]`,
+  `y ∈ [x₀[2], x₀[2] + W]` at `z = x₀[3]`.
+
+The zone carries geometry only.  Whether it hosts a beam, membrane or plate,
+or which damping law acts on it, is decided by the physics layer.
+"""
+abstract type AbstractSurfaceZone end
+
+"""
+  StructureDomain <: AbstractSurfaceZone
 
 Descriptor for an axis-aligned structure sub-domain on the Cartesian free
-surface (e.g. a floating beam or plate segment).
+surface (a floating beam or membrane in 2D; a plate or membrane in 3D).
 
 At `build_triangulations` time, a centroid-based mask selects the surface
-cells whose centroid lies inside this descriptor's bounding box.  The
-selected cells become the per-structure triangulation (stored under
-`domain_symbol` in `TankTriangulations`) and contribute to `Γη`.
+cells whose centroid lies inside this descriptor's box.  The selected cells
+become the per-structure triangulation (stored under `domain_symbol` in
+`TankTriangulations`) and contribute to `Γη`.  The structure's interior
+skeleton, its boundary (`∂Γs`: beam end points in 2D, plate edge in 3D) and a
+model face tag `boundary_tag` on that boundary are generated automatically.
+Use `boundary_tag` as `dirichlet_tags` to clamp or simply support the
+structure edge.
 
 ## Fields
-- `L::Float64`               — length of the sub-domain [m]
-- `x₀::Vector{Float64}`      — lower corner / anchor point [m]
-- `ambient_dim::Int`         — ambient space dimension (default 2)
-- `manifold_dim::Int`        — manifold dimension of the surface (default 1)
+- `L::Float64`               — extent along x [m]
+- `x₀::Vector{Float64}`      — lower corner [m]; its length sets the ambient dimension
+- `ambient_dim::Int`         — ambient dimension (default `length(x₀)`)
+- `manifold_dim::Int`        — structure manifold dimension (default `ambient_dim - 1`)
 - `domain_symbol::Symbol`    — key used in `TankTriangulations` (default `:Γ_s`)
+- `W::Union{Nothing,Float64}` — extent along y [m]; required in 3D
+- `boundary_tag::String`     — model face tag on the structure boundary
+  (default `"\$(domain_symbol)_boundary"`)
+
+## Example
+```julia
+beam  = StructureDomain(L=1.0, x₀=[1.5, 1.0])                                  # 2D
+plate = StructureDomain(L=300.0, W=60.0, x₀=[1350.0, -30.0, 58.5], domain_symbol=:Γ_p)  # 3D
+```
 """
-@with_kw struct StructureDomain
+@with_kw struct StructureDomain <: AbstractSurfaceZone
   L::Float64 = 1.0
   x₀::Vector{Float64} = [0.0, 1.0]
-  ambient_dim::Int = 2
-  manifold_dim::Int = 1
+  ambient_dim::Int = length(x₀)
+  manifold_dim::Int = ambient_dim - 1
   domain_symbol::Symbol = :Γ_s
+  W::Union{Nothing, Float64} = nothing
+  boundary_tag::String = string(domain_symbol, "_boundary")
 end
 
 """
-  DampingZone
+  DampingZone <: AbstractSurfaceZone
 
 Descriptor for an axis-aligned numerical wave absorber on the Cartesian free
 surface.
@@ -38,23 +70,28 @@ At `build_triangulations` time, a centroid-based mask selects the surface
 cells inside this zone.  Damping-zone cells are excluded from the open
 free-surface triangulation `Γfs` but included in `Γκ` (the wave-equation
 free-surface that includes damping), so the damping operator can apply a
-spatially varying coefficient.
+spatially varying coefficient.  The damping law itself (`μ₁`, `μ₂`, …) is
+defined by the physics layer (`DampingZoneBC`).
 
 ## Fields
-- `L::Float64`               — length of the zone [m]
-- `σ::Float64`               — peak damping coefficient (used by `DampingZoneBC`)
-- `x₀::Vector{Float64}`      — lower corner / anchor point [m]
-- `ambient_dim::Int`         — ambient space dimension (default 2)
-- `manifold_dim::Int`        — manifold dimension (default 1)
+- `L::Float64`               — extent along x [m]
+- `σ::Float64`               — deprecated, unused by the geometry layer; the
+  damping law lives in `DampingZoneBC`
+- `x₀::Vector{Float64}`      — lower corner [m]; its length sets the ambient dimension
+- `ambient_dim::Int`         — ambient dimension (default `length(x₀)`)
+- `manifold_dim::Int`        — manifold dimension (default `ambient_dim - 1`)
 - `domain_symbol::Symbol`    — key used in `TankTriangulations` (default `:Γ_d`)
+- `W::Union{Nothing,Float64}` — extent along y, in m (3D only); `nothing`
+  (default) spans the full tank width
 """
-@with_kw struct DampingZone
+@with_kw struct DampingZone <: AbstractSurfaceZone
   L::Float64 = 0.5
   σ::Float64 = 1.0
   x₀::Vector{Float64} = [0.0, 1.0]
-  ambient_dim::Int = 2
-  manifold_dim::Int = 1
+  ambient_dim::Int = length(x₀)
+  manifold_dim::Int = ambient_dim - 1
   domain_symbol::Symbol = :Γ_d
+  W::Union{Nothing, Float64} = nothing
 end
 
 """
@@ -178,9 +215,13 @@ The dimension `D` is inferred from the keyword arguments:
 - 2D: provide `L, H, nx, ny`
 - 3D: provide `L, W, H, nx, ny, nz`
 
-Only `TankDomain{2}` currently supports `structure_domains`, `damping_zones`,
-and `joint_domains`; `resonator_domains` can be attached to any
-`TankDomain{D}` when `trian_symbol` names an available triangulation.
+`structure_domains`, `damping_zones` and `resonator_domains` are supported
+for `D = 2` and `D = 3`; every surface zone must have `ambient_dim == D`.
+`joint_domains` (point joints between beam segments) are 2D only.
+
+For a 3D tank that does not start at the origin (e.g. `y ∈ [-W/2, W/2]` or a
+free surface at `z = 0`), build the `CartesianDomain` with explicit
+`mins`/`maxs` and pass it to `TankDomain(cartesian; ...)`.
 
 ## Periodicity
 
@@ -210,28 +251,21 @@ struct TankDomain{D, C, SZ, DZ, JZ, RZ} <: AbstractDomain
 end
 
 function _validate_tank_domain_inputs(
-  ::Val{2},
+  ::Val{D},
   structure_domains,
   damping_zones,
   joint_domains,
   resonator_domains,
-)
-  nothing
-end
-
-function _validate_tank_domain_inputs(
-  ::Val{3},
-  structure_domains,
-  damping_zones,
-  joint_domains,
-  resonator_domains,
-)
-  isempty(structure_domains) ||
-    error("TankDomain{3} does not yet support structure_domains.")
-  isempty(damping_zones) ||
-    error("TankDomain{3} does not yet support damping_zones.")
-  isempty(joint_domains) ||
-    error("TankDomain{3} does not yet support joint_domains.")
+) where {D}
+  for zone in Iterators.flatten((structure_domains, damping_zones))
+    zone.ambient_dim == D || error(
+      "$(nameof(typeof(zone))) :$(zone.domain_symbol) has ambient_dim=$(zone.ambient_dim) " *
+      "(length(x₀)=$(length(zone.x₀))) but the tank is $(D)D.",
+    )
+    _zone_bounds(zone)  # validates x₀, dimensions and extents
+  end
+  D == 2 || isempty(joint_domains) ||
+    error("TankDomain{$D} does not yet support joint_domains (2D point joints only).")
   nothing
 end
 
@@ -257,7 +291,7 @@ for a one-shot variant that builds the `CartesianDomain` internally.
 # Example
 ```julia
 cart = G.CartesianDomain(L=10.0, H=1.0, nx=40, ny=8)
-domain = G.TankDomain(cart; structure_domains=[G.StructureDomain(x_start=3.0, x_end=7.0)])
+domain = G.TankDomain(cart; structure_domains=[G.StructureDomain(L=4.0, x₀=[3.0, 1.0])])
 ```
 """
 function TankDomain(
@@ -432,66 +466,88 @@ end
 # Surface masking
 # ─────────────────────────────────────────────────────────────────────────────
 
-function _surface_zone_mask(x0, L, ambient_dim::Int, manifold_dim::Int)
+# Absolute tolerance [m] for the off-surface (vertical) centroid coordinate.
+# Absolute rather than relative so that a free surface at z = 0 is matched.
+const _SURFACE_ZONE_ATOL = 1.0e-8
+
+# In-plane extent of `zone` along manifold axis `i`: `L` along x, `W` along y.
+# `nothing` means the zone is unbounded along that axis (full tank width).
+_zone_extent(zone, i::Int) = i == 1 ? zone.L : zone.W
+
+_missing_width_error(zone::StructureDomain) = error(
+  "StructureDomain :$(zone.domain_symbol) in 3D requires the y-extent `W`.",
+)
+_missing_width_error(::DampingZone) = nothing  # spans the full tank width
+
+"""
+    _zone_bounds(zone::AbstractSurfaceZone) -> (lo, hi)
+
+Return per-manifold-axis bounds `lo[i] ≤ c[i] ≤ hi[i]` of a surface zone,
+after validating its dimensions.  An unbounded axis (a `DampingZone` with
+`W = nothing` in 3D) gets `(-Inf, Inf)`.
+"""
+function _zone_bounds(zone::AbstractSurfaceZone)
+  _check_surface_zone(zone)
+  m = zone.manifold_dim
+  lo = Vector{Float64}(undef, m)
+  hi = Vector{Float64}(undef, m)
+  for i in 1:m
+    ext = _zone_extent(zone, i)
+    if ext === nothing
+      _missing_width_error(zone)
+      lo[i], hi[i] = -Inf, Inf
+    else
+      ext > 0 || error("$(nameof(typeof(zone))) :$(zone.domain_symbol) has non-positive extent $ext along axis $i.")
+      lo[i], hi[i] = zone.x₀[i], zone.x₀[i] + ext
+    end
+  end
+  return lo, hi
+end
+
+function _surface_zone_mask(zone::AbstractSurfaceZone)
+  lo, hi = _zone_bounds(zone)
+  x0 = zone.x₀
+  m = zone.manifold_dim
+  D = zone.ambient_dim
   return function (xs)
     c = _centroid(xs)
-    in_plane = all(x0[i] <= c[i] <= x0[i] + L for i in 1:manifold_dim)
-    on_surface = all(c[i] ≈ x0[i] for i in (manifold_dim + 1):ambient_dim)
+    in_plane = all(lo[i] <= c[i] <= hi[i] for i in 1:m)
+    on_surface = all(abs(c[i] - x0[i]) <= _SURFACE_ZONE_ATOL for i in (m + 1):D)
     in_plane && on_surface
   end
 end
 
-function _surface_zone_mask(zone)
-  _check_surface_zone(zone)
-  _surface_zone_mask(zone.x₀, zone.L, zone.ambient_dim, zone.manifold_dim)
-end
-
 """
-    surface_mask(zone::StructureDomain) -> Function
+    surface_mask(zone::AbstractSurfaceZone) -> Function
 
-Return a closure `(xs) -> Bool` that tests whether the centroid of
-a surface cell lies within the structure domain.
+Return a closure `(xs) -> Bool` that tests whether the centroid of a surface
+cell lies within `zone` ([`StructureDomain`](@ref) or [`DampingZone`](@ref)).
 
-For each manifold axis `i = 1:manifold_dim`, the centroid coordinate must
-belong to `[x₀[i], x₀[i]+L]`. Remaining ambient coordinates are constrained to
-`x₀[i]` using approximate equality.
+The centroid must satisfy `x₀[1] ≤ c[1] ≤ x₀[1] + L` and, in 3D,
+`x₀[2] ≤ c[2] ≤ x₀[2] + W` (no y-constraint for a `DampingZone` with
+`W = nothing`).  The off-surface coordinate must equal `x₀[end]` up to an
+absolute tolerance of `1e-8`.
 """
-function surface_mask(zone::StructureDomain)
-  _surface_zone_mask(zone)
-end
-
-"""
-    surface_mask(zone::DampingZone) -> Function
-
-Return a closure `(xs) -> Bool` that tests whether the centroid of
-a surface cell lies within the damping zone.
-
-For each manifold axis `i = 1:manifold_dim`, the centroid coordinate must
-belong to `[x₀[i], x₀[i]+L]`. Remaining ambient coordinates are constrained to
-`x₀[i]` using approximate equality.
-"""
-function surface_mask(zone::DampingZone)
-  _surface_zone_mask(zone)
-end
+surface_mask(zone::AbstractSurfaceZone) = _surface_zone_mask(zone)
 
 function _check_surface_zone(zone)
   length(zone.x₀) == zone.ambient_dim ||
     error("length(x₀)=$(length(zone.x₀)) must equal ambient_dim=$(zone.ambient_dim).")
-  zone.manifold_dim >= 1 || error("manifold_dim must be >= 1.")
-  zone.manifold_dim < zone.ambient_dim ||
-    error("manifold_dim must be < ambient_dim for a boundary sub-domain.")
+  zone.ambient_dim in (2, 3) || error("ambient_dim must be 2 or 3.")
+  zone.manifold_dim == zone.ambient_dim - 1 ||
+    error("manifold_dim must be ambient_dim - 1 for a free-surface sub-domain.")
   nothing
 end
 
 """
-    surface_masks(domain::TankDomain{2})
+    surface_masks(domain::TankDomain)
 
 Build mask closures for every structure domain and damping zone in `domain`.
 
 Returns `(structure_masks, damping_masks)` where each is a `Vector{Function}`,
 ordered to match `domain.structure_domains` and `domain.damping_zones`.
 """
-function surface_masks(domain::TankDomain{2})
+function surface_masks(domain::TankDomain)
   smasks = [surface_mask(s) for s in domain.structure_domains]
   dmasks = [surface_mask(d) for d in domain.damping_zones]
   return smasks, dmasks
@@ -653,15 +709,15 @@ end
 # ─────────────────────────────────────────────────────────────────────────────
 
 """
-    _tank_label_map() -> Dict{String, String}
+    _tank_label_map(::Val{D}) -> Dict{String, String}
 
-Internal mapping from [`STANDARD_TAGS`](@ref) to the Gridap face-label
-strings used by [`build_model`](@ref) for Cartesian meshes.
+Internal mapping from [`STANDARD_TAGS`](@ref) (plus `"lateral_walls"` in 3D)
+to the Gridap face-label strings added by `_label_tank_model!`.
 
 `"fluid"` maps to the interior label `"water"`.  `"structure"` is handled
 separately via coordinate masks in [`get_boundary`](@ref).
 """
-function _tank_label_map()
+function _tank_label_map(::Val{2})
   Dict{String, String}(
     "fluid"        => "water",
     "free_surface" => "surface",
@@ -672,37 +728,189 @@ function _tank_label_map()
   )
 end
 
+function _tank_label_map(::Val{3})
+  lmap = _tank_label_map(Val(2))
+  lmap["lateral_walls"] = "lateral_walls"
+  lmap
+end
+
+# Gridap entity ids of a `CartesianDiscreteModel`, i.e. the face ids of the
+# reference n-cube.  Entity ids are shared across dimensions: the vertices and
+# edges interior to a boundary face carry that face's id.
+#
+# 2D (QUAD):  vertices 1–4, edges 5 (y=min), 6 (y=max), 7 (x=min), 8 (x=max),
+#             interior 9.
+# 3D (HEX):   vertices 1–8, edges 9–20, faces 21 (z=min), 22 (z=max),
+#             23 (y=min), 24 (y=max), 25 (x=min), 26 (x=max), interior 27.
+#
+# "surface"/"bottom" include the closure of the top/bottom face.  Inlet,
+# outlet and lateral walls include face interiors only (as in 2D, the shared
+# corners belong to the surface/bottom).
+_tank_entity_ids(::Val{2}) = (
+  surface = [3, 4, 6],
+  bottom  = [1, 2, 5],
+  inlet   = [7],
+  outlet  = [8],
+  water   = [9],
+)
+
+_tank_entity_ids(::Val{3}) = (
+  surface       = [5, 6, 7, 8, 11, 12, 15, 16, 22],
+  bottom        = [1, 2, 3, 4, 9, 10, 13, 14, 21],
+  inlet         = [25],
+  outlet        = [26],
+  lateral_walls = [23, 24],
+  water         = [27],
+)
+
 """
     _label_tank_model!(model) -> nothing
 
 Apply the standard Cartesian face labels to `model` in-place.
 
-Adds `"surface"`, `"bottom"`, `"inlet"`, `"outlet"`, and `"water"` tags
-using the fixed entity-id convention for 2D Cartesian meshes.
+Adds `"surface"`, `"bottom"`, `"inlet"`, `"outlet"`, `"water"` (and
+`"lateral_walls"` in 3D) tags using the fixed Gridap entity-id convention of
+Cartesian meshes (see `_tank_entity_ids`).  Tags are assigned by entity id,
+so they are independent of the tank's coordinates (e.g. a free surface at
+`z = 0`).  Calling it twice on the same model is a no-op.
 """
 function _label_tank_model!(model)
   labels = get_face_labeling(model)
-  add_tag_from_tags!(labels, "surface", [3, 4, 6])
-  add_tag_from_tags!(labels, "bottom", [1, 2, 5])
-  add_tag_from_tags!(labels, "inlet", [7])
-  add_tag_from_tags!(labels, "outlet", [8])
-  add_tag_from_tags!(labels, "water", [9])
+  "water" in labels.tag_to_name && return nothing
+  for (name, ids) in pairs(_tank_entity_ids(Val(num_cell_dims(model))))
+    add_tag_from_tags!(labels, String(name), ids)
+  end
+  nothing
+end
+
+# Build a fresh model with the standard tank labels applied.
+function _labelled_tank_model(domain::TankDomain)
+  model = build_model(domain)
+  _label_tank_model!(model)
+  model
+end
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Structure skeletons and boundaries
+# ─────────────────────────────────────────────────────────────────────────────
+
+function _check_nonempty_structures(structures, trians)
+  for (s, Γs) in zip(structures, trians)
+    num_cells(Γs) > 0 || error(
+      "StructureDomain :$(s.domain_symbol) does not contain any free-surface cell. " *
+      "Check x₀, L (and W in 3D) against the tank dimensions and mesh.",
+    )
+  end
+  nothing
+end
+
+# Interior skeleton of one structure, excluding facets owned by joints.
+function _structure_skeleton(Γs, joints)
+  Λ = Skeleton(Γs)
+  isempty(joints) && return Λ
+  masks = [joint_mask(j) for j in joints]
+  keep = findall(xs -> !any(m(xs) for m in masks), collect(get_cell_coordinates(Λ)))
+  Triangulation(Λ, keep)
+end
+
+"""
+    _structure_boundary_faces(model, Γs) -> Dict{Int, Vector{Int}}
+
+Return the model faces on the boundary `∂Γs` of a free-surface
+sub-triangulation `Γs`, grouped by face dimension.
+
+A `(D-2)`-face (edge in 3D, vertex in 2D) is on `∂Γs` when it belongs to
+exactly one cell of `Γs`.  The lower-dimensional closure (the edge end
+points in 3D) is included so that `dirichlet_tags` constrain every DOF on
+the boundary.
+"""
+function _structure_boundary_faces(model, Γs)
+  Dc = num_cell_dims(model)
+  topo = Gridap.Geometry.get_grid_topology(model)
+  mfaces = Gridap.Geometry.get_glue(Γs, Val(Dc - 1)).tface_to_mface
+  face_to_bfaces = Gridap.Geometry.get_faces(topo, Dc - 1, Dc - 2)
+  count = Dict{Int, Int}()
+  for f in mfaces, b in face_to_bfaces[f]
+    count[b] = get(count, b, 0) + 1
+  end
+  bfaces = sort!([b for (b, c) in count if c == 1])
+  faces_by_dim = Dict{Int, Vector{Int}}(Dc - 2 => bfaces)
+  for d in 0:(Dc - 3)
+    bface_to_dfaces = Gridap.Geometry.get_faces(topo, Dc - 2, d)
+    faces_by_dim[d] = sort!(unique(reduce(vcat, (collect(bface_to_dfaces[b]) for b in bfaces); init = Int[])))
+  end
+  faces_by_dim
+end
+
+"""
+    _relabel_faces!(labels, faces_by_dim) -> Vector{Int}
+
+Move the given model faces to fresh entities and return the new entity ids.
+
+For every original entity `o` touched, a new entity `n` is created and added
+to every existing tag that contains `o`, so existing tags (`"surface"`,
+`"boundary"`, …) keep covering exactly the same faces.
+"""
+function _relabel_faces!(labels, faces_by_dim)
+  next = maximum(maximum(ents; init = 0) for ents in labels.d_to_dface_to_entity)
+  new_entities = Int[]
+  for (d, faces) in faces_by_dim
+    ents = labels.d_to_dface_to_entity[d + 1]
+    for old in unique(ents[faces])
+      next += 1
+      for f in faces
+        ents[f] == old && (ents[f] = next)
+      end
+      for tag_entities in labels.tag_to_entities
+        old in tag_entities && push!(tag_entities, next)
+      end
+      push!(new_entities, next)
+    end
+  end
+  new_entities
+end
+
+"""
+    _tag_structure_boundaries!(model, structures, trians) -> nothing
+
+Add a model face tag `structure.boundary_tag` on the boundary of every
+structure, plus the union tag `"structure_boundary"`.  These tags can be
+passed as `dirichlet_tags` to FE spaces on the structure triangulations.
+Calling it twice on the same model is a no-op.
+"""
+function _tag_structure_boundaries!(model, structures, trians)
+  isempty(structures) && return nothing
+  labels = get_face_labeling(model)
+  "structure_boundary" in labels.tag_to_name && return nothing
+  all_new = Int[]
+  for (s, Γs) in zip(structures, trians)
+    s.boundary_tag in labels.tag_to_name && error(
+      "StructureDomain :$(s.domain_symbol) boundary_tag \"$(s.boundary_tag)\" " *
+      "already exists in the model face labeling. Each boundary_tag must be unique.",
+    )
+    new_entities = _relabel_faces!(labels, _structure_boundary_faces(model, Γs))
+    Gridap.Geometry.add_tag!(labels, s.boundary_tag, new_entities)
+    append!(all_new, new_entities)
+  end
+  Gridap.Geometry.add_tag!(labels, "structure_boundary", unique(all_new))
   nothing
 end
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TankDomain{2} triangulations
+# TankDomain{D} triangulations
 # ─────────────────────────────────────────────────────────────────────────────
 
 """
-    build_triangulations(domain::TankDomain{2}, model) -> TankTriangulations
+    build_triangulations(domain::TankDomain{D}, model) -> TankTriangulations
 
-Build the full set of named sub-triangulations from a pre-labelled `model`.
+Build the full set of named sub-triangulations from `model` (for `D = 2`
+and `D = 3`).  The standard tank labels are applied to `model` in place.
 
 ## Surface partition
 
-The top-surface `Boundary` is partitioned into three disjoint regions by
+The top-surface `Boundary` (`:Γ`) is partitioned into three regions by
 applying centroid masks derived from `domain.structure_domains` and
 `domain.damping_zones`:
 
@@ -711,21 +919,26 @@ applying centroid masks derived from `domain.structure_domains` and
 - `Γfs` — cells covered by neither structure nor damping (pure open water)
 
 Each descriptor also produces its own named triangulation stored under its
-`domain_symbol` key.  If `joint_domains` are present, the `Skeleton(Γη)` is
-further split into per-joint facets plus a remainder `Λη`.
+`domain_symbol` key.
+
+## Structure skeletons and boundaries
+
+- `:Λη` — interior skeleton of `Γη` (for C/DG beam/plate terms).  If
+  `joint_domains` are present (2D only), joint facets are split off into
+  `:Λ_joints`.
+- `:Λ_structures[i]` — interior skeleton of structure `i` (joint facets excluded).
+- `:∂Γ_structures[i]` — boundary of structure `i`: end points in 2D, edge
+  curve in 3D.  `:∂Γη` is the boundary of the union `Γη`.
+- Model face tags `structure.boundary_tag` and `"structure_boundary"` on
+  those boundaries, for use as `dirichlet_tags`.
 
 `domain.resonator_domains` are carried as metadata so
 `get_integration_domains` can build grouped `DiracDelta` functionals under
 `:δ_p`.
 
-## Labelling convention (Cartesian 2D, entity ids)
-- `"surface"` → entities 3, 4, 6 (top side + top corners)
-- `"bottom"`  → entities 1, 2, 5 (bottom side + bottom corners)
-- `"inlet"`   → entity 7 (left wall)
-- `"outlet"`  → entity 8 (right wall)
-- `"water"`   → entity 9 (interior)
+In 3D, `:Γlateral` holds the lateral walls (`y = min` and `y = max`).
 """
-function build_triangulations(domain::TankDomain{2}, model)
+function build_triangulations(domain::TankDomain{D}, model) where {D}
   # — Label model faces ————————————————————————————————
   _label_tank_model!(model)
 
@@ -747,9 +960,11 @@ function build_triangulations(domain::TankDomain{2}, model)
   Γfs = surface_partition.Γfs
   Γκ = surface_partition.Γκ
   Γη = surface_partition.Γη
+  structure_trians = surface_partition.structures.triangulations
+  _check_nonempty_structures(domain.structure_domains, structure_trians)
 
   if !isempty(domain.joint_domains) && isempty(domain.structure_domains)
-    error("Joint domains require at least one structure domain in TankDomain{2}.")
+    error("Joint domains require at least one structure domain in TankDomain{$D}.")
   end
 
   # Joint skeleton triangulations from the structure skeleton
@@ -762,6 +977,12 @@ function build_triangulations(domain::TankDomain{2}, model)
     joint_partition = (Λη = nothing, Λ_joints = Any[], symbols = Symbol[])
   end
 
+  # Per-structure skeletons and boundaries, plus boundary tags on the model
+  Λ_structures = Any[_structure_skeleton(Γs, domain.joint_domains) for Γs in structure_trians]
+  ∂Γ_structures = Any[Boundary(Γs) for Γs in structure_trians]
+  ∂Γη = isempty(structure_trians) ? nothing : Boundary(Γη)
+  _tag_structure_boundaries!(model, domain.structure_domains, structure_trians)
+
   # Compose dictionary for TankTriangulations
   trian_dict = _tank_triangulation_dict(
     Ω = Ω,
@@ -769,7 +990,7 @@ function build_triangulations(domain::TankDomain{2}, model)
     Γbot = Γbot,
     Γin = Γin,
     Γout = Γout,
-    Γ_structures = surface_partition.structures.triangulations,
+    Γ_structures = structure_trians,
     Γ_dampings = surface_partition.dampings.triangulations,
     Γfs = Γfs,
     Γκ = Γκ,
@@ -778,11 +999,17 @@ function build_triangulations(domain::TankDomain{2}, model)
     Λ_joints = joint_partition.Λ_joints,
     joint_domains = domain.joint_domains,
     resonator_domains = domain.resonator_domains,
+    Λ_structures = Λ_structures,
+    ∂Γ_structures = ∂Γ_structures,
+    ∂Γη = ∂Γη,
   )
+  if D == 3
+    trian_dict[:Γlateral] = Boundary(model, tags = "lateral_walls")
+  end
   _add_triangulations_by_symbol!(
     trian_dict,
     surface_partition.structures.symbols,
-    surface_partition.structures.triangulations,
+    structure_trians,
     "structure",
   )
   _add_triangulations_by_symbol!(
@@ -820,24 +1047,19 @@ Return the manifold dimension `D` for volume meshes.
 manifold_dimension(::TankDomain{D}) where {D} = D
 
 """
-    boundary_tags(d::TankDomain{2}) -> Dict{String, String}
+    boundary_tags(d::TankDomain{D}) -> Dict{String, String}
 
-Return a dictionary mapping each [`STANDARD_TAGS`](@ref) name to its
-corresponding Gridap face-label string for the Cartesian mesh.
+Return a dictionary mapping each [`STANDARD_TAGS`](@ref) name (plus
+`"lateral_walls"` in 3D) to its Gridap face-label string on the Cartesian
+mesh.
 
 The `"structure"` key maps to `"structure"` (a virtual label resolved via
 coordinate masks in [`get_boundary`](@ref) and [`build_triangulations`](@ref)).
 """
-function boundary_tags(d::TankDomain{2})
-  _tank_label_map()
-end
-
-function boundary_tags(d::TankDomain{D}) where {D}
-  boundary_tags(_cartesian_domain(d))
-end
+boundary_tags(::TankDomain{D}) where {D} = _tank_label_map(Val(D))
 
 """
-    triangulation(d::TankDomain{2}) -> Triangulation
+    triangulation(d::TankDomain) -> Triangulation
 
 Build the Cartesian discrete model from `d` and return the bulk-fluid
 interior triangulation `Ω`.
@@ -846,22 +1068,15 @@ Note: this method constructs a fresh `CartesianDiscreteModel` every call.
 For performance-critical code use [`build_model`](@ref) /
 [`build_triangulations`](@ref) directly.
 """
-function triangulation(d::TankDomain{2})
-  model = build_model(d)
-  _label_tank_model!(model)
-  Interior(model)
-end
-
-function triangulation(d::TankDomain{D}) where {D}
-  triangulation(_cartesian_domain(d))
-end
+triangulation(d::TankDomain) = Interior(_labelled_tank_model(d))
 
 """
-    get_boundary(d::TankDomain{2}, name::String) -> BoundaryTriangulation
+    get_boundary(d::TankDomain{D}, name::String) -> BoundaryTriangulation
 
 Return the Gridap boundary triangulation for the standard region `name`.
 
-Supported `name` values: all six [`STANDARD_TAGS`](@ref).
+Supported `name` values: all six [`STANDARD_TAGS`](@ref), plus
+`"lateral_walls"` (and the alias `"surface"` for `"free_surface"`) in 3D.
 
 For `"fluid"` the interior triangulation is returned.  For `"structure"` the
 union of all structure-domain cells on the top surface is returned (empty
@@ -870,23 +1085,20 @@ if no structure domains are defined).
 Note: builds a fresh model on each call; use [`build_triangulations`](@ref)
 when multiple boundaries are needed.
 """
-function get_boundary(d::TankDomain{2}, name::String)
-  valid = STANDARD_TAGS
-  if !(name in valid)
-    error(
-      "Unknown boundary tag \"$name\" for TankDomain{2}. " *
-      "Valid tags are: " * join(valid, ", ") * ".",
-    )
-  end
-  model = build_model(d)
-  _label_tank_model!(model)
-  lmap = _tank_label_map()
+function get_boundary(d::TankDomain{D}, name::String) where {D}
+  lmap = _tank_label_map(Val(D))
+  tag = _normalize_cartesian_tag(Val(D), name)
+  haskey(lmap, tag) || error(
+    "Unknown boundary tag \"$name\" for TankDomain{$D}. " *
+    "Valid tags are: " * join(sort(collect(keys(lmap))), ", ") * ".",
+  )
+  model = _labelled_tank_model(d)
 
-  if name == "fluid"
+  if tag == "fluid"
     return Interior(model)
   end
 
-  if name == "structure"
+  if tag == "structure"
     # Build the full top-surface triangulation, then sub-select structure cells
     Γ = Boundary(model, tags = lmap["free_surface"])
     if isempty(d.structure_domains)
@@ -897,27 +1109,7 @@ function get_boundary(d::TankDomain{2}, name::String)
     return Triangulation(Γ, findall(_or_bits(structures.bits, length(xΓ))))
   end
 
-  Boundary(model, tags = lmap[name])
-end
-
-function get_boundary(d::TankDomain{D}, name::String) where {D}
-  get_boundary(_cartesian_domain(d), name)
-end
-
-"""
-    build_triangulations(domain::TankDomain{D}, model) -> TankTriangulations
-
-Cartesian fallback for `TankDomain{D}`.
-
-For dimensions where no explicit `TankDomain{D}` specialization exists, this
-delegates to `_cartesian_boundary_triangulations(Val(D), ...)` using the
-wrapped [`CartesianDomain`](@ref).
-"""
-function build_triangulations(domain::TankDomain{D}, model) where {D}
-  d = _cartesian_domain(domain)
-  trians = _cartesian_boundary_triangulations(Val(D), model, d.mins, d.maxs)
-  trians[:resonator_domains] = domain.resonator_domains
-  trians
+  Boundary(model, tags = lmap[tag])
 end
 
 
@@ -935,6 +1127,11 @@ A cell belongs to the plate only if all its nodes satisfy:
 `xb₀ ≤ x ≤ xb₁` and `yb₀ ≤ y ≤ yb₁`.
 
 Returns `(Γb, Γf, Λb)` where `Λb = Skeleton(Γb)`.
+
+!!! note "Legacy"
+    Prefer declaring a 3D [`StructureDomain`](@ref) (`L`, `W`, `x₀`) on a
+    [`TankDomain`](@ref): `build_triangulations` then produces `Γη`, `Γκ`,
+    `Λη`, the structure boundary and its Dirichlet tag automatically.
 """
 function get_plate_triangulation(Γ, xb₀, xb₁, yb₀, yb₁)
   function is_plate(cell_nodes)

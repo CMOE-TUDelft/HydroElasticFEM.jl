@@ -49,7 +49,7 @@ time.
 | `AbstractDomain.jl`     | `AbstractDomain` interface, `STANDARD_TAGS`          |
 | `Triangulations.jl`     | `TankTriangulations` container                       |
 | `CartesianDomain.jl`    | `CartesianDomain{D}`, `build_model` / `build_triangulations` (plain box), `map_fn` / `f_z` |
-| `TankDomain.jl`         | `TankDomain{D}`, `StructureDomain`, `DampingZone`, `JointDomain`, `ResonatorDomain`, surface-mask partition, `get_plate_triangulation` |
+| `TankDomain.jl`         | `TankDomain{D}`, `AbstractSurfaceZone`, `StructureDomain`, `DampingZone`, `JointDomain`, `ResonatorDomain`, surface-mask partition, structure-edge tags, `get_plate_triangulation` (legacy) |
 | `GmshDomain.jl`         | `GmshDomain`, tag-based triangulations, `validate_gmsh_tags` |
 | `IntegrationDomains.jl` | `IntegrationDomains` container, `get_integration_domains` |
 
@@ -66,6 +66,18 @@ tank = G.TankDomain(L=4.0, H=1.0, nx=40, ny=4,
 model  = G.build_model(tank)
 trians = G.build_triangulations(tank, model)
 dom    = G.get_integration_domains(trians; degree=4)
+
+# 3D tank (free surface at z = H) with a floating plate and full-width
+# inlet/outlet damping zones.  Structure edges get the model tag
+# "Γ_p_boundary" (usable as `dirichlet_tags`).
+tank3 = G.TankDomain(L=8.0, W=4.0, H=1.0, nx=16, ny=8, nz=2,
+    structure_domains = [G.StructureDomain(L=2.0, W=2.0, x₀=[3.0, 1.0, 1.0], domain_symbol=:Γ_p)],
+    damping_zones     = [G.DampingZone(L=1.0, x₀=[0.0, 0.0, 1.0], domain_symbol=:Γ_d_in),
+                         G.DampingZone(L=1.0, x₀=[7.0, 0.0, 1.0], domain_symbol=:Γ_d_out)],
+)
+model3 = G.build_model(tank3)
+dom3   = G.get_integration_domains(G.build_triangulations(tank3, model3))
+# dom3[:dΓη], dom3[:dΛη], dom3[:dΛ∂η], dom3[:dΓd_1], dom3[:dΓκ], …
 
 # Unstructured Gmsh mesh — boundaries come from physical-group names
 gmsh_tank = G.GmshDomain("tank.msh"; dim=2)
@@ -89,7 +101,7 @@ include("IntegrationDomains.jl")   # IntegrationDomains, get_integration_domains
 export TankTriangulations
 export IntegrationDomains
 export TankDomain
-export StructureDomain, DampingZone
+export AbstractSurfaceZone, StructureDomain, DampingZone
 export JointDomain, ResonatorDomain
 export AbstractDomain, STANDARD_TAGS
 export GmshDomain

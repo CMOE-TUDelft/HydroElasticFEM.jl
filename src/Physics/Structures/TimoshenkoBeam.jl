@@ -1,5 +1,5 @@
 """
-    TimoshenkoBeam <: Structure
+    TimoshenkoBeam <: AbstractHydroelasticStructure
 
 1-D Timoshenko beam for hydroelastic problems (two-field formulation).
 
@@ -18,6 +18,19 @@ Euler–Bernoulli beam; see `EulerBernoulliBeam`.
 Mixed-order interpolation (`fe_w` at order p, `fe_θ` at order p-1) is
 recommended to avoid shear locking.  The defaults (order 2 and 1) satisfy
 this requirement.
+
+Subtypes [`AbstractHydroelasticStructure`](@ref), but as a genuinely
+two-field structure whose elastic operator couples `w` and `θ` together
+(the shear term mixes `∂w/∂s` and `θ`), it cannot share the single-field
+`mass` default: `mass` is implemented directly. It *does* share `stiffness`'s
+hydrostatic term and all of `rhs`, since both only ever touch the
+deflection field `w` (`variable_symbol(s) == s.symbol_w`); see
+[`mass`](@ref)`(s::TimoshenkoBeam, ...)` and
+[`stiffness_operator`](@ref)`(s::TimoshenkoBeam, ...)` for the parts that
+are implemented directly. `f` passed to `rhs` must be a `FieldMap` with a
+key equal to `s.symbol_w` (the `θ` component, if present, is ignored).
+`has_damping_form(::TimoshenkoBeam) = false`, so `damping_parameter` is
+not implemented.
 
 # Fields
 - `E::Float64`              — Young's modulus [Pa]
@@ -59,7 +72,7 @@ this requirement.
   floating structures. *Int. J. Numer. Methods Eng.*, 124(3), 714-751.
   DOI: https://doi.org/10.1002/nme.7140
 """
-@with_kw struct TimoshenkoBeam <: Structure
+@with_kw struct TimoshenkoBeam <: AbstractHydroelasticStructure
   E::Float64
   ν::Float64
   h_beam::Float64
@@ -101,6 +114,22 @@ field_fe_configs(s::TimoshenkoBeam) = (s.fe_w, s.fe_θ)
 has_damping_form(::TimoshenkoBeam) = false
 
 # ── Two-field weak forms ────────────────────────────────────────────────────
+#
+# TimoshenkoBeam is a genuinely two-field structure (w, θ) with an
+# elastic operator that *couples* both fields (the shear term mixes
+# ∂w/∂s and θ), so it cannot share AbstractHydroelasticStructure's
+# single-field `mass` default — `mass` is therefore implemented directly
+# below, exactly as before this refactor.
+#
+# The hydrostatic restoring term `g·v_w·w`, however, only ever touches the
+# deflection field `w` = variable_symbol(s), which is exactly what the
+# shared `stiffness` default already assumes. So `stiffness_operator` below
+# supplies only the coupled bending+shear part, and AbstractHydroelasticStructure's
+# shared `stiffness` adds the `g·v_w·w` hydrostatic term around it — this
+# reproduces the original combined bilinear form exactly (a single ∫(...)dΩ
+# call vs. two summed ∫(...)dΩ calls over the same measure integrate to the
+# same value). `rhs` (which also only ever touches `w`) is inherited
+# unchanged from the shared default for the same reason.
 
 """
     mass(s::TimoshenkoBeam, dom, x_tt, y)
@@ -113,7 +142,10 @@ m(\\ddot{u}, v) =
   + \\frac{ρ_s I}{ρ_w}\\int_{Γ} v_θ \\ddot{θ}\\,dΓ
 ```
 
-where ``A = b \\cdot h``, ``I = b h^3/12``.
+where ``A = b \\cdot h``, ``I = b h^3/12``. Implemented directly (not via
+[`AbstractHydroelasticStructure`](@ref)'s shared single-field `mass`
+default) because the two fields `w` and `θ` carry different, independent
+inertia coefficients (translational vs. rotational).
 """
 function mass(s::TimoshenkoBeam, dom::IntegrationDomains, x_tt, y)
   w_tt = x_tt[s.symbol_w]
@@ -131,22 +163,28 @@ function mass(s::TimoshenkoBeam, dom::IntegrationDomains, x_tt, y)
 end
 
 """
-    stiffness(s::TimoshenkoBeam, dom, x, y)
+    stiffness_operator(s::TimoshenkoBeam, dom::IntegrationDomains, x, y)
 
-Timoshenko beam stiffness form (normalised by ρ_w):
+Timoshenko beam elastic (bending + shear) stiffness operator, ``w``-``θ``
+coupled, *excluding* the hydrostatic restoring term:
 
 ```math
-a(u, v) =
+k_{\\mathrm{op}}(u, v) =
   \\frac{EI}{ρ_w}\\int_{Γ} (∂_s θ)(∂_s v_θ)\\,dΓ
   + \\frac{κGA}{ρ_w}\\int_{Γ} (∂_s w - θ)(∂_s v_w - v_θ)\\,dΓ
-  + g\\int_{Γ} v_w w\\,dΓ
 ```
 
 where ``∂_s f = ∇(f) \\cdot t`` is the tangential derivative along the beam
 axis defined by `s.tangent`, ``EI = E b h^3/12``, ``G = E/[2(1+ν)]``, and
 ``κGA = κ G b h``.
+
+Combined with the shared hydrostatic term (in
+[`stiffness`](@ref)`(s::AbstractHydroelasticStructure, ...)`, which uses
+[`variable_symbol`](@ref)`(s) == s.symbol_w` to apply `g·v_w·w` — the
+deflection field only) this reproduces the original beam bilinear form
+exactly.
 """
-function stiffness(s::TimoshenkoBeam, dom::IntegrationDomains, x, y)
+function stiffness_operator(s::TimoshenkoBeam, dom::IntegrationDomains, x, y)
   w   = x[s.symbol_w]
   θ   = x[s.symbol_θ]
   v_w = y[s.symbol_w]
@@ -166,24 +204,6 @@ function stiffness(s::TimoshenkoBeam, dom::IntegrationDomains, x, y)
   # hydroelastic monolithic coupling context used in this model.
   ∫(
     EI_ρ  * (∇(θ)   ⋅ t) * (∇(v_θ) ⋅ t) +
-    κGA_ρ * ((∇(w)  ⋅ t) - θ) * ((∇(v_w) ⋅ t) - v_θ) +
-    s.g   * v_w * w
+    κGA_ρ * ((∇(w)  ⋅ t) - θ) * ((∇(v_w) ⋅ t) - v_θ)
   )dΩ
-end
-
-"""
-    rhs(s::TimoshenkoBeam, dom, f, y)
-
-Timoshenko beam right-hand side (transverse load only):
-
-```math
-l(v) = \\int_{Γ} v_w f_w \\, dΓ
-```
-
-The `f` argument must be a `FieldMap` with a key equal to `s.symbol_w`.
-"""
-function rhs(s::TimoshenkoBeam, dom::IntegrationDomains, f, y)
-  v_w = y[s.symbol_w]
-  dΩ = _space_measure(dom, s)
-  ∫(v_w * f[s.symbol_w])dΩ
 end

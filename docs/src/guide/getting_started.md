@@ -55,6 +55,17 @@ domain3d = TankDomain(L = 10.0, W = 5.0, H = 1.0, nx = 20, ny = 10, nz = 4)
 
 `TankDomain` is dimension-driven: omit `W`/`nz` for 2D, provide both for 3D.
 
+A floating plate and sponge layers in 3D are declared the same way as in 2D, with an
+extra y-extent `W` (a `DampingZone` without `W` spans the full tank width):
+
+```julia
+domain3d = TankDomain(L = 10.0, W = 5.0, H = 1.0, nx = 20, ny = 10, nz = 4,
+    structure_domains = [StructureDomain(L = 4.0, W = 2.0, x₀ = [3.0, 1.5, 1.0])],
+    damping_zones     = [DampingZone(L = 2.0, x₀ = [0.0, 0.0, 1.0], domain_symbol = :Γ_d_in),
+                         DampingZone(L = 2.0, x₀ = [8.0, 0.0, 1.0], domain_symbol = :Γ_d_out)],
+)
+```
+
 ## Package layout
 
 | Module | Purpose |
