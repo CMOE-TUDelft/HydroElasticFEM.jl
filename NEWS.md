@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `examples/FloatingTensionedBeamExample.jl`, comparing `Membrane`,
   `EulerBernoulliBeam`, and `TensionedEulerBernoulliBeam` under identical
   wave conditions.
+- `get_integration_domains` stores `:dΓlateral` / `:nΓlateral` for the lateral walls of 3D tanks. Since [fix/integration-degrees-3d](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/tree/fix/integration-degrees-3d).
 
 ### Changed
 - `Membrane` and `EulerBernoulliBeam` now subtype `AbstractHydroelasticStructure`
@@ -37,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `RadiationBC` now supports both frequency-domain and time-domain assembly contexts, fixing issue [#44](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/issues/44). Since [PR#46](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/46).
 
 ### Fixed
+- Integration domains not covered by a physics entity (C/DG skeletons such as `:Λη`, damping zones, `:Γlateral`, joints) now use the highest entity quadrature degree instead of 2, so higher-order plate skeletons are no longer under-integrated. Derived measure keys (`:dΓd_i`, `:dΛη_i`, joint measures) use the same value via a new `:default` entry of the degree dictionary instead of a hard-coded 4. Since [fix/integration-degrees-3d](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/tree/fix/integration-degrees-3d).
 
 ## [0.1.2 - 2026-06-17]
 

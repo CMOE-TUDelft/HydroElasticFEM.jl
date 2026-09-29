@@ -113,11 +113,13 @@ _degree_for(degree::Int, ::Symbol) = degree
 
 # Resolve quadrature degree for both supported dictionary styles:
 #   Dict(:Γ_s => 6)  and  Dict(:dΓ_s => 6).
-# Missing entries keep the historical fallback degree of 4.
+# Missing entries use `degree[:default]` if present, else the historical
+# fallback degree of 4.
 function _degree_for(degree::Dict{Symbol, Int}, key::Symbol)
   domain_key = _is_measure_key(key) ? _domain_key(key) : key
   measure_key = _is_measure_key(key) ? key : _measure_key(key)
-  return get(degree, key, get(degree, measure_key, get(degree, domain_key, 4)))
+  fallback = get(degree, :default, 4)
+  return get(degree, key, get(degree, measure_key, get(degree, domain_key, fallback)))
 end
 
 # Extract triangulation-domain keys from the degree dictionary.  These are the
@@ -156,7 +158,7 @@ Build an [`IntegrationDomains`](@ref) from a [`TankTriangulations`](@ref).
 
 Pass `degree` as a single `Int` to use the same quadrature order everywhere,
 or as a `Dict{Symbol,Int}` to override it per key (missing keys fall back
-to `4`).
+to `degree[:default]` if given, else `4`).
 
 ## Populated keys
 
@@ -167,6 +169,7 @@ to `4`).
 | `:dΓκ`              | `:Γκ`                         | FreeSurface (open water + damping) |
 | `:dΓη`, `:dΓη_i`    | `:Γη`, `:Γ_structures[i]`     | Structure physics   |
 | `:dΓin`, `:dΓout`, `:dΓbot` | `:Γin`, `:Γout`, `:Γbot` | Wall/radiation BCs  |
+| `:dΓlateral`, `:nΓlateral` | `:Γlateral` (3D only)  | Lateral-wall BCs    |
 | `:dΓd_i`, `:nΓd_i`  | `:Γ_dampings[i]`               | `DampingZoneBC`     |
 | `:dΛη`, `:n_Λ_η`, `:h_η` | skeleton of `:Γη`         | `EulerBernoulliBeam`, `KirchhoffLovePlate` C/DG |
 | `:dΛη_i`, `:n_Λ_η_i`, `:h_η_i` | `:Λ_structures[i]` | per-structure C/DG terms |
@@ -215,6 +218,10 @@ function get_integration_domains(
   d[:dΓin]  = Measure(tri[:Γin],  get_deg(:dΓin))
   d[:dΓout] = Measure(tri[:Γout], get_deg(:dΓout))
   d[:dΓbot] = Measure(tri[:Γbot], get_deg(:dΓbot))
+  if get(tri, :Γlateral, nothing) !== nothing
+    d[:dΓlateral] = Measure(tri[:Γlateral], get_deg(:dΓlateral))
+    d[:nΓlateral] = get_normal_vector(tri[:Γlateral])
+  end
 
   # Per-damping-zone measures (:dΓd_1, :dΓd_2, …)
   for (i, Γd) in enumerate(tri[:Γ_dampings])
