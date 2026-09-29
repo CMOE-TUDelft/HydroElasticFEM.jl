@@ -54,6 +54,14 @@ Users provide the incident free-surface elevation `η_in` and vertical velocity
 - `ηd = μ₂ * η_in`
 - `∇ₙϕd = μ₁ * vz_in`
 
+In the stabilised time-domain form, every `μ₁` term is scaled by `βₕ`, in
+both the `u` and the `αₕ·w` weighted parts and on both sides of the equation:
+
+    ∫ βₕ μ₁ (∂ₙϕ - vz_in) (u + αₕ w) dΓ  +  ∫ μ₂ (η_in - κ) w dΓ
+
+so a zone whose fields equal the target contributes nothing.  A formulation
+written without `βₕ` on the `μ₁` terms corresponds to `μ₁ = μ₁_nobeta / βₕ`.
+
 # Fields
 - `domain::Symbol` — Integration-domain key for the damping-zone boundary
 - `μ₁` — Multiplicative coefficient for damped normal-velocity contribution; default `0.0`
@@ -360,7 +368,9 @@ function _rhs_bc_contribution(::PotentialFlow, bc::DampingZoneBC, dom::Integrati
     αₕ = _stabilization_parameter(dom)
     ηd = _ηd(bc, dom)
     ∇ₙϕd = _normal_damped(bc, dom)
-    f(x) = -ηd(x) + αₕ * ∇ₙϕd(x)
+    βₕ = bc.βₕ
+    # βₕ matches the left-hand side term βₕ μ₁ αₕ w ∂ₙϕ (see _stiffness_bc_contribution)
+    f(x) = -ηd(x) + βₕ * αₕ * ∇ₙϕd(x)
     return ∫(f * w)dΓ
 end
 
@@ -372,7 +382,9 @@ function _rhs_bc_contribution(::PotentialFlow, bc::DampingZoneBC, ctx::AC.Abstra
     αₕ = _stabilization_parameter(ctx)
     ηd = _ηd(bc, ctx)
     ∇ₙϕd = _normal_damped(bc, ctx)
-    f(x) = -ηd(x) + αₕ * ∇ₙϕd(x)
+    βₕ = bc.βₕ
+    # βₕ matches the left-hand side term βₕ μ₁ αₕ w ∂ₙϕ (see _stiffness_bc_contribution)
+    f(x) = -ηd(x) + βₕ * αₕ * ∇ₙϕd(x)
     return ∫(f * w)dΓ
 end
 
