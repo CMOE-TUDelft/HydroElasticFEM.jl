@@ -87,7 +87,8 @@ Configuration for a frequency-domain simulation run.
 
 # Fields
 - `ω` — angular frequency (required when `domain == :frequency`)
-- `solver` — optional solver override (e.g. `LUSolver()`)
+- `solver` — optional Gridap `LinearSolver` (default `LUSolver()`); see the
+  "Linear Solvers" guide for MUMPS/Pardiso and factorization reuse
 """
 @with_kw struct FreqDomainConfig <: SimulationConfig
     ω::Union{Float64, Nothing} = nothing
@@ -102,7 +103,8 @@ Configuration for a time-domain simulation run.
 # Fields
 - `t₀` — start time (default 0.0)
 - `tf` — final time (default 1.0)
-- `solver` — optional solver override (e.g. `LUSolver()`)
+- `solver` — optional Gridap `LinearSolver` (default `LUSolver()`); see the
+  "Linear Solvers" guide for MUMPS/Pardiso and factorization reuse
 """
 @with_kw struct TimeDomainConfig <: SimulationConfig
     t₀::Float64 = 0.0
