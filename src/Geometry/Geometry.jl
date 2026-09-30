@@ -102,7 +102,7 @@ export TankTriangulations
 export IntegrationDomains
 export TankDomain
 export AbstractSurfaceZone, StructureDomain, DampingZone
-export JointDomain, ResonatorDomain
+export AbstractJointDomain, JointDomain, JointLineDomain, hinge_grid, ResonatorDomain
 export AbstractDomain, STANDARD_TAGS
 export GmshDomain
 export validate_gmsh_tags
