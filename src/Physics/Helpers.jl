@@ -25,6 +25,15 @@ function _add_contribution(a, b)
     return a + b
 end
 
+"""
+    _forcing_contribution(f, v, dΩ)
+
+Body-forcing term `∫ v f dΩ`, or `nothing` when `f` is an exact numeric
+zero (the default forcing when no `rhs_fn` is given), so that no zero
+integral is assembled at every step.
+"""
+_forcing_contribution(f, v, dΩ) = (f isa Number && iszero(f)) ? nothing : ∫(v * f)dΩ
+
 _space_measure_key(s) = Symbol("d", getfield(s, :space_domain_symbol))
 _space_measure(dom::IntegrationDomains, s) = dom[_space_measure_key(s)]
 

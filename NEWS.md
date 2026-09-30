@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TimeConfig.αₕ = nothing` is now computed automatically for time-domain problems with damping zones (previously an error); `αₕ = :auto` opts in for other problems. Problems without damping zones are unchanged. Since [PR#63](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/63).
 - `TimeConfig.u0 = nothing` starts the simulation from rest (all initial states zero). Since [PR#63](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/63).
 - Space/time forcing functions are resolved once per assembly instead of wrapping every quadrature-point evaluation in `try`/`catch`, which reduces the per-step cost of time-dependent forcing. Behaviour is unchanged. Since [PR#64](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/64).
-
+- Zero body forcing (the default when no `rhs_fn` is given) no longer assembles `∫ v·0` volume and structure integrals at every step, and a problem without any forcing now gets an empty right-hand side instead of an error. Since [PR#65](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/65).
 
 ### Fixed
 - Integration domains not covered by a physics entity (C/DG skeletons such as `:Λη`, damping zones, `:Γlateral`, joints) now use the highest entity quadrature degree instead of 2, so higher-order plate skeletons are no longer under-integrated. Derived measure keys (`:dΓd_i`, `:dΛη_i`, joint measures) use the same value via a new `:default` entry of the degree dictionary instead of a hard-coded 4. Since [PR#59](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/59).
