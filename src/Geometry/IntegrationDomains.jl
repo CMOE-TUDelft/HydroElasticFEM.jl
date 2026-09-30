@@ -55,9 +55,10 @@ No schema is enforced; new keys can be added without changing this type.
 For essential (Dirichlet) conditions on `∂Γs`, use the model face tags
 `structure.boundary_tag` / `"structure_boundary"` as `dirichlet_tags` instead.
 
-### Joint skeleton (one per `JointDomain`)
+### Joint skeleton (one per joint descriptor)
 Stored under `joint.domain_symbol` / `joint.normal_symbol` as declared in
-[`JointDomain`](@ref).
+[`JointDomain`](@ref) (2D point joint) or [`JointLineDomain`](@ref) (3D line
+joints).
 
 ### Resonators
 | Key    | Type     | Description                                |
@@ -230,7 +231,7 @@ function get_integration_domains(
   end
 
   # Per-joint skeleton measures and normals (stored under domain_symbol /
-  # normal_symbol declared in each JointDomain)
+  # normal_symbol declared in each JointDomain / JointLineDomain)
   if haskey(tri, :joint_domains) && haskey(tri, :Λ_joints)
     for (joint, Λj) in zip(tri[:joint_domains], tri[:Λ_joints])
       d[joint.domain_symbol] = Measure(Λj, get_deg(joint.domain_symbol))

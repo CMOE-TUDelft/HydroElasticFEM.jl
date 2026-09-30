@@ -29,7 +29,10 @@ HydroElasticFEM.Geometry.TankDomain
 HydroElasticFEM.Geometry.AbstractSurfaceZone
 HydroElasticFEM.Geometry.StructureDomain
 HydroElasticFEM.Geometry.DampingZone
+HydroElasticFEM.Geometry.AbstractJointDomain
 HydroElasticFEM.Geometry.JointDomain
+HydroElasticFEM.Geometry.JointLineDomain
+HydroElasticFEM.Geometry.hinge_grid
 HydroElasticFEM.Geometry.ResonatorDomain
 HydroElasticFEM.Geometry.build_model
 HydroElasticFEM.Geometry.build_triangulations
