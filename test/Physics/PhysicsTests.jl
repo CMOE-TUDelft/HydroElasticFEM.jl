@@ -32,10 +32,13 @@ end
   @testset "Resonator" include("ResonatorTests.jl")
   @testset "FreeSurface" include("FreeSurfaceTests.jl")
   @testset "DampingZone consistency" include("DampingZoneConsistencyTests.jl")
+  @testset "Velocity Neumann BC" include("VelocityNeumannBCTests.jl")
 
 end
 
 @testset "3D sloshing" include("Sloshing3DTests.jl")
 @testset "Beam-plate consistency" include("BeamPlateConsistencyTests.jl")
 @testset "KirchhoffLovePlate" include("KirchhoffLovePlateTests.jl")
+@testset "KirchhoffLovePlate per-structure keys" include("KirchhoffLovePlatePerStructureTests.jl")
+@testset "KirchhoffLovePlate line joints" include("KirchhoffLovePlateJointTests.jl")
 @testset "TimoshenkoBeam" include("TimoshenkoBeamTests.jl")
