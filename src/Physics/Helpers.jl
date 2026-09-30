@@ -64,22 +64,23 @@ function _resolve_space_function(v, t)
         return _as_space_function(v)
     end
 
-    try
-        vt = v(t)
-        if vt isa Function
-            return vt
-        end
-    catch
-    end
-
-    return x -> begin
-        try
-            v(x, t)
+    # The shape of `v` is resolved once here, so the returned closure is
+    # evaluated at every quadrature point without any try/catch.
+    if _has_arity(v, 1)
+        # `t -> (x -> ...)` or a space function `x -> ...`: only calling it tells.
+        vt = try
+            v(t)
         catch
-            v(x)
+            nothing
         end
+        vt isa Function && return vt
     end
+    _has_arity(v, 2) && return x -> v(x, t)
+    return v
 end
+
+# True if `f` has a method taking exactly `n` positional arguments.
+_has_arity(f, n::Int) = any(m -> m.nargs == n + 1 && !m.isva, methods(f))
 
 # Frequency-domain: time is not meaningful, so fall back to pure space resolution.
 _resolve_space_function(v, ::AC.FrequencyAssemblyContext) = _resolve_space_function(v, nothing)

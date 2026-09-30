@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `KirchhoffLovePlate` reads its skeleton measure, normal and element size from its own `space_domain_symbol` (global `:dΛη`/`:n_Λ_η`/`:h_η` for `:Γη`, unchanged), so several plates with separate fields each get only their own interior facets. Since [PR#62](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/62).
 - `TimeConfig.αₕ = nothing` is now computed automatically for time-domain problems with damping zones (previously an error); `αₕ = :auto` opts in for other problems. Problems without damping zones are unchanged. Since [PR#63](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/63).
 - `TimeConfig.u0 = nothing` starts the simulation from rest (all initial states zero). Since [PR#63](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/63).
+- Space/time forcing functions are resolved once per assembly instead of wrapping every quadrature-point evaluation in `try`/`catch`, which reduces the per-step cost of time-dependent forcing. Behaviour is unchanged. Since [PR#64](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/64).
+
 
 ### Fixed
 - Integration domains not covered by a physics entity (C/DG skeletons such as `:Λη`, damping zones, `:Γlateral`, joints) now use the highest entity quadrature degree instead of 2, so higher-order plate skeletons are no longer under-integrated. Derived measure keys (`:dΓd_i`, `:dΛη_i`, joint measures) use the same value via a new `:default` entry of the degree dictionary instead of a hard-coded 4. Since [PR#59](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/59).

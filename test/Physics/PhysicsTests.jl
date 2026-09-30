@@ -32,6 +32,7 @@ end
   @testset "Resonator" include("ResonatorTests.jl")
   @testset "FreeSurface" include("FreeSurfaceTests.jl")
   @testset "DampingZone consistency" include("DampingZoneConsistencyTests.jl")
+  @testset "Helpers" include("HelpersTests.jl")
   @testset "Velocity Neumann BC" include("VelocityNeumannBCTests.jl")
 
 end
