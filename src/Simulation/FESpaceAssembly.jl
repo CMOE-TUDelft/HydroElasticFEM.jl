@@ -191,6 +191,8 @@ function build_fe_spaces(entities,
                 fmap[P.variable_symbol(resn[i])] = idx
             end
         elseif entity isa P.PhysicsParameters
+            # Coupling entities without fields of their own (e.g. PlateConnection)
+            isempty(P.variable_symbols(entity)) && continue
             trian = trians[entity.space_domain_symbol]
             for (sym, fe_cfg) in zip(P.variable_symbols(entity),
                                      P.field_fe_configs(entity))
