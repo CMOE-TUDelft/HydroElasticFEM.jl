@@ -139,6 +139,11 @@ false`, so `damping_parameter` is not implemented.
 - `symbol::Symbol`        — Field unknown symbol; default `:η`
 - `space_domain_symbol::Symbol` — Triangulation key used for FE spaces; default `:Γη`
 - `fe::FESpaceConfig`     — FE discretisation parameters
+- `joints::Vector{JointRotationalSpring}` — rotational springs on plate line
+  joints declared with a `JointLineDomain` (default: none).  `kᵣ` is the
+  moment per unit joint length per radian divided by the fluid density,
+  `[N·m/rad/m / ρ]`.  A free hinge needs only the `JointLineDomain` (no
+  spring, or `kᵣ = 0`); a rigid connection is simply not declared as a joint.
 - `C`                     — Constitutive tensor `SymFourthOrderTensorValue{ambient_dim}`,
                             computed automatically via [`build_kl_tensor`](@ref).
                             The scalar `C[1,1,1,1] = D/ρ` where `D = E·h³/(12(1-ν²))`.
@@ -149,6 +154,12 @@ false`, so `damping_parameter` is not implemented.
 - `ambient_dim = 3, manifold_dim = 2` is the canonical 3D floating plate.
 - The rotational penalty coefficient `γ` in `fe.γ` should be set to
   `O(p²)` (the default `10 * p^2` in `FESpaceConfig` is recommended).
+  `γ = p(p+1)` (e.g. `γ = 6.0` for `p = 2`) reproduces the hand-written 3D
+  plate scripts that use that convention.
+- Joint facets (from a `JointLineDomain`) are excluded from the C/DG
+  skeleton, so the slope may jump there; the joint term is
+  `∫ kᵣ [[∇v⋅n]] [[∇η⋅n]] dΛj`, which for a C0 deflection equals
+  `∫ kᵣ [[∇v]]⋅[[∇η]] dΛj`.
 
 # Example
 ```julia
@@ -181,6 +192,7 @@ See also: [`build_kl_tensor`](@ref), [`equivalent_beam_rigidity`](@ref)
   symbol::Symbol = :η
   space_domain_symbol::Symbol = :Γη
   fe::FESpaceConfig = FESpaceConfig()
+  joints::Vector{JointRotationalSpring} = JointRotationalSpring[]
   C = build_kl_tensor(ambient_dim, manifold_dim, E, ν, hb, ρ)
 end
 
@@ -273,6 +285,12 @@ the shared [`stiffness`](@ref) default, via
 
 Uses interior-penalty stabilisation with penalty coefficient
 `(γ / h) * C[1,1,1,1]` where γ comes from `plate.fe.γ`.
+
+The skeleton measure, normal and element size are those of the plate's own
+space domain (see `Geometry.skeleton_keys`): the global `:dΛη`/`:n_Λ_η`/`:h_η`
+when `space_domain_symbol == :Γη`, and `:dΛ_<sym>`/`:n_Λ_<sym>`/`:h_<sym>`
+for a plate living on its own structure domain, so that several plates with
+separate fields do not share C/DG facets.
 """
 function stiffness_operator(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
   sym  = variable_symbol(s)
@@ -280,8 +298,10 @@ function stiffness_operator(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y
   v    = y[sym]
   D_ρ  = s.C[1, 1, 1, 1]   # bending stiffness / ρ_fluid = D/ρ [m⁴/s²]
   γ    = s.fe.γ
-  h    = dom[:h_η]
-  n_Λ  = dom[:n_Λ_η]
+  dΛ_key, n_key, h_key = skeleton_keys(s.space_domain_symbol)
+  h    = dom[h_key]
+  n_Λ  = dom[n_key]
+  dΛ   = dom[dΛ_key]
   dΩ   = _space_measure(dom, s)
 
   # Kirchhoff-Love plate C/DG formulation.
@@ -293,7 +313,18 @@ function stiffness_operator(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y
   skeleton = ∫(
     -jump(∇(v)) ⊙ (mean(s.C ⊙ ∇∇(η))⋅n_Λ.⁺) 
     - (mean((s.C ⊙ ∇∇(v)))⋅n_Λ.⁺) ⊙ jump(∇(η)) 
-    + D_ρ*γ/h*jump(∇(v))⊙jump(∇(η)) )dom[:dΛη]
+    + D_ρ*γ/h*jump(∇(v))⊙jump(∇(η)) )dΛ
 
   return bulk + skeleton
+end
+
+"""
+    extra_stiffness_form(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
+
+Rotational-spring joint contributions at `s.joints` (plate line joints), via
+the shared `_joint_stiffness_form`.  Returns `nothing` without joints.
+"""
+function extra_stiffness_form(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
+  sym = variable_symbol(s)
+  _joint_stiffness_form(s.joints, x[sym], y[sym], dom)
 end
