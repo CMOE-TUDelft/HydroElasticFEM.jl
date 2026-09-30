@@ -112,7 +112,39 @@ end
 
     @test degrees[:Ω] == 6
     @test degrees[:Γκ] == 2
-    @test degrees[:Γη] == 2
+    # Γη is not covered by any entity: it gets the highest entity degree
+    @test degrees[:Γη] == 6
+    @test degrees[:default] == 6
+  end
+
+  @testset "integration degrees — 3D uncovered domains use max degree" begin
+    tank3 = G.TankDomain(L = 8.0, W = 4.0, H = 1.0, nx = 8, ny = 4, nz = 1,
+      structure_domains = [G.StructureDomain(L = 2.0, W = 2.0, x₀ = [2.0, 1.0, 1.0])],
+      damping_zones = [G.DampingZone(L = 1.0, x₀ = [0.0, 0.0, 1.0], domain_symbol = :Γ_d_in)])
+    trians3 = G.build_triangulations(tank3, G.build_model(tank3))
+    fe1_3 = FES.FESpaceConfig(order = 1, vector_type = Vector{Float64})
+    plate3 = P.KirchhoffLovePlate(E = 1.0, ν = 0.3, hb = 0.1, ρ = 1.0, ρb = 1.0,
+      fe = FES.FESpaceConfig(order = 3, vector_type = Vector{Float64}))
+    physics3 = P.PhysicsParameters[P.PotentialFlow(dim = 3, fe = fe1_3),
+                                  P.FreeSurface(dim = 3, fe = fe1_3), plate3]
+    degrees3 = SM.get_integration_degrees(trians3, physics3)
+
+    @test degrees3[:Ω] == 2
+    @test degrees3[:Γη] == 6
+    for key in (:Λη, :Γlateral, :Γ_d_in, :default)
+      @test degrees3[key] == 6
+    end
+    # Derived measure keys without their own triangulation key
+    @test G._degree_for(degrees3, :dΓd_1) == 6
+    @test G._degree_for(degrees3, :dΛη_1) == 6
+
+    dom3 = G.get_integration_domains(trians3; degree = degrees3)
+    @test haskey(dom3, :dΓlateral) && haskey(dom3, :nΓlateral)
+    # Two lateral walls, each L × H = 8 m²; outward normals ±y
+    @test sum(∫(1.0)dom3[:dΓlateral]) ≈ 16.0
+    yn3(x) = x[2] - 2.0
+    # Divergence theorem for (y - 2) e_y: ∮ (y - 2) n_y = volume = 32
+    @test sum(∫(yn3 * (dom3[:nΓlateral] ⋅ VectorValue(0.0, 1.0, 0.0)))dom3[:dΓlateral]) ≈ 32.0
   end
 
   # =========================================================================

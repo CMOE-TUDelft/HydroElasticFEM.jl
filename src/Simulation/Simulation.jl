@@ -351,7 +351,10 @@ domain, based on the polynomial order declared in each entity's `fe` field.
 For each entity, the degree for its `space_domain_symbol` domain is set to
 `2 * fe.order` on first encounter, and to the maximum of existing and new
 degree on subsequent encounters.  Any domain present in `trians` but not
-covered by a physics entity defaults to degree `2`.
+covered by a physics entity (structure skeletons, damping zones, lateral
+walls, joints, ...) defaults to the highest entity degree (at least `2`),
+which is also stored under `:default` for measure keys without a
+triangulation key of their own.
 
 # Arguments
 - `trians::TankTriangulations` — triangulations container (used to enumerate domains)
@@ -379,12 +382,17 @@ function get_integration_degrees(trians::G.TankTriangulations, physics::Vector{P
         end
     end
 
-    # Add default degree for any domains not covered by physics entities
+    # Domains not covered by a physics entity (skeletons, damping zones, walls,
+    # joints, ...) carry products of the fields living there, so they get the
+    # highest entity degree.  `:default` covers derived measure keys that have
+    # no triangulation key of their own (e.g. `:dΓd_1`, joint measures).
+    default_degree = isempty(degrees) ? 2 : max(2, maximum(values(degrees)))
     for (name, trian) in pairs(trians.data)
         if !haskey(degrees, name)
-            degrees[name] = 2  # default degree
+            degrees[name] = default_degree
         end
     end
+    degrees[:default] = default_degree
 
     return degrees
     
