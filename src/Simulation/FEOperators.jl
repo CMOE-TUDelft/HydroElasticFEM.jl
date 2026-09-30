@@ -23,6 +23,11 @@ import ...AssemblyContexts as AC
 
 using Gridap
 using Gridap.ODEs
+using Gridap.FESpaces: SingleFieldFESpace
+using Gridap.MultiField: MultiFieldFESpace
+using LinearAlgebra: mul!
+
+include("AlgebraicLinearOperator.jl")
 
 # ─────────────────────────────────────────────────────────────
 # FieldMap — symbol-indexed wrapper for FE field tuples
@@ -533,11 +538,16 @@ Build a **time-domain** `TransientLinearFEOperator`.
 - `Y` — test multi-field FE space
 - `rhs_fn` — optional callable `rhs_fn(t, y::FieldMap) -> DomainContribution`;
   if `nothing`, uses zero right-hand side (requires `:dΩ` in `dom`)
+- `algebraic_residual` — if `true` (default), wrap the operator in an
+  [`AlgebraicLinearTFEOperator`](@ref), whose per-step residual is computed
+  from the cached constant matrices (`Σ_k A_k ∂tᵏu - F(t)`), so only the
+  forcing is re-assembled.  `false` returns the plain
+  `TransientLinearFEOperator` (full re-assembly at every step).
 """
 function build_time_fe_operator(entities::Vector{<:P.PhysicsParameters},
                                 base_ctx::AC.TimeAssemblyContext,
                                 fmap::Dict{Symbol,Int}, X, Y;
-                                rhs_fn=nothing)
+                                rhs_fn=nothing, algebraic_residual::Bool=true)
     coupling_pairs = detect_couplings(entities, base_ctx)
     rhs_cb = rhs_fn === nothing ? _zero_rhs(fmap) : _adapt_time_rhs(rhs_fn)
     volume_sym = _find_volume_symbol(entities, fmap)
@@ -566,8 +576,9 @@ function build_time_fe_operator(entities::Vector{<:P.PhysicsParameters},
         _assemble_rhs_total(entities, coupling_pairs, ctx, fmap, rhs_cb(ctx, FieldMap(y, fmap)), y)
     end
 
-    TransientLinearFEOperator((a, c, m), l, X, Y;
+    op = TransientLinearFEOperator((a, c, m), l, X, Y;
         constant_forms=(true, true, true))
+    return algebraic_residual ? AlgebraicLinearTFEOperator(op) : op
 end
 
 """
@@ -603,6 +614,7 @@ export FieldMap
 export detect_couplings
 export build_fe_operator
 export build_frequency_fe_operator, build_time_fe_operator
+export AlgebraicLinearTFEOperator
 export assemble_weakform
 export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
 export assemble_residual, assemble_jacobian, assemble_jacobian_t, assemble_jacobian_tt
