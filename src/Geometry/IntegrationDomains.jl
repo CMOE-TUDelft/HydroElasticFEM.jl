@@ -175,6 +175,7 @@ to `degree[:default]` if given, else `4`).
 | `:dΛη_i`, `:n_Λ_η_i`, `:h_η_i` | `:Λ_structures[i]` | per-structure C/DG terms |
 | `:dΛ∂η`, `:dΛ∂η_i` (+ normals) | `:∂Γη`, `:∂Γ_structures[i]` | structure-edge terms |
 | `joint.domain_symbol`, `joint.normal_symbol` | `:Λ_joints` | `JointRotationalSpring` |
+| `conn.domain_symbol`, `conn.normal_symbol` | `:Λ_connections` | structure-connection physics |
 | `resonator.delta_symbol` | `resonator.trian_symbol` | `ResonatorArray` |
 
 ## Example
@@ -235,6 +236,14 @@ function get_integration_domains(
     for (joint, Λj) in zip(tri[:joint_domains], tri[:Λ_joints])
       d[joint.domain_symbol] = Measure(Λj, get_deg(joint.domain_symbol))
       d[joint.normal_symbol] = get_normal_vector(Λj)
+    end
+  end
+
+  # Interfaces between structures with separate fields (plus side ⊂ a)
+  if haskey(tri, :structure_connections) && haskey(tri, :Λ_connections)
+    for (conn, Λc) in zip(tri[:structure_connections], tri[:Λ_connections])
+      d[conn.domain_symbol] = Measure(Λc, get_deg(conn.domain_symbol))
+      d[conn.normal_symbol] = get_normal_vector(Λc)
     end
   end
 

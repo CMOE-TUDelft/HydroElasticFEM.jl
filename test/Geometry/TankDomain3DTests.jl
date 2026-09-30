@@ -192,3 +192,50 @@ end
   @test haskey(dom, :dΛ∂η_1)
   @test sum(∫(1.0)dom[:dΛ∂η_1]) ≈ 2.0   # two end points, unit weight each
 end
+
+# =========================================================================
+# StructureConnection: interface between two plates with separate fields
+# =========================================================================
+
+_pa(; x = 2.0, y = 1.0) = G.StructureDomain(L = 2.0, W = 2.0, x₀ = [x, y, 1.0], domain_symbol = :Γ_a)
+_pb(; x = 4.0, y = 1.0) = G.StructureDomain(L = 2.0, W = 2.0, x₀ = [x, y, 1.0], domain_symbol = :Γ_b)
+_conn(; a = :Γ_a, b = :Γ_b) = G.StructureConnection(a = a, b = b, domain_symbol = :dΛ_ab, normal_symbol = :n_Λ_ab)
+
+@testset "StructureConnection — interface measure, orientation and traces" begin
+  ex, ey = VectorValue(1.0, 0.0, 0.0), VectorValue(0.0, 1.0, 0.0)
+  for (pa, pb, conn, len, nref) in (
+      (_pa(), _pb(), _conn(), 2.0, ex),                         # a left of b, edge x = 4
+      (_pa(), _pb(), _conn(a = :Γ_b, b = :Γ_a), 2.0, -ex),      # reversed roles
+      (_pa(), _pb(x = 2.0, y = 3.0), _conn(), 2.0, ey))         # b above a in y, edge y = 3
+    tank = _tank3(structure_domains = [pa, pb], structure_connections = [conn])
+    @test tank.structure_connections == [conn]
+    tr = G.build_triangulations(tank, G.build_model(tank))
+    @test haskey(tr, :dΛ_ab)
+    dom = G.get_integration_domains(tr; degree = 4)
+    dΛ, n = dom[:dΛ_ab], dom[:n_Λ_ab]
+    @test sum(∫(1.0)dΛ) ≈ len
+    @test sum(∫(n.⁺ ⋅ nref)dΛ) ≈ len          # n⁺ points out of structure a
+    @test sum(∫(n.⁻ ⋅ nref)dΛ) ≈ -len
+
+    # separate FE fields on the two plates: plus trace from a, minus from b
+    lag = ReferenceFE(lagrangian, Float64, 2)
+    fa(x) = 1.0 + x[1] * x[2]
+    fb(x) = 5.0 - x[1]
+    Ta, Tb = tr[conn.a], tr[conn.b]
+    ηa = interpolate(fa, TestFESpace(Ta, lag))
+    ηb = interpolate(fb, TestFESpace(Tb, lag))
+    Λ = tr[:dΛ_ab]
+    @test sum(∫(ηa.⁺)dΛ) ≈ sum(∫(CellField(fa, Λ))dΛ)
+    @test sum(∫(ηb.⁻)dΛ) ≈ sum(∫(CellField(fb, Λ))dΛ)
+  end
+end
+
+@testset "StructureConnection — validation" begin
+  @test_throws ErrorException _tank3(structure_domains = [_pa(), _pb()],
+                                     structure_connections = [_conn(b = :Γ_zz)])
+  @test_throws ErrorException _tank3(structure_domains = [_pa(), _pb()],
+                                     structure_connections = [_conn(b = :Γ_a)])
+  # plates that do not touch
+  t = _tank3(structure_domains = [_pa(), _pb(x = 5.0)], structure_connections = [_conn()])
+  @test_throws ErrorException G.build_triangulations(t, G.build_model(t))
+end
