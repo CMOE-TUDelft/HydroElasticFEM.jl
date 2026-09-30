@@ -12,14 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AbstractHydroelasticStructure`, a shared base type for `Membrane`, `EulerBernoulliBeam`, and `TensionedEulerBernoulliBeam` that factors out their common `mass`, hydrostatic `stiffness`, `rhs`, and stiffness-proportional Rayleigh `damping` weak forms. New structures following this pattern now only implement `mass_density`, `damping_parameter`, and `stiffness_operator` (see the "Shortcut for standard hydroelastic structures" note in the "Adding a New Structure" guide).
 - `examples/FloatingTensionedBeamExample.jl`, comparing `Membrane`, `EulerBernoulliBeam`, and `TensionedEulerBernoulliBeam` under identical wave conditions.
 - `get_integration_domains` stores `:dΓlateral` / `:nΓlateral` for the lateral walls of 3D tanks. Since [PR#59](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/59).
+- Optional `mask` field in `PrescribedInletPotentialBC` to weight the forcing pointwise (e.g. apply it only on the generation part of a wall). Since Since [PR#60](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/60).
 - `JointLineDomain`, line joints on 3D plates: structure-skeleton facets on the given segments are split off into a joint skeleton with its own measure and normal, and removed from the C/DG skeletons. Misaligned or overlapping segments are rejected. Since [feat/joint-line-domain-3d](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/tree/feat/joint-line-domain-3d).
 - `hinge_grid` returns the interior connection lines of an `nfx × nfy` floater array as a `JointLineDomain`. Since [feat/joint-line-domain-3d](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/tree/feat/joint-line-domain-3d).
 - `AbstractJointDomain`, the common supertype of `JointDomain` and `JointLineDomain`. Since [feat/joint-line-domain-3d](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/tree/feat/joint-line-domain-3d).
 - `KirchhoffLovePlate.joints`: rotational springs (`JointRotationalSpring`, `kᵣ` per unit joint length divided by ρ) on plate line joints declared with a `JointLineDomain`. A free hinge only needs the `JointLineDomain`: its facets are excluded from the C/DG slope-continuity terms. Since [feat/kl-plate-joints](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/tree/feat/kl-plate-joints).
+- `PrescribedInletPotentialBC(quantity = :velocity)`: prescribes the Neumann flux `∂ₙϕ = v_in ⋅ n` from an incident velocity vector, e.g. on 3D inlet and lateral walls. Since [PR#60](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/60).
+
 
 ### Changed
 - `Membrane` and `EulerBernoulliBeam` now subtype `AbstractHydroelasticStructure` instead of `Structure` directly. Their assembled weak forms are unchanged; `mass`, `damping`, `stiffness`, and `rhs` are now provided by the shared base type instead of being implemented per-structure. `EulerBernoulliBeam`'s C/DG bending operator and joint-penalty assembly are now shared helper functions (`_eb_bending_stiffness_operator`, `_joint_stiffness_form`), reused by `TensionedEulerBernoulliBeam`.
 - `RadiationBC` now supports both frequency-domain and time-domain assembly contexts, fixing issue [#44](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/issues/44). Since [PR#46](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/46).
+- Potential-flow boundary conditions fall back to the normal of the measure's own triangulation when no `:nΓ…` key is stored (e.g. `:dΓin`, `:dΓout`). Since [PR#60](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/60).
 - `TankDomain{3}` accepts `JointLineDomain` joints; `JointDomain` remains 2D only. Since [feat/joint-line-domain-3d](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/tree/feat/joint-line-domain-3d).
 
 ### Fixed
