@@ -283,7 +283,8 @@ function _assemble_rhs_total(entities, coupling_pairs, ctx::AC.AbstractAssemblyC
             val = P._add_contribution(val, P.rhs(ea, eb, ctx, fd, yd))
         end
     end
-    isnothing(val) && error("No active rhs contributions found")
+    # All forcing is zero (no rhs_fn, no forcing BCs): empty linear form.
+    isnothing(val) && return Gridap.CellData.DomainContribution()
     return val
 end
 

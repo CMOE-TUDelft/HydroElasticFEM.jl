@@ -199,8 +199,7 @@ end
 function rhs(pf::PotentialFlow, dom::IntegrationDomains, f, y)
     sym = variable_symbol(pf)
     w = y[sym]
-    dΩ = _space_measure(dom, pf)
-    val = ∫(w * f[sym])dΩ
+    val = _forcing_contribution(f[sym], w, _space_measure(dom, pf))
     bc_val = _rhs_bc_contributions(pf, dom, w)
     return _add_contribution(val, bc_val)
 end
@@ -209,8 +208,7 @@ function rhs(pf::PotentialFlow, ctx::AC.AbstractAssemblyContext, f, y)
     dom = AC.domains(ctx)
     sym = variable_symbol(pf)
     w = y[sym]
-    dΩ = _space_measure(dom, pf)
-    val = ∫(w * f[sym])dΩ
+    val = _forcing_contribution(f[sym], w, _space_measure(dom, pf))
     bc_val = _rhs_bc_contributions(pf, ctx, w)
     return _add_contribution(val, bc_val)
 end
