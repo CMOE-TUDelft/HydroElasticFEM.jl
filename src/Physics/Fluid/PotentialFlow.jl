@@ -29,18 +29,30 @@ Prescribed potential boundary condition for potential flow, typically used on in
 boundaries (e.g., `:dΓin`) to specify incoming wave conditions. The `forcing` field can
 be a constant value or a function of space (and time, if needed) that defines the
 potential on the specified boundary. The `quantity` field indicates whether the forcing
-represents a potential value, a normal gradient (Neumann condition), or a traction
-condition, which affects how the contribution is added to the weak form.
+represents a potential value, a normal gradient (Neumann condition), a traction
+condition, or a fluid velocity vector, which affects how the contribution is added to
+the weak form.
+
+With `quantity = :velocity`, `forcing` returns a velocity vector `v_in` (e.g. a
+`VectorValue`) and the Neumann flux is `∂ₙϕ = v_in ⋅ nΓ`, giving the RHS term
+`∫ w (v_in ⋅ nΓ) dΓ`.  The outward normal `nΓ` is taken from the
+`IntegrationDomains` normal key matching `domain` (`:dΓx` → `:nΓx`), or from the
+measure's triangulation when that key is absent.
+
+An optional `mask` (a constant or a function of `x`) multiplies the forcing
+pointwise, e.g. to apply the incident flux only on part of a lateral wall.
 
 # Fields
 - `domain::Symbol` — Integration-domain key where the BC is applied; default `:dΓin`
 - `forcing` — Boundary forcing value/function resolved to a space function at assembly time
-- `quantity::Symbol` — Interpretation of `forcing`; one of `:potential`, `:normal_gradient`, `:traction`; default `:potential`
+- `quantity::Symbol` — Interpretation of `forcing`; one of `:potential`, `:normal_gradient`, `:traction`, `:velocity`; default `:potential`
+- `mask` — Optional space-only weight applied to the forcing; default `nothing` (no mask)
 """
 @with_kw struct PrescribedInletPotentialBC <: AbstractPotentialFlowBC
     domain::Symbol = :dΓin
     forcing::Any
     quantity::Symbol = :potential
+    mask::Any = nothing
 end
 
 """
@@ -351,16 +363,27 @@ _rhs_bc_contribution(::PotentialFlow, ::AbstractPotentialFlowBC, ::IntegrationDo
 _rhs_bc_contribution(::PotentialFlow, ::AbstractPotentialFlowBC, ::AC.AbstractAssemblyContext, w) = nothing
 
 function _rhs_bc_contribution(pf::PotentialFlow, bc::PrescribedInletPotentialBC, dom::IntegrationDomains, w)
-    forcing = _resolve_space_function(bc.forcing, dom)
+    forcing = _prescribed_forcing(bc, _resolve_space_function(bc.forcing, dom), dom)
     return _prescribed_rhs_contribution(Val(bc.quantity), pf, forcing, dom[bc.domain], w)
 end
 
 # Context overload: unwrap domains before delegating.
 function _rhs_bc_contribution(pf::PotentialFlow, bc::PrescribedInletPotentialBC, ctx::AC.AbstractAssemblyContext, w)
     dom = AC.domains(ctx)
-    forcing = _resolve_space_function(bc.forcing, ctx)
+    forcing = _prescribed_forcing(bc, _resolve_space_function(bc.forcing, ctx), dom)
     return _prescribed_rhs_contribution(Val(bc.quantity), pf, forcing, dom[bc.domain], ctx, w)
 end
+
+# Turn a resolved forcing into the integrand factor: the optional mask is
+# applied pointwise, and velocity forcings are projected onto the boundary normal.
+function _prescribed_forcing(bc::PrescribedInletPotentialBC, forcing, dom::IntegrationDomains)
+    f = bc.mask === nothing ? forcing : _masked(_as_space_function(bc.mask), forcing)
+    bc.quantity === :velocity || return f
+    return _normal_flux(f, _boundary_normal(dom, bc.domain))
+end
+_masked(m, f) = x -> m(x) * f(x)
+_normal_flux(v, n::CellField) = CellField(v, get_triangulation(n)) ⋅ n
+_normal_flux(v, n) = x -> v(x) ⋅ n
 
 function _rhs_bc_contribution(::PotentialFlow, bc::DampingZoneBC, dom::IntegrationDomains, w)
     bc.enabled || return nothing
@@ -391,6 +414,8 @@ end
 # Traction and normal-gradient forcings integrate directly as Neumann data.
 _prescribed_rhs_contribution(::Val{:traction}, ::PotentialFlow, forcing, dΓ, w) = ∫(w * forcing)dΓ
 _prescribed_rhs_contribution(::Val{:normal_gradient}, ::PotentialFlow, forcing, dΓ, w) = ∫(w * forcing)dΓ
+# Velocity forcing arrives already projected on the normal (see _prescribed_forcing).
+_prescribed_rhs_contribution(::Val{:velocity}, ::PotentialFlow, forcing, dΓ, w) = ∫(w * forcing)dΓ
 # Potential forcing: convert to equivalent normal-flux via the radiation condition (-ikϕ).
 function _prescribed_rhs_contribution(::Val{:potential}, pf::PotentialFlow, forcing, dΓ, w)
     k = _radiation_wavenumber(pf)
@@ -401,6 +426,10 @@ function _prescribed_rhs_contribution(::Val{:traction}, ::PotentialFlow, forcing
     return ∫(w * forcing)dΓ
 end
 function _prescribed_rhs_contribution(::Val{:normal_gradient}, ::PotentialFlow, forcing,
+                                      dΓ, ::AC.AbstractAssemblyContext, w)
+    return ∫(w * forcing)dΓ
+end
+function _prescribed_rhs_contribution(::Val{:velocity}, ::PotentialFlow, forcing,
                                       dΓ, ::AC.AbstractAssemblyContext, w)
     return ∫(w * forcing)dΓ
 end
@@ -415,10 +444,10 @@ function _prescribed_rhs_contribution(::Val{:potential}, ::PotentialFlow, forcin
 end
 function _prescribed_rhs_contribution(::Val{Q}, ::PotentialFlow, forcing, dΓ,
                                       ::AC.AbstractAssemblyContext, w) where {Q}
-    error("Unsupported PrescribedInletPotentialBC quantity `$(Q)`. Expected one of :potential, :normal_gradient, or :traction.")
+    error("Unsupported PrescribedInletPotentialBC quantity `$(Q)`. Expected one of :potential, :normal_gradient, :traction, or :velocity.")
 end
 function _prescribed_rhs_contribution(::Val{Q}, ::PotentialFlow, forcing, dΓ, w) where {Q}
-    error("Unsupported PrescribedInletPotentialBC quantity `$(Q)`. Expected one of :potential, :normal_gradient, or :traction.")
+    error("Unsupported PrescribedInletPotentialBC quantity `$(Q)`. Expected one of :potential, :normal_gradient, :traction, or :velocity.")
 end
 
 function _damping_bc_contributions(pf::PotentialFlow, dom::IntegrationDomains, ϕₜ, w)
@@ -497,10 +526,13 @@ function _damping_zone_enabled(pf::PotentialFlow)
 end
 
 # Derive the outward-normal measure key from the measure key (e.g., `:dΓout` -> `:nΓout`).
+# When no such key is stored (e.g. the wall measures `:dΓin`, `:dΓout`), fall
+# back to the normal of the measure's own boundary triangulation.
 function _boundary_normal(dom::IntegrationDomains, domain::Symbol)
     key = Symbol(replace(String(domain), "dΓ" => "nΓ", count=1))
-    haskey(dom, key) || error("Normal key `$key` was not found in IntegrationDomains for damping zone `$domain`.")
-    return dom[key]
+    haskey(dom, key) && return dom[key]
+    haskey(dom, domain) || error("Neither normal key `$key` nor measure `$domain` was found in IntegrationDomains.")
+    return get_normal_vector(get_triangulation(dom[domain].quad))
 end
 
 # Retrieve the stabilization parameter α_h from the assembly context (raises if absent).
