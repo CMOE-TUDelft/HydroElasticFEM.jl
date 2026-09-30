@@ -1122,6 +1122,8 @@ function build_triangulations(domain::TankDomain{D}, model) where {D}
     Λ_connections,
     "structure connection",
   )
+  # Structure domain symbols, in the order of :Γ_structures
+  trian_dict[:structure_symbols] = surface_partition.structures.symbols
   _add_triangulations_by_symbol!(
     trian_dict,
     surface_partition.structures.symbols,
