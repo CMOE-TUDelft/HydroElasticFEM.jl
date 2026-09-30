@@ -19,6 +19,7 @@ HydroElasticFEM.Geometry.manifold_dimension
 HydroElasticFEM.Geometry.boundary_tags
 HydroElasticFEM.Geometry.triangulation
 HydroElasticFEM.Geometry.get_boundary
+HydroElasticFEM.Geometry.skeleton_keys
 ```
 
 ## Cartesian geometry

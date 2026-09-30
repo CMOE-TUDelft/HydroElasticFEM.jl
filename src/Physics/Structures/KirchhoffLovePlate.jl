@@ -285,6 +285,12 @@ the shared [`stiffness`](@ref) default, via
 
 Uses interior-penalty stabilisation with penalty coefficient
 `(γ / h) * C[1,1,1,1]` where γ comes from `plate.fe.γ`.
+
+The skeleton measure, normal and element size are those of the plate's own
+space domain (see `Geometry.skeleton_keys`): the global `:dΛη`/`:n_Λ_η`/`:h_η`
+when `space_domain_symbol == :Γη`, and `:dΛ_<sym>`/`:n_Λ_<sym>`/`:h_<sym>`
+for a plate living on its own structure domain, so that several plates with
+separate fields do not share C/DG facets.
 """
 function stiffness_operator(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
   sym  = variable_symbol(s)
@@ -292,8 +298,10 @@ function stiffness_operator(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y
   v    = y[sym]
   D_ρ  = s.C[1, 1, 1, 1]   # bending stiffness / ρ_fluid = D/ρ [m⁴/s²]
   γ    = s.fe.γ
-  h    = dom[:h_η]
-  n_Λ  = dom[:n_Λ_η]
+  dΛ_key, n_key, h_key = skeleton_keys(s.space_domain_symbol)
+  h    = dom[h_key]
+  n_Λ  = dom[n_key]
+  dΛ   = dom[dΛ_key]
   dΩ   = _space_measure(dom, s)
 
   # Kirchhoff-Love plate C/DG formulation.
@@ -305,7 +313,7 @@ function stiffness_operator(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y
   skeleton = ∫(
     -jump(∇(v)) ⊙ (mean(s.C ⊙ ∇∇(η))⋅n_Λ.⁺) 
     - (mean((s.C ⊙ ∇∇(v)))⋅n_Λ.⁺) ⊙ jump(∇(η)) 
-    + D_ρ*γ/h*jump(∇(v))⊙jump(∇(η)) )dom[:dΛη]
+    + D_ρ*γ/h*jump(∇(v))⊙jump(∇(η)) )dΛ
 
   return bulk + skeleton
 end
