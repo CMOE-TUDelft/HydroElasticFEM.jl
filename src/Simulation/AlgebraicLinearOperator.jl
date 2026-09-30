@@ -21,7 +21,7 @@
 const _ODEs = Gridap.ODEs
 
 """
-    AlgebraicLinearTFEOperator(op::TransientFEOperator)
+    AlgebraicLinearTFEOperator(op::TransientFEOperator; forcing = nothing)
 
 Wrapper around a linear `TransientFEOperator` (e.g. a
 `TransientLinearFEOperator` with `constant_forms = (true, …)`) whose
@@ -29,11 +29,15 @@ algebraic operator evaluates the residual as `Σ_k A_k ∂tᵏu - F(t)` from the
 cached constant form matrices, assembling only the forcing `F(t)` at each
 step.  Falls back to Gridap's full re-assembly when a form is not constant
 or a Dirichlet value is non-zero.  Everything else is delegated to `op`.
+
+`forcing` may be a precomputed [`SpectralForcing`](@ref) that replaces the
+per-step assembly of `F(t)` (see [`build_spectral_forcing`](@ref)).
 """
-struct AlgebraicLinearTFEOperator{T<:_ODEs.AbstractLinearODE,O} <: TransientFEOperator{T}
+struct AlgebraicLinearTFEOperator{T<:_ODEs.AbstractLinearODE,O,F} <: TransientFEOperator{T}
     op::O
-    function AlgebraicLinearTFEOperator(op::TransientFEOperator{T}) where {T<:_ODEs.AbstractLinearODE}
-        new{T,typeof(op)}(op)
+    forcing::F
+    function AlgebraicLinearTFEOperator(op::TransientFEOperator{T}; forcing = nothing) where {T<:_ODEs.AbstractLinearODE}
+        new{T,typeof(op),typeof(forcing)}(op, forcing)
     end
 end
 
@@ -51,7 +55,7 @@ _ODEs.allocate_tfeopcache(w::AlgebraicLinearTFEOperator, t::Real, us::Tuple{Vara
 _ODEs.update_tfeopcache!(c, w::AlgebraicLinearTFEOperator, t::Real) = _ODEs.update_tfeopcache!(c, w.op, t)
 
 Gridap.FESpaces.get_algebraic_operator(w::AlgebraicLinearTFEOperator) =
-    AlgebraicLinearODEOperator(_ODEs.ODEOpFromTFEOp(w))
+    AlgebraicLinearODEOperator(_ODEs.ODEOpFromTFEOp(w), w.forcing)
 
 """
     AlgebraicLinearODEOperator
@@ -59,10 +63,11 @@ Gridap.FESpaces.get_algebraic_operator(w::AlgebraicLinearTFEOperator) =
 `ODEOperator` returned by `get_algebraic_operator(::AlgebraicLinearTFEOperator)`:
 delegates to Gridap's `ODEOpFromTFEOp`, except for `residual!`.
 """
-struct AlgebraicLinearODEOperator{T<:_ODEs.AbstractLinearODE,O} <: _ODEs.ODEOperator{T}
+struct AlgebraicLinearODEOperator{T<:_ODEs.AbstractLinearODE,O,F} <: _ODEs.ODEOperator{T}
     inner::O
-    function AlgebraicLinearODEOperator(inner::_ODEs.ODEOperator{T}) where {T<:_ODEs.AbstractLinearODE}
-        new{T,typeof(inner)}(inner)
+    forcing::F
+    function AlgebraicLinearODEOperator(inner::_ODEs.ODEOperator{T}, forcing = nothing) where {T<:_ODEs.AbstractLinearODE}
+        new{T,typeof(inner),typeof(forcing)}(inner, forcing)
     end
 end
 
@@ -87,16 +92,20 @@ function Gridap.Algebra.residual!(r::AbstractVector, o::AlgebraicLinearODEOperat
     if !_algebraic_residual_applies(odeopcache)
         return Gridap.Algebra.residual!(r, o.inner, t, us, odeopcache; add = add)
     end
-    tfeop = o.inner.tfeop
-    V = Gridap.FESpaces.get_test(tfeop)
-    v = get_fe_basis(V)
-    uh = _ODEs._make_uh_from_us(o.inner, us, odeopcache.Us)
     !add && fill!(r, zero(eltype(r)))
 
     # Forcing: residual = Σ_k A_k ∂tᵏu - F(t)
-    dc = (-1) * _ODEs.get_res(tfeop)(t, uh, v)
-    vecdata = Gridap.FESpaces.collect_cell_vector(V, dc)
-    Gridap.FESpaces.assemble_vector_add!(r, _ODEs.get_assembler(tfeop), vecdata)
+    if o.forcing === nothing
+        tfeop = o.inner.tfeop
+        V = Gridap.FESpaces.get_test(tfeop)
+        v = get_fe_basis(V)
+        uh = _ODEs._make_uh_from_us(o.inner, us, odeopcache.Us)
+        dc = (-1) * _ODEs.get_res(tfeop)(t, uh, v)
+        vecdata = Gridap.FESpaces.collect_cell_vector(V, dc)
+        Gridap.FESpaces.assemble_vector_add!(r, _ODEs.get_assembler(tfeop), vecdata)
+    else
+        _subtract_forcing!(r, o.forcing, t)
+    end
 
     for (A, u) in zip(odeopcache.const_forms, us)
         mul!(r, A, u, true, true)

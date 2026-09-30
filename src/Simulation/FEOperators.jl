@@ -28,6 +28,7 @@ using Gridap.MultiField: MultiFieldFESpace
 using LinearAlgebra: mul!
 
 include("AlgebraicLinearOperator.jl")
+include("SpectralForcing.jl")
 
 # ─────────────────────────────────────────────────────────────
 # FieldMap — symbol-indexed wrapper for FE field tuples
@@ -541,8 +542,11 @@ Build a **time-domain** `TransientLinearFEOperator`.
 - `algebraic_residual` — if `true` (default), wrap the operator in an
   [`AlgebraicLinearTFEOperator`](@ref), whose per-step residual is computed
   from the cached constant matrices (`Σ_k A_k ∂tᵏu - F(t)`), so only the
-  forcing is re-assembled.  `false` returns the plain
-  `TransientLinearFEOperator` (full re-assembly at every step).
+  forcing is re-assembled.  If moreover all time dependence comes from one
+  `IncidentSea` (and no `rhs_fn` is given), the forcing itself is
+  precomputed per wave frequency ([`build_spectral_forcing`](@ref)).
+  `false` returns the plain `TransientLinearFEOperator` (full re-assembly at
+  every step).
 """
 function build_time_fe_operator(entities::Vector{<:P.PhysicsParameters},
                                 base_ctx::AC.TimeAssemblyContext,
@@ -578,7 +582,10 @@ function build_time_fe_operator(entities::Vector{<:P.PhysicsParameters},
 
     op = TransientLinearFEOperator((a, c, m), l, X, Y;
         constant_forms=(true, true, true))
-    return algebraic_residual ? AlgebraicLinearTFEOperator(op) : op
+    algebraic_residual || return op
+    forcing = rhs_fn === nothing ?
+        build_spectral_forcing(entities, l, Y, Gridap.ODEs.get_assembler(op)) : nothing
+    return AlgebraicLinearTFEOperator(op; forcing = forcing)
 end
 
 """
@@ -615,6 +622,7 @@ export detect_couplings
 export build_fe_operator
 export build_frequency_fe_operator, build_time_fe_operator
 export AlgebraicLinearTFEOperator
+export SpectralForcing, build_spectral_forcing
 export assemble_weakform
 export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
 export assemble_residual, assemble_jacobian, assemble_jacobian_t, assemble_jacobian_tt
