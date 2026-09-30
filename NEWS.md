@@ -32,9 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TimeConfig.u0 = nothing` starts the simulation from rest (all initial states zero). Since [PR#63](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/63).
 - Space/time forcing functions are resolved once per assembly instead of wrapping every quadrature-point evaluation in `try`/`catch`, which reduces the per-step cost of time-dependent forcing. Behaviour is unchanged. Since [PR#64](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/64).
 - Zero body forcing (the default when no `rhs_fn` is given) no longer assembles `∫ v·0` volume and structure integrals at every step, and a problem without any forcing now gets an empty right-hand side instead of an error. Since [PR#65](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/65).
+- `ResonatorArray` self and resonator↔structure forms no longer add a dummy `∫(ξ⋅q·0)` integral over the host surface; they are now pure point (Dirac) terms. Since [PR#66](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/66).
 
 ### Fixed
 - Integration domains not covered by a physics entity (C/DG skeletons such as `:Λη`, damping zones, `:Γlateral`, joints) now use the highest entity quadrature degree instead of 2, so higher-order plate skeletons are no longer under-integrated. Derived measure keys (`:dΓd_i`, `:dΛη_i`, joint measures) use the same value via a new `:default` entry of the degree dictionary instead of a hard-coded 4. Since [PR#59](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/59).
+- `build_fe_spaces` builds the resonator `ConstantFESpace`s on the volume `:Ω`. With the default host `:Γη`, assembling resonator terms failed with a Gridap type-instability error. [PR#66](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/66).
 
 ## [0.1.2 - 2026-06-17]
 
