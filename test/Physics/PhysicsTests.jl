@@ -30,6 +30,7 @@ end
   @testset "EulerBernoulliBeam" include("EulerBernoulliBeamTests.jl")
   @testset "TensionedEulerBernoulliBeam" include("TensionedEulerBernoulliBeamTests.jl")
   @testset "Resonator" include("ResonatorTests.jl")
+  @testset "ResonatorArray forms" include("ResonatorArrayFormsTests.jl")
   @testset "FreeSurface" include("FreeSurfaceTests.jl")
   @testset "DampingZone consistency" include("DampingZoneConsistencyTests.jl")
 
