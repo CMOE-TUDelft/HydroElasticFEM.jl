@@ -102,7 +102,7 @@ export TankTriangulations
 export IntegrationDomains
 export TankDomain
 export AbstractSurfaceZone, StructureDomain, DampingZone
-export JointDomain, ResonatorDomain
+export AbstractJointDomain, JointDomain, JointLineDomain, hinge_grid, ResonatorDomain
 export AbstractDomain, STANDARD_TAGS
 export GmshDomain
 export validate_gmsh_tags
@@ -112,6 +112,7 @@ export CartesianDomain
 export f_z, map_fn
 export get_plate_triangulation
 export build_model, build_triangulations, get_integration_domains
+export skeleton_keys
 export surface_mask, surface_masks, joint_mask
 
 end # module Geometry
