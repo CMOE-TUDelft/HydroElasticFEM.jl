@@ -209,6 +209,5 @@ Concrete subtypes do not need to implement `rhs` themselves.
 function rhs(s::AbstractHydroelasticStructure, dom::IntegrationDomains, f, y)
     sym = variable_symbol(s)
     v = y[sym]
-    dΩ = _space_measure(dom, s)
-    ∫(v * f[sym])dΩ
+    _forcing_contribution(f[sym], v, _space_measure(dom, s))
 end
