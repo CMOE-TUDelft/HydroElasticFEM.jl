@@ -485,6 +485,7 @@ export mass_density, damping_parameter, gravitational_acceleration
 export stiffness_operator, extra_stiffness_form
 export PotentialFlow, FreeSurface, Membrane
 export JointRotationalSpring, EulerBernoulliBeam, Resonator
+export attached_resonators
 export TensionedEulerBernoulliBeam
 export KirchhoffLovePlate
 export TimoshenkoBeam

@@ -177,17 +177,18 @@ function build_fe_spaces(entities,
         if entity isa P.ResonatorArray
             resn = entity.resonators
             isempty(resn) && throw(ArgumentError("Resonator array at position $ientity of the `entities` collection must be non-empty."))
+            # Resonators of one array may be hosted on different structures
+            # (each couples to the structure on its host domain).
             domain_symbol = resn[1].host_domain_symbol
-            found_symbols = unique(getfield.(resn, :host_domain_symbol))
-            length(found_symbols) > 1 &&
-                throw(ArgumentError("Resonator array at position $ientity in `entities` has inconsistent `host_domain_symbol` values. Expected all to be :$domain_symbol, but found: $found_symbols"))
+            for host in unique(getfield.(resn, :host_domain_symbol))
+                haskey(trians, host) ||
+                    throw(ArgumentError("Resonator host domain :$host not found in triangulations."))
+            end
             # A resonator DOF is a single global unknown: its ConstantFESpace
             # lives on the volume Ω.  A ConstantFESpace on a surface view such
             # as :Γη cannot be restricted to the Dirac-delta triangulation
             # (Gridap type-instability), while the point terms δᵢ built on the
             # host surface assemble fine against a space on Ω.
-            haskey(trians, domain_symbol) ||
-                throw(ArgumentError("Resonator host domain :$domain_symbol not found in triangulations."))
             trian = haskey(trians, :Ω) ? trians[:Ω] : trians[domain_symbol]
             Vs = build_test_fe_space(entity, trian, config)
             Us = build_trial_fe_space(entity, Vs, config)
