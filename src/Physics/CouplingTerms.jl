@@ -287,19 +287,15 @@ function damping(ra::ResonatorArray, s::Structure,
     ηₜ    = x_t[η_sym]
     v     = y[η_sym]
     î1    = VectorValue(1.0)
-    ξ1    = y[variable_symbol(resn[1])]
-    q1    = x_t[variable_symbol(resn[1])]
-    δ_p1 = dom[resn[1].delta_domain_symbol]
-    dΩ  = dom[Symbol("d",resn[1].host_domain_symbol)]
-    val   = ∫((ξ1 ⋅ q1) * 0.0)dΩ
+    val = nothing
     for (i, ri) in enumerate(resn)
         δi = dom[ri.delta_domain_symbol]
         qₜi = x_t[variable_symbol(ri)]
         ξi  = y[variable_symbol(ri)]
         # force on structure from resonator velocity
-        val += (ri.C / ri.ρw) * δi(v * ((qₜi ⋅ î1) - ηₜ))
+        val = _add_contribution(val, (ri.C / ri.ρw) * δi(v * ((qₜi ⋅ î1) - ηₜ)))
         # force on resonator from structure velocity
-        val += -ri.C * δi((ξi ⋅ î1) * ηₜ)
+        val = _add_contribution(val, -ri.C * δi((ξi ⋅ î1) * ηₜ))
     end
     return val
 end
@@ -319,19 +315,15 @@ function stiffness(ra::ResonatorArray, s::Structure,
     η     = x[η_sym]
     v     = y[η_sym]
     î1    = VectorValue(1.0)
-    ξ1    = y[variable_symbol(resn[1])]
-    q1    = x[variable_symbol(resn[1])]
-    δ_p1 = dom[resn[1].delta_domain_symbol]
-    dΩ  = dom[Symbol("d",resn[1].host_domain_symbol)]
-    val   = ∫((ξ1 ⋅ q1) * 0.0)dΩ
+    val = nothing
     for (i, ri) in enumerate(resn)
         δi = dom[ri.delta_domain_symbol]
         qi = x[variable_symbol(ri)]
         ξi = y[variable_symbol(ri)]
         # force on structure from resonator displacement
-        val += (-ri.K / ri.ρw) * δi(v * ((qi ⋅ î1) - η))
+        val = _add_contribution(val, (-ri.K / ri.ρw) * δi(v * ((qi ⋅ î1) - η)))
         # force on resonator from structure displacement
-        val += -ri.K * δi((ξi ⋅ î1) * η)
+        val = _add_contribution(val, -ri.K * δi((ξi ⋅ î1) * η))
     end
     return val
 end

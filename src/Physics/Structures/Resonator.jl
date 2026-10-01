@@ -188,16 +188,12 @@ attachment locations using the delta-function distributions `δ_p`:
 """
 function mass(ra::ResonatorArray, dom::IntegrationDomains, x_tt, y)
     resn = ra.resonators
-    ξ1  = y[variable_symbol(resn[1])]
-    q1  = x_tt[variable_symbol(resn[1])]
-    δ_p1 = dom[resn[1].delta_domain_symbol]
-    dΩ  = dom[Symbol("d",resn[1].host_domain_symbol)]
-    val = ∫((ξ1 ⋅ q1) * 0.0)dΩ
+    val = nothing
     for (i, ri) in enumerate(resn)
         δi = dom[ri.delta_domain_symbol]
         qₜₜi = x_tt[variable_symbol(ri)]
         ξi   = y[variable_symbol(ri)]
-        val += ri.M * δi(qₜₜi ⋅ ξi)
+        val = _add_contribution(val, ri.M * δi(qₜₜi ⋅ ξi))
     end
     return val
 end
@@ -224,16 +220,12 @@ Assembles the sum of viscous damping contributions over all resonators:
 """
 function damping(ra::ResonatorArray, dom::IntegrationDomains, x_t, y)
     resn = ra.resonators
-    ξ1  = y[variable_symbol(resn[1])]
-    q1  = x_t[variable_symbol(resn[1])]
-    δ_p1 = dom[resn[1].delta_domain_symbol]
-    dΩ  = dom[Symbol("d",resn[1].host_domain_symbol)]
-    val = ∫((ξ1 ⋅ q1) * 0.0)dΩ
+    val = nothing
     for (i, ri) in enumerate(resn)
         δi = dom[ri.delta_domain_symbol]
         qₜi = x_t[variable_symbol(ri)]
         ξi  = y[variable_symbol(ri)]
-        val += ri.C * δi(qₜi ⋅ ξi)
+        val = _add_contribution(val, ri.C * δi(qₜi ⋅ ξi))
     end
     return val
 end
@@ -260,16 +252,12 @@ Assembles the sum of spring contributions over all resonators:
 """
 function stiffness(ra::ResonatorArray, dom::IntegrationDomains, x, y)
     resn = ra.resonators
-    ξ1  = y[variable_symbol(resn[1])]
-    q1  = x[variable_symbol(resn[1])]
-    δ_p1 = dom[resn[1].delta_domain_symbol]
-    dΩ  = dom[Symbol("d",resn[1].host_domain_symbol)]
-    val = ∫((ξ1 ⋅ q1) * 0.0)dΩ
+    val = nothing
     for (i, ri) in enumerate(resn)
         δi = dom[ri.delta_domain_symbol]
         qi = x[variable_symbol(ri)]
         ξi = y[variable_symbol(ri)]
-        val += ri.K * δi(qi ⋅ ξi)
+        val = _add_contribution(val, ri.K * δi(qi ⋅ ξi))
     end
     return val
 end
@@ -300,16 +288,12 @@ provided.
 """
 function rhs(ra::ResonatorArray, dom::IntegrationDomains, f, y)
     resn = ra.resonators
-    ξ1  = y[variable_symbol(resn[1])]
-    q1  = f[variable_symbol(resn[1])]
-    δ_p1 = dom[resn[1].delta_domain_symbol]
-    dΩ  = dom[Symbol("d"*resn[1].host_domain_symbol)]
-    val = ∫((ξ1 ⋅ q1) * 0.0)dΩ
+    val = nothing
     for (i, ri) in enumerate(resn)
         δi = dom[ri.delta_domain_symbol]
         fi = f[variable_symbol(ri)]
         ξi = y[variable_symbol(ri)]
-        val += δi(fi ⋅ ξi)
+        val = _add_contribution(val, δi(fi ⋅ ξi))
     end
     return val
 end
