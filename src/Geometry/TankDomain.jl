@@ -892,9 +892,9 @@ function _structure_connection_skeletons(Γη, surface_partition, connections)
       cells = f2c[f]
       length(cells) == 2 || continue
       γ1, γ2 = η_to_Γ[cells[1]], η_to_Γ[cells[2]]
-      if in_a[γ1] && in_b[γ2]
+      if in_a[γ1] && !in_b[γ1] && in_b[γ2] && !in_a[γ2]
         lcp[f], lcm[f] = 1, 2
-      elseif in_b[γ1] && in_a[γ2]
+      elseif in_b[γ1] && !in_a[γ1] && in_a[γ2] && !in_b[γ2]
         lcp[f], lcm[f] = 2, 1
       else
         continue
