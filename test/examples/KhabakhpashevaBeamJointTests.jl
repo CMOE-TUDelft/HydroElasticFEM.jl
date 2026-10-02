@@ -18,7 +18,7 @@ using Test
 
 isdefined(@__MODULE__, :KhabakhpashevaBeamJointExample) ||
       include(joinpath(@__DIR__, "..", "..", "examples", "KhabakhpashevaBeamJointExample.jl"))
-# using .KhabakhpashevaBeamJointExample
+using .KhabakhpashevaBeamJointExample
 
 @testset "Khabakhpasheva beam-joint (two stiffness cases)" begin
 
@@ -55,7 +55,8 @@ isdefined(@__MODULE__, :KhabakhpashevaBeamJointExample) ||
         @test xs0[1]   ≈ 0.0  atol=1e-12
         @test xs0[end] ≈ 1.0  atol=1e-12
 
-        # |η|/η₀ must be real and non-negative everywhere
+        # |η|/η₀ must be finite, real and non-negative everywhere
+        @test all(isfinite, eta0)
         @test all(eta0 .>= 0.0)
 
         # physical sanity: maximum response should be of order 1

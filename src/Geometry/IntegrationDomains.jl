@@ -55,9 +55,10 @@ No schema is enforced; new keys can be added without changing this type.
 For essential (Dirichlet) conditions on `∂Γs`, use the model face tags
 `structure.boundary_tag` / `"structure_boundary"` as `dirichlet_tags` instead.
 
-### Joint skeleton (one per `JointDomain`)
+### Joint skeleton (one per joint descriptor)
 Stored under `joint.domain_symbol` / `joint.normal_symbol` as declared in
-[`JointDomain`](@ref).
+[`JointDomain`](@ref) (2D point joint) or [`JointLineDomain`](@ref) (3D line
+joints).
 
 ### Resonators
 | Key    | Type     | Description                                |
@@ -246,19 +247,11 @@ function get_integration_domains(
   end
 
   # Per-joint skeleton measures and normals (stored under domain_symbol /
-  # normal_symbol declared in each JointDomain)
+  # normal_symbol declared in each JointDomain / JointLineDomain)
   if haskey(tri, :joint_domains) && haskey(tri, :Λ_joints)
     for (joint, Λj) in zip(tri[:joint_domains], tri[:Λ_joints])
       d[joint.domain_symbol] = Measure(Λj, get_deg(joint.domain_symbol))
       d[joint.normal_symbol] = get_normal_vector(Λj)
-    end
-  end
-
-  # Interfaces between structures with separate fields (plus side ⊂ a)
-  if haskey(tri, :structure_connections) && haskey(tri, :Λ_connections)
-    for (conn, Λc) in zip(tri[:structure_connections], tri[:Λ_connections])
-      d[conn.domain_symbol] = Measure(Λc, get_deg(conn.domain_symbol))
-      d[conn.normal_symbol] = get_normal_vector(Λc)
     end
   end
 
@@ -327,6 +320,26 @@ function get_integration_domains(
     _can_define_measure(trian) || continue
     d[measure_symbol] = Measure(trian, get_deg(domain_symbol))
     d[normal_symbol] = get_normal_vector(trian)
+  end
+
+  # Interfaces between structures with separate fields (plus side ⊂ a).
+  # Validate all connection keys against each other and every populated domain
+  # key before adding any connection data.
+  if haskey(tri, :structure_connections) && haskey(tri, :Λ_connections)
+    connections = tri[:structure_connections]
+    connection_keys = Set{Symbol}()
+    for conn in connections
+      for key in (conn.domain_symbol, conn.normal_symbol)
+        (haskey(d, key) || key in connection_keys) && error(
+          "StructureConnection requested integration-domain key :$key, which is already in use.",
+        )
+        push!(connection_keys, key)
+      end
+    end
+    for (conn, Λc) in zip(connections, tri[:Λ_connections])
+      d[conn.domain_symbol] = Measure(Λc, get_deg(conn.domain_symbol))
+      d[conn.normal_symbol] = get_normal_vector(Λc)
+    end
   end
 
   IntegrationDomains(d)

@@ -30,8 +30,11 @@ end
   @testset "EulerBernoulliBeam" include("EulerBernoulliBeamTests.jl")
   @testset "TensionedEulerBernoulliBeam" include("TensionedEulerBernoulliBeamTests.jl")
   @testset "Resonator" include("ResonatorTests.jl")
+  @testset "ResonatorArray forms" include("ResonatorArrayFormsTests.jl")
   @testset "FreeSurface" include("FreeSurfaceTests.jl")
   @testset "DampingZone consistency" include("DampingZoneConsistencyTests.jl")
+  @testset "Helpers" include("HelpersTests.jl")
+  @testset "Velocity Neumann BC" include("VelocityNeumannBCTests.jl")
 
 end
 
@@ -40,4 +43,5 @@ end
 @testset "KirchhoffLovePlate" include("KirchhoffLovePlateTests.jl")
 @testset "KirchhoffLovePlate per-structure keys" include("KirchhoffLovePlatePerStructureTests.jl")
 @testset "PlateConnection" include("PlateConnectionTests.jl")
+@testset "KirchhoffLovePlate line joints" include("KirchhoffLovePlateJointTests.jl")
 @testset "TimoshenkoBeam" include("TimoshenkoBeamTests.jl")

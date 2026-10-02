@@ -139,6 +139,11 @@ false`, so `damping_parameter` is not implemented.
 - `symbol::Symbol`        — Field unknown symbol; default `:η`
 - `space_domain_symbol::Symbol` — Triangulation key used for FE spaces; default `:Γη`
 - `fe::FESpaceConfig`     — FE discretisation parameters
+- `joints::Vector{JointRotationalSpring}` — rotational springs on plate line
+  joints declared with a `JointLineDomain` (default: none).  `kᵣ` is the
+  moment per unit joint length per radian divided by the fluid density,
+  `[N·m/rad/m / ρ]`.  A free hinge needs only the `JointLineDomain` (no
+  spring, or `kᵣ = 0`); a rigid connection is simply not declared as a joint.
 - `C`                     — Constitutive tensor `SymFourthOrderTensorValue{ambient_dim}`,
                             computed automatically via [`build_kl_tensor`](@ref).
                             The scalar `C[1,1,1,1] = D/ρ` where `D = E·h³/(12(1-ν²))`.
@@ -149,6 +154,12 @@ false`, so `damping_parameter` is not implemented.
 - `ambient_dim = 3, manifold_dim = 2` is the canonical 3D floating plate.
 - The rotational penalty coefficient `γ` in `fe.γ` should be set to
   `O(p²)` (the default `10 * p^2` in `FESpaceConfig` is recommended).
+  `γ = p(p+1)` (e.g. `γ = 6.0` for `p = 2`) reproduces the hand-written 3D
+  plate scripts that use that convention.
+- Joint facets (from a `JointLineDomain`) are excluded from the C/DG
+  skeleton, so the slope may jump there; the joint term is
+  `∫ kᵣ [[∇v⋅n]] [[∇η⋅n]] dΛj`, which for a C0 deflection equals
+  `∫ kᵣ [[∇v]]⋅[[∇η]] dΛj`.
 
 # Example
 ```julia
@@ -181,6 +192,7 @@ See also: [`build_kl_tensor`](@ref), [`equivalent_beam_rigidity`](@ref)
   symbol::Symbol = :η
   space_domain_symbol::Symbol = :Γη
   fe::FESpaceConfig = FESpaceConfig()
+  joints::Vector{JointRotationalSpring} = JointRotationalSpring[]
   C = build_kl_tensor(ambient_dim, manifold_dim, E, ν, hb, ρ)
 end
 
@@ -304,4 +316,15 @@ function stiffness_operator(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y
     + D_ρ*γ/h*jump(∇(v))⊙jump(∇(η)) )dΛ
 
   return bulk + skeleton
+end
+
+"""
+    extra_stiffness_form(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
+
+Rotational-spring joint contributions at `s.joints` (plate line joints), via
+the shared `_joint_stiffness_form`.  Returns `nothing` without joints.
+"""
+function extra_stiffness_form(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
+  sym = variable_symbol(s)
+  _joint_stiffness_form(s.joints, x[sym], y[sym], dom)
 end
