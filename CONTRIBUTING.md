@@ -12,7 +12,7 @@ julia --project -e 'using Pkg; Pkg.test(julia_args=["-O1"])'
 `-O1` is what CI uses: the suite is dominated by compiling Gridap's generated
 code, which takes several times longer at the default `-O2`.
 
-All 865 tests should pass (2 broken on macOS ARM64 — the Liu Gmsh benchmark —
+All 861 tests should pass (2 broken on macOS ARM64 — the Liu Gmsh benchmark —
 are expected and are not regressions).
 
 ## 2. Code Style
@@ -102,7 +102,7 @@ Add a body paragraph if the change is non-obvious.
 
 Before requesting review, verify:
 
-- [ ] `julia --project -e "using Pkg; Pkg.test()"` passes (865 passed, 2 broken)
+- [ ] `julia --project -e 'using Pkg; Pkg.test(julia_args=["-O1"])'` passes (861 passed, 2 broken)
 - [ ] `julia --project=docs docs/make.jl` builds with zero errors and zero warnings
 - [ ] New entity has a docstring listing all fields with SI units
 - [ ] New entity appears in `docs/src/api/physics.md` under `@docs`
