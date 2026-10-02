@@ -42,5 +42,6 @@ end
 @testset "Beam-plate consistency" include("BeamPlateConsistencyTests.jl")
 @testset "KirchhoffLovePlate" include("KirchhoffLovePlateTests.jl")
 @testset "KirchhoffLovePlate per-structure keys" include("KirchhoffLovePlatePerStructureTests.jl")
+@testset "PlateConnection" include("PlateConnectionTests.jl")
 @testset "KirchhoffLovePlate line joints" include("KirchhoffLovePlateJointTests.jl")
 @testset "TimoshenkoBeam" include("TimoshenkoBeamTests.jl")
