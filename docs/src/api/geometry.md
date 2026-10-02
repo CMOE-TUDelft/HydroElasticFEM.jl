@@ -35,6 +35,7 @@ HydroElasticFEM.Geometry.JointDomain
 HydroElasticFEM.Geometry.JointLineDomain
 HydroElasticFEM.Geometry.hinge_grid
 HydroElasticFEM.Geometry.ResonatorDomain
+HydroElasticFEM.Geometry.StructureConnection
 HydroElasticFEM.Geometry.build_model
 HydroElasticFEM.Geometry.build_triangulations
 HydroElasticFEM.Geometry.get_integration_domains
