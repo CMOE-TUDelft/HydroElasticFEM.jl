@@ -239,3 +239,61 @@ end
   t = _tank3(structure_domains = [_pa(), _pb(x = 5.0)], structure_connections = [_conn()])
   @test_throws ErrorException G.build_triangulations(t, G.build_model(t))
 end
+    
+# JointLineDomain: line joints on a 3D plate
+#
+# Plate x ∈ [2,6], y ∈ [1,3] → 4 × 4 surface cells (Δx = 1, Δy = 0.5),
+# 24 interior skeleton facets.  A 2 × 2 floater grid of 2 m × 1 m floaters
+# has the connection lines x = 4 (length 2, 4 facets) and y = 2 (length 4,
+# 4 facets).
+# =========================================================================
+
+_big_plate() = G.StructureDomain(L = 4.0, W = 2.0, x₀ = [2.0, 1.0, 1.0])
+_hinges(; kw...) = G.hinge_grid(; x₀ = [2.0, 1.0, 1.0], a = 2.0, b = 1.0, nfx = 2, nfy = 2,
+                                domain_symbol = :dΛh, normal_symbol = :n_Λh, kw...)
+
+@testset "hinge_grid — interior connection lines" begin
+  j = _hinges()
+  @test j isa G.JointLineDomain
+  @test length(j.segments) == 2
+  @test j.segments[1] == ([4.0, 1.0, 1.0], [4.0, 3.0, 1.0])
+  @test j.segments[2] == ([2.0, 2.0, 1.0], [6.0, 2.0, 1.0])
+  @test isempty(G.hinge_grid(x₀ = [0.0, 0.0, 0.0], a = 1.0, nfx = 1, nfy = 1,
+                             domain_symbol = :d, normal_symbol = :n).segments)
+end
+
+@testset "JointLineDomain — skeleton partition and measure" begin
+  tank = _tank3(structure_domains = [_big_plate()], joint_domains = [_hinges()])
+  trians = G.build_triangulations(tank, G.build_model(tank))
+  @test num_cells(trians[:Λ_joints][1]) == 8
+  @test num_cells(trians[:Λη]) == 24 - 8
+  @test num_cells(trians[:Λ_structures][1]) == 24 - 8
+  @test haskey(trians, :dΛh)
+
+  dom = G.get_integration_domains(trians; degree = 4)
+  @test haskey(dom, :dΛh) && haskey(dom, :n_Λh)
+  @test sum(∫(1.0)dom[:dΛh]) ≈ 6.0
+  # Joint facets carry the in-plane normal to the line (no vertical part)
+  ez = VectorValue(0.0, 0.0, 1.0)
+  @test sum(∫(abs(dom[:n_Λh].⁺ ⋅ ez))dom[:dΛh]) ≈ 0.0 atol = 1e-12
+  # Total skeleton length is unchanged: joint + remaining C/DG facets
+  @test sum(∫(1.0)dom[:dΛh]) + sum(∫(1.0)dom[:dΛη]) ≈ sum(∫(1.0)Measure(Skeleton(trians[:Γη]), 2))
+end
+
+@testset "JointLineDomain — validation" begin
+  mk(segs) = G.JointLineDomain(segments = segs, domain_symbol = :dΛh, normal_symbol = :n_Λh)
+  build(j) = (t = _tank3(structure_domains = [_big_plate()], joint_domains = [j]);
+              G.build_triangulations(t, G.build_model(t)))
+
+  # line between mesh faces: no facet matches
+  @test_throws ErrorException build(mk([([4.3, 1.0, 1.0], [4.3, 3.0, 1.0])]))
+  # line running past the plate: selected length ≠ segment length
+  @test_throws ErrorException build(mk([([4.0, 0.0, 1.0], [4.0, 4.0, 1.0])]))
+  # overlapping segments: covered length counted once
+  @test_throws ErrorException build(mk([([4.0, 1.0, 1.0], [4.0, 3.0, 1.0]),
+                                        ([4.0, 1.0, 1.0], [4.0, 2.0, 1.0])]))
+  # JointLineDomain is 3D only, JointDomain is 2D only
+  @test_throws ErrorException G.TankDomain(L = 4.0, H = 1.0, nx = 8, ny = 2,
+    structure_domains = [G.StructureDomain(L = 1.0, x₀ = [1.0, 1.0])],
+    joint_domains = [mk([([1.5, 1.0], [1.5, 1.0])])])
+end

@@ -80,7 +80,7 @@ module HydroElasticFEM
   export AbstractDomain, STANDARD_TAGS
   export TankDomain
   export AbstractSurfaceZone, StructureDomain, DampingZone, JointDomain, ResonatorDomain
-  export StructureConnection
+  export AbstractJointDomain, JointLineDomain, hinge_grid, StructureConnection
   export CartesianDomain
   export GmshDomain
   # Domain query helpers

@@ -55,9 +55,10 @@ No schema is enforced; new keys can be added without changing this type.
 For essential (Dirichlet) conditions on `∂Γs`, use the model face tags
 `structure.boundary_tag` / `"structure_boundary"` as `dirichlet_tags` instead.
 
-### Joint skeleton (one per `JointDomain`)
+### Joint skeleton (one per joint descriptor)
 Stored under `joint.domain_symbol` / `joint.normal_symbol` as declared in
-[`JointDomain`](@ref).
+[`JointDomain`](@ref) (2D point joint) or [`JointLineDomain`](@ref) (3D line
+joints).
 
 ### Resonators
 | Key    | Type     | Description                                |
@@ -134,6 +135,20 @@ end
 
 _degree_domain_keys(::Int) = Symbol[]
 
+"""
+    skeleton_keys(domain_symbol::Symbol) -> (measure_key, normal_key, h_key)
+
+`IntegrationDomains` keys of the C/DG skeleton data of the structure whose
+space lives on `domain_symbol`: the global `(:dΛη, :n_Λ_η, :h_η)` for the
+all-structure surface `:Γη`, and `(:dΛ_<sym>, :n_Λ_<sym>, :h_<sym>)` for an
+individual structure domain (e.g. `:Γ_a` → `:dΛ_Γ_a`).
+"""
+function skeleton_keys(domain_symbol::Symbol)
+  domain_symbol === :Γη && return (:dΛη, :n_Λ_η, :h_η)
+  s = String(domain_symbol)
+  return (Symbol("dΛ_", s), Symbol("n_Λ_", s), Symbol("h_", s))
+end
+
 # Representative (minimum) cell size of a triangulation: the cell measure is a
 # length in 1D, an area in 2D, so take the `d`-th root with `d` the cell
 # dimension.  Used as `h` in C/DG interior-penalty terms.
@@ -173,6 +188,7 @@ to `degree[:default]` if given, else `4`).
 | `:dΓd_i`, `:nΓd_i`  | `:Γ_dampings[i]`               | `DampingZoneBC`     |
 | `:dΛη`, `:n_Λ_η`, `:h_η` | skeleton of `:Γη`         | `EulerBernoulliBeam`, `KirchhoffLovePlate` C/DG |
 | `:dΛη_i`, `:n_Λ_η_i`, `:h_η_i` | `:Λ_structures[i]` | per-structure C/DG terms |
+| `:dΛ_<sym>`, `:n_Λ_<sym>`, `:h_<sym>` | `:Λ_structures[i]` of structure `sym` | same, keyed by the structure's `domain_symbol` (see [`skeleton_keys`](@ref)) |
 | `:dΛ∂η`, `:dΛ∂η_i` (+ normals) | `:∂Γη`, `:∂Γ_structures[i]` | structure-edge terms |
 | `joint.domain_symbol`, `joint.normal_symbol` | `:Λ_joints` | `JointRotationalSpring` |
 | `conn.domain_symbol`, `conn.normal_symbol` | `:Λ_connections` | structure-connection physics |
@@ -231,7 +247,7 @@ function get_integration_domains(
   end
 
   # Per-joint skeleton measures and normals (stored under domain_symbol /
-  # normal_symbol declared in each JointDomain)
+  # normal_symbol declared in each JointDomain / JointLineDomain)
   if haskey(tri, :joint_domains) && haskey(tri, :Λ_joints)
     for (joint, Λj) in zip(tri[:joint_domains], tri[:Λ_joints])
       d[joint.domain_symbol] = Measure(Λj, get_deg(joint.domain_symbol))
@@ -255,12 +271,20 @@ function get_integration_domains(
     d[:h_η]   = _min_cell_size(tri[:Γη])
   end
 
-  # Per-structure skeletons (:dΛη_i, :n_Λ_η_i, :h_η_i)
+  # Per-structure skeletons (:dΛη_i, :n_Λ_η_i, :h_η_i), also keyed by the
+  # structure's domain symbol (:dΛ_<sym>, :n_Λ_<sym>, :h_<sym>) when known.
+  structure_syms = get(tri, :structure_symbols, nothing)
   for (i, (Γs, Λs)) in enumerate(zip(tri[:Γ_structures], get(tri, :Λ_structures, Any[])))
     key = Symbol("dΛη_$i")
     d[key] = Measure(Λs, get_deg(key))
     d[Symbol("n_Λ_η_$i")] = get_normal_vector(Λs)
     d[Symbol("h_η_$i")] = _min_cell_size(Γs)
+    if structure_syms !== nothing
+      dkey, nkey, hkey = skeleton_keys(structure_syms[i])
+      d[dkey] = d[key]
+      d[nkey] = d[Symbol("n_Λ_η_$i")]
+      d[hkey] = d[Symbol("h_η_$i")]
+    end
   end
 
   # Structure boundaries ∂Γs (:dΛ∂η, :n_Λ∂η, :dΛ∂η_i, :n_Λ∂η_i)
