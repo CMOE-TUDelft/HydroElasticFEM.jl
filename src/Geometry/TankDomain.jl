@@ -158,6 +158,7 @@ beam = EulerBernoulliBeam(L=1.0, mᵨ=0.5, EIᵨ=100.0,
 end
 
 """
+
     JointLineDomain
 
 Declares line joints on a 3D plate: every interior facet (edge) of the
@@ -270,6 +271,47 @@ dom    = get_integration_domains(trians)      # :δ_p populated
   trian_symbol::Symbol = :Γη
   delta_symbol::Symbol = :δ_p
 end
+   
+"""
+    StructureConnection
+
+Declares a connection between two structures that have separate FE fields
+(e.g. two plates on their own `StructureDomain`s) along their common edge.
+`build_triangulations` builds the interface skeleton between the two
+structure surfaces, oriented so that the **plus** side always lies in
+structure `a` and the **minus** side in structure `b`.
+`get_integration_domains` then stores its `Measure` under `domain_symbol` and
+its normal under `normal_symbol`; `n.⁺` points out of `a` into `b`.
+
+The physics of the connection (shear and rotational springs, or rigid
+continuity) is declared separately, on the physics side.
+
+On this skeleton, combine fields with constants *before* taking the ⁺/⁻
+trace (e.g. `(C ⊙ ∇∇(η_b)).⁻`, `(∇(η_b) ⋅ e).⁻`) or use the normals
+(`∇(η_b).⁻ ⋅ n.⁻`).  A minus-side trace combined with a constant afterwards
+(`∇(η_b).⁻ ⋅ e`) is not evaluated correctly by Gridap on a two-sided
+skeleton built from separate cells.
+
+# Fields
+- `a::Symbol`, `b::Symbol` — `domain_symbol`s of the two `StructureDomain`s.
+- `domain_symbol::Symbol` — key of the interface measure (e.g. `:dΛ_ab`).
+- `normal_symbol::Symbol` — key of the interface normal (e.g. `:n_Λ_ab`).
+
+# Example
+```julia
+pa = StructureDomain(L = 2.0, W = 2.0, x₀ = [2.0, 1.0, 1.0], domain_symbol = :Γ_a)
+pb = StructureDomain(L = 2.0, W = 2.0, x₀ = [4.0, 1.0, 1.0], domain_symbol = :Γ_b)
+conn = StructureConnection(a = :Γ_a, b = :Γ_b, domain_symbol = :dΛ_ab, normal_symbol = :n_Λ_ab)
+tank = TankDomain(L = 8.0, W = 4.0, H = 1.0, nx = 8, ny = 8, nz = 2,
+                  structure_domains = [pa, pb], structure_connections = [conn])
+```
+"""
+@with_kw struct StructureConnection
+  a::Symbol
+  b::Symbol
+  domain_symbol::Symbol
+  normal_symbol::Symbol
+end
 
 """
     TankDomain{D} <: AbstractDomain
@@ -320,12 +362,13 @@ backwards compatibility: `domain.L`, `domain.H`, `domain.nx`, `domain.ny`,
 These are read-only derived values; the canonical data lives in
 `domain.cartesian`.
 """
-struct TankDomain{D, C, SZ, DZ, JZ, RZ} <: AbstractDomain
+struct TankDomain{D, C, SZ, DZ, JZ, RZ, CZ} <: AbstractDomain
   cartesian::C
   structure_domains::SZ
   damping_zones::DZ
   joint_domains::JZ
   resonator_domains::RZ
+  structure_connections::CZ
 end
 
 function _validate_tank_domain_inputs(
@@ -334,7 +377,9 @@ function _validate_tank_domain_inputs(
   damping_zones,
   joint_domains,
   resonator_domains,
+  structure_connections = StructureConnection[],
 ) where {D}
+  _validate_structure_connections(structure_domains, structure_connections)
   for zone in Iterators.flatten((structure_domains, damping_zones))
     zone.ambient_dim == D || error(
       "$(nameof(typeof(zone))) :$(zone.domain_symbol) has ambient_dim=$(zone.ambient_dim) " *
@@ -350,6 +395,19 @@ function _validate_tank_domain_inputs(
   nothing
 end
 
+function _validate_structure_connections(structure_domains, connections)
+  syms = [s.domain_symbol for s in structure_domains]
+  for c in connections
+    c isa StructureConnection ||
+      error("structure_connections entries must be StructureConnection, got $(typeof(c)).")
+    c.a == c.b && error("StructureConnection :$(c.domain_symbol) connects :$(c.a) to itself.")
+    for s in (c.a, c.b)
+      s in syms || error("StructureConnection :$(c.domain_symbol) refers to unknown structure :$s " *
+                         "(structure domain symbols: $syms).")
+    end
+  end
+  nothing
+end
 _validate_joint_dimension(::Val{2}, ::JointDomain) = nothing
 _validate_joint_dimension(::Val{3}, ::JointLineDomain) = nothing
 _validate_joint_dimension(::Val{D}, joint) where {D} = error(
@@ -357,7 +415,7 @@ _validate_joint_dimension(::Val{D}, joint) where {D} = error(
   "(point joints) in 2D and JointLineDomain (line joints) in 3D.")
 
 """
-    TankDomain(cartesian; structure_domains=[], damping_zones=[], joint_domains=[], resonator_domains=[])
+    TankDomain(cartesian; structure_domains=[], damping_zones=[], joint_domains=[], resonator_domains=[], structure_connections=[])
 
 Construct a `TankDomain` from an existing `CartesianDomain`.
 
@@ -372,6 +430,7 @@ for a one-shot variant that builds the `CartesianDomain` internally.
 - `joint_domains`: interior structure-skeleton facets for joints: `JointDomain`
   (2D beam point joints) or `JointLineDomain` (3D plate line joints)
 - `resonator_domains::Vector{ResonatorDomain}`: point interactions for lumped resonators
+- `structure_connections::Vector{StructureConnection}`: interfaces between structures with separate fields
 
 # Returns
 - `TankDomain{D,...}`: configured tank domain
@@ -388,6 +447,7 @@ function TankDomain(
   damping_zones = DampingZone[],
   joint_domains = AbstractJointDomain[],
   resonator_domains = ResonatorDomain[],
+  structure_connections = StructureConnection[],
 )
   D = ambient_dimension(cartesian)
   _validate_tank_domain_inputs(
@@ -396,6 +456,7 @@ function TankDomain(
     damping_zones,
     joint_domains,
     resonator_domains,
+    structure_connections,
   )
   TankDomain{
     D,
@@ -404,12 +465,14 @@ function TankDomain(
     typeof(damping_zones),
     typeof(joint_domains),
     typeof(resonator_domains),
+    typeof(structure_connections),
   }(
     cartesian,
     structure_domains,
     damping_zones,
     joint_domains,
     resonator_domains,
+    structure_connections,
   )
 end
 
@@ -437,6 +500,7 @@ and `nz` to create a 3D domain; omit them for 2D.
 - `damping_zones::Vector{DampingZone}`: sponge-layer regions
 - `joint_domains`: joint descriptors, `JointDomain` (2D) or `JointLineDomain` (3D)
 - `resonator_domains::Vector{ResonatorDomain}`: point interactions for lumped resonators
+- `structure_connections::Vector{StructureConnection}`: interfaces between structures with separate fields
 
 # Returns
 - `TankDomain{D,...}` with D = 2 (no `W`/`nz`) or D = 3
@@ -459,6 +523,7 @@ function TankDomain(;
   damping_zones = DampingZone[],
   joint_domains = AbstractJointDomain[],
   resonator_domains = ResonatorDomain[],
+  structure_connections = StructureConnection[],
 )
   cartesian = CartesianDomain(
     L = L,
@@ -476,6 +541,7 @@ function TankDomain(;
     damping_zones = damping_zones,
     joint_domains = joint_domains,
     resonator_domains = resonator_domains,
+    structure_connections = structure_connections,
   )
 end
 
@@ -522,6 +588,7 @@ function _tank_public_property_names(::Val{D}) where {D}
     :damping_zones,
     :joint_domains,
     :resonator_domains,
+    :structure_connections,
     _tank_legacy_property_names(Val(D))...,
   )
 end
@@ -802,6 +869,44 @@ function _partition_joint_skeletons(Γη, joints)
   end
 
   return (Λη = Λη_no_joints, Λ_joints = Λ_joints, symbols = joint_domain_syms)
+end
+
+# Interface skeletons of the structure connections, on the active model of
+# Γη: facets with one cell in structure `a` and the other in `b`, with
+# per-facet local cell indices so that plus ⊂ a and minus ⊂ b.
+function _structure_connection_skeletons(Γη, surface_partition, connections)
+  isempty(connections) && return Any[]
+  syms = surface_partition.structures.symbols
+  bits = surface_partition.structures.bits
+  η_to_Γ = findall(surface_partition.any_structure)      # Γη cell → Γ cell
+  M = Gridap.Geometry.get_active_model(Γη)
+  Dc = num_cell_dims(M)
+  f2c = Gridap.ReferenceFEs.get_faces(Gridap.Geometry.get_grid_topology(M), Dc - 1, Dc)
+  nf = Gridap.ReferenceFEs.num_faces(M, Dc - 1)
+  map(connections) do c
+    in_a = bits[findfirst(==(c.a), syms)]
+    in_b = bits[findfirst(==(c.b), syms)]
+    faces = Int[]
+    lcp, lcm = ones(Int, nf), ones(Int, nf)
+    for f in 1:nf
+      cells = f2c[f]
+      length(cells) == 2 || continue
+      γ1, γ2 = η_to_Γ[cells[1]], η_to_Γ[cells[2]]
+      if in_a[γ1] && !in_b[γ1] && in_b[γ2] && !in_a[γ2]
+        lcp[f], lcm[f] = 1, 2
+      elseif in_b[γ1] && !in_a[γ1] && in_a[γ2] && !in_b[γ2]
+        lcp[f], lcm[f] = 2, 1
+      else
+        continue
+      end
+      push!(faces, f)
+    end
+    isempty(faces) && error("StructureConnection :$(c.domain_symbol): structures :$(c.a) and " *
+                            ":$(c.b) do not share any edge on the mesh.")
+    plus = BoundaryTriangulation(M, faces, lcp)
+    minus = BoundaryTriangulation(M, faces, lcm)
+    Gridap.Geometry.CompositeTriangulation(Γη, SkeletonTriangulation(plus, minus))
+  end
 end
 
 function _add_triangulations_by_symbol!(trian_dict, symbols, trians, label)
@@ -1134,6 +1239,17 @@ function build_triangulations(domain::TankDomain{D}, model) where {D}
   if D == 3
     trian_dict[:Γlateral] = Boundary(model, tags = "lateral_walls")
   end
+
+  # Interfaces between structures with separate fields
+  Λ_connections = _structure_connection_skeletons(Γη, surface_partition, domain.structure_connections)
+  trian_dict[:structure_connections] = domain.structure_connections
+  trian_dict[:Λ_connections] = Λ_connections
+  _add_triangulations_by_symbol!(
+    trian_dict,
+    [c.domain_symbol for c in domain.structure_connections],
+    Λ_connections,
+    "structure connection",
+  )
   # Structure domain symbols, in the order of :Γ_structures
   trian_dict[:structure_symbols] = surface_partition.structures.symbols
   _add_triangulations_by_symbol!(

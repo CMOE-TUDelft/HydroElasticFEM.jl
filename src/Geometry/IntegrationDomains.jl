@@ -191,6 +191,7 @@ to `degree[:default]` if given, else `4`).
 | `:dΛ_<sym>`, `:n_Λ_<sym>`, `:h_<sym>` | `:Λ_structures[i]` of structure `sym` | same, keyed by the structure's `domain_symbol` (see [`skeleton_keys`](@ref)) |
 | `:dΛ∂η`, `:dΛ∂η_i` (+ normals) | `:∂Γη`, `:∂Γ_structures[i]` | structure-edge terms |
 | `joint.domain_symbol`, `joint.normal_symbol` | `:Λ_joints` | `JointRotationalSpring` |
+| `conn.domain_symbol`, `conn.normal_symbol` | `:Λ_connections` | structure-connection physics |
 | `resonator.delta_symbol` | `resonator.trian_symbol` | `ResonatorArray` |
 
 ## Example
@@ -319,6 +320,26 @@ function get_integration_domains(
     _can_define_measure(trian) || continue
     d[measure_symbol] = Measure(trian, get_deg(domain_symbol))
     d[normal_symbol] = get_normal_vector(trian)
+  end
+
+  # Interfaces between structures with separate fields (plus side ⊂ a).
+  # Validate all connection keys against each other and every populated domain
+  # key before adding any connection data.
+  if haskey(tri, :structure_connections) && haskey(tri, :Λ_connections)
+    connections = tri[:structure_connections]
+    connection_keys = Set{Symbol}()
+    for conn in connections
+      for key in (conn.domain_symbol, conn.normal_symbol)
+        (haskey(d, key) || key in connection_keys) && error(
+          "StructureConnection requested integration-domain key :$key, which is already in use.",
+        )
+        push!(connection_keys, key)
+      end
+    end
+    for (conn, Λc) in zip(connections, tri[:Λ_connections])
+      d[conn.domain_symbol] = Measure(Λc, get_deg(conn.domain_symbol))
+      d[conn.normal_symbol] = get_normal_vector(Λc)
+    end
   end
 
   IntegrationDomains(d)
