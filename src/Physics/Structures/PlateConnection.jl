@@ -123,5 +123,6 @@ function stiffness(c::PlateConnection, dom::IntegrationDomains, x, y)
             - (mean_M(va, vb) ⋅ n.⁺) ⋅ grad_jump(ηa, ηb)
             + grad_jump(va, vb) ⋅ grad_jump(ηa, ηb, τ))dΛ)
     end
+    val === nothing && return ∫(jump_η(va, vb) * jump_η(ηa, ηb, 0.0))dΛ
     return val
 end
