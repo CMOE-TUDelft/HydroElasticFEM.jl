@@ -6,8 +6,11 @@
 git clone https://github.com/CMOE/HydroElasticFEM.jl
 cd HydroElasticFEM.jl
 julia --project -e "using Pkg; Pkg.instantiate()"
-julia --project -e "using Pkg; Pkg.test()"
+julia --project -e 'using Pkg; Pkg.test(julia_args=["-O1"])'
 ```
+
+`-O1` is what CI uses: the suite is dominated by compiling Gridap's generated
+code, which takes several times longer at the default `-O2`.
 
 All 865 tests should pass (2 broken on macOS ARM64 — the Liu Gmsh benchmark —
 are expected and are not regressions).
