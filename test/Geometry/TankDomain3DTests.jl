@@ -199,7 +199,8 @@ end
 
 _pa(; x = 2.0, y = 1.0) = G.StructureDomain(L = 2.0, W = 2.0, x₀ = [x, y, 1.0], domain_symbol = :Γ_a)
 _pb(; x = 4.0, y = 1.0) = G.StructureDomain(L = 2.0, W = 2.0, x₀ = [x, y, 1.0], domain_symbol = :Γ_b)
-_conn(; a = :Γ_a, b = :Γ_b) = G.StructureConnection(a = a, b = b, domain_symbol = :dΛ_ab, normal_symbol = :n_Λ_ab)
+_conn(; a = :Γ_a, b = :Γ_b, domain_symbol = :dΛ_ab, normal_symbol = :n_Λ_ab) =
+  G.StructureConnection(a = a, b = b, domain_symbol = domain_symbol, normal_symbol = normal_symbol)
 
 @testset "StructureConnection — interface measure, orientation and traces" begin
   ex, ey = VectorValue(1.0, 0.0, 0.0), VectorValue(0.0, 1.0, 0.0)
@@ -238,6 +239,18 @@ end
   # plates that do not touch
   t = _tank3(structure_domains = [_pa(), _pb(x = 5.0)], structure_connections = [_conn()])
   @test_throws ErrorException G.build_triangulations(t, G.build_model(t))
+
+  function get_domains(connections, structures = [_pa(), _pb()])
+    tank = _tank3(structure_domains = structures, structure_connections = connections)
+    G.get_integration_domains(G.build_triangulations(tank, G.build_model(tank)); degree = 4)
+  end
+
+  @test_throws ErrorException get_domains([_conn(domain_symbol = :dΛ_same, normal_symbol = :dΛ_same)])
+  @test_throws ErrorException get_domains([_conn(domain_symbol = :dΓη)])
+  @test_throws ErrorException get_domains(
+    [_conn(), _conn(a = :Γ_b, b = :Γ_c, domain_symbol = :dΛ_bc, normal_symbol = :n_Λ_ab)],
+    [_pa(), _pb(x = 4.0), _pb(x = 6.0)],
+  )
 end
     
 # JointLineDomain: line joints on a 3D plate
