@@ -21,9 +21,9 @@ import HydroElasticFEM.ParameterHandler as FES
 #   3. Dry beam frequency shift: adding tension strictly increases the
 #      analytical (simply-supported) natural frequency, matching the
 #      struct's own `ωn1` field.
-#   4. Hydroelastic regression: the existing Khabakhpasheva floating-beam
-#      benchmark (which exercises the refactored EulerBernoulliBeam through
-#      AbstractHydroelasticStructure) still converges to a sane response.
+#
+# The hydroelastic regression of the refactored EulerBernoulliBeam (the
+# Khabakhpasheva floating-beam benchmark) is in KhabakhpashevaBeamJointTests.jl.
 # =========================================================================
 
 @testset "TensionedEulerBernoulliBeam weak forms" begin
@@ -149,42 +149,6 @@ import HydroElasticFEM.ParameterHandler as FES
     beam_no_EI = P.TensionedEulerBernoulliBeam(L=L, mᵨ=mᵨ, EIᵨ=0.0, Tᵨ=Tᵨ)
     membrane   = P.Membrane(L=L, mᵨ=mᵨ, Tᵨ=Tᵨ)
     @test beam_no_EI.ωn1 ≈ membrane.ωn1
-
-  end
-
-  # -----------------------------------------------------------------------
-  # Test 4 — Hydroelastic regression
-  #
-  # Reuses the existing Khabakhpasheva floating-beam benchmark (which
-  # exercises EulerBernoulliBeam's mass/damping/stiffness/rhs — now
-  # inherited from AbstractHydroelasticStructure — inside the full
-  # monolithic fluid-structure solve) at the test suite's standard coarse
-  # resolution, to confirm the refactor has not regressed the existing
-  # hydroelastic pathway.
-  # -----------------------------------------------------------------------
-  @testset "Hydroelastic regression (Khabakhpasheva benchmark)" begin
-
-    isdefined(@__MODULE__, :KhabakhpashevaBeamJointExample) ||
-      include(joinpath(@__DIR__, "..", "..", "examples", "KhabakhpashevaBeamJointExample.jl"))
-    using .KhabakhpashevaBeamJointExample
-
-    p0 = KhabakhpashevaCaseParams(
-      name       = "test_tensioned_beam_refactor_regression",
-      nx         = 2,
-      ny         = 1,
-      order      = 2,
-      ξ          = 0.0,
-      vtk_output = false,
-      make_plot  = false,
-    )
-
-    xs, eta, meta = run_khabakhpasheva_case(p0)
-
-    @test all(isfinite, eta)
-    @test length(xs) == length(eta)
-    @test all(eta .>= 0.0)
-    @test maximum(eta) > 0.1
-    @test maximum(eta) < 20.0
 
   end
 
