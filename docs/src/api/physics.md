@@ -98,4 +98,5 @@ HydroElasticFEM.Physics.equivalent_beam_rigidity
 ```@docs
 HydroElasticFEM.Physics.ResonatorSingle
 HydroElasticFEM.Physics.resonator_array
+HydroElasticFEM.Physics.attached_resonators
 ```
