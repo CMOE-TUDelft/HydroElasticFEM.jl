@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Integration domains not covered by a physics entity (C/DG skeletons such as `:Λη`, damping zones, `:Γlateral`, joints) now use the highest entity quadrature degree instead of 2, so higher-order plate skeletons are no longer under-integrated. Derived measure keys (`:dΓd_i`, `:dΛη_i`, joint measures) use the same value via a new `:default` entry of the degree dictionary instead of a hard-coded 4. Since [PR#59](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/59).
 - `build_fe_spaces` builds the resonator `ConstantFESpace`s on the volume `:Ω`. With the default host `:Γη`, assembling resonator terms failed with a Gridap type-instability error. [PR#66](https://github.com/CMOE-TUDelft/HydroElasticFEM.jl/pull/66).
+- Frequency-domain `build_problem` with a `ResonatorArray` failed in assembly (`Cannot convert ArrayBlock{ComplexF64} to ArrayBlock{Float64}`) because the real stiffness cell data mixed with complex data. Frequency-domain stiffness terms are now complex, and the default zero forcing is `ComplexF64`.
 
 ## [0.1.2 - 2026-06-17]
 

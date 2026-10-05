@@ -487,7 +487,8 @@ function _adapt_time_rhs(rhs_fn)
     (ctx, y) -> applicable(rhs_fn, AC.current_time(ctx), y) ? rhs_fn(AC.current_time(ctx), y) : rhs_fn(ctx, y)
 end
 
-_zero_rhs(fmap) = (ctx, y) -> zeros(length(fmap))
+# Complex so that point terms stay type-consistent with the complex frequency-domain matrices.
+_zero_rhs(fmap, T=Float64) = (ctx, y) -> zeros(T, length(fmap))
 
 # ─────────────────────────────────────────────────────────────
 # FE operator construction
@@ -513,7 +514,7 @@ function build_frequency_fe_operator(entities::Vector{<:P.PhysicsParameters},
                                      fmap::Dict{Symbol,Int}, X, Y;
                                      rhs_fn=nothing)
     coupling_pairs = detect_couplings(entities, ctx)
-    rhs_cb = rhs_fn === nothing ? _zero_rhs(fmap) : _adapt_frequency_rhs(rhs_fn)
+    rhs_cb = rhs_fn === nothing ? _zero_rhs(fmap, ComplexF64) : _adapt_frequency_rhs(rhs_fn)
 
     a(x, y) = _assemble_bilinear(entities, coupling_pairs, ctx, fmap, x, y)
     l(y) = _assemble_rhs_total(entities, coupling_pairs, ctx, fmap, rhs_cb(ctx, FieldMap(y, fmap)), y)
