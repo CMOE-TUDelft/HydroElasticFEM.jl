@@ -13,7 +13,6 @@ import HydroElasticFEM.Geometry as G
 
 include("FEOperatorsTests.jl")
 include("FESpaceAssemblyTests.jl")
-include("AlgebraicResidualTests.jl")
 include("SpectralForcingTests.jl")
 
 function _single_frequency_state(; H=0.2, T=5.0, h=10.0, θ=0.0)

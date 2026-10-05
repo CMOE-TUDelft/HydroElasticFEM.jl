@@ -27,8 +27,8 @@ using Gridap.FESpaces: SingleFieldFESpace
 using Gridap.MultiField: MultiFieldFESpace
 using LinearAlgebra: mul!
 
-include("AlgebraicLinearOperator.jl")
 include("SpectralForcing.jl")
+include("SpectralForcingOperator.jl")
 
 # ─────────────────────────────────────────────────────────────
 # FieldMap — symbol-indexed wrapper for FE field tuples
@@ -539,19 +539,16 @@ Build a **time-domain** `TransientLinearFEOperator`.
 - `Y` — test multi-field FE space
 - `rhs_fn` — optional callable `rhs_fn(t, y::FieldMap) -> DomainContribution`;
   if `nothing`, uses zero right-hand side (requires `:dΩ` in `dom`)
-- `algebraic_residual` — if `true` (default), wrap the operator in an
-  [`AlgebraicLinearTFEOperator`](@ref), whose per-step residual is computed
-  from the cached constant matrices (`Σ_k A_k ∂tᵏu - F(t)`), so only the
-  forcing is re-assembled.  If moreover all time dependence comes from one
-  `IncidentSea` (and no `rhs_fn` is given), the forcing itself is
-  precomputed per wave frequency ([`build_spectral_forcing`](@ref)).
-  `false` returns the plain `TransientLinearFEOperator` (full re-assembly at
-  every step).
+- If all time dependence comes from one `IncidentSea` (and no `rhs_fn` is
+    given), the forcing is precomputed per wave frequency
+    ([`build_spectral_forcing`](@ref)); otherwise the native Gridap operator is
+    returned unchanged. Gridap handles algebraic residual evaluation for
+    constant forms.
 """
 function build_time_fe_operator(entities::Vector{<:P.PhysicsParameters},
                                 base_ctx::AC.TimeAssemblyContext,
                                 fmap::Dict{Symbol,Int}, X, Y;
-                                rhs_fn=nothing, algebraic_residual::Bool=true)
+                                rhs_fn=nothing)
     coupling_pairs = detect_couplings(entities, base_ctx)
     rhs_cb = rhs_fn === nothing ? _zero_rhs(fmap) : _adapt_time_rhs(rhs_fn)
     volume_sym = _find_volume_symbol(entities, fmap)
@@ -582,10 +579,12 @@ function build_time_fe_operator(entities::Vector{<:P.PhysicsParameters},
 
     op = TransientLinearFEOperator((a, c, m), l, X, Y;
         constant_forms=(true, true, true))
-    algebraic_residual || return op
     forcing = rhs_fn === nothing ?
         build_spectral_forcing(entities, l, Y, Gridap.ODEs.get_assembler(op)) : nothing
-    return AlgebraicLinearTFEOperator(op; forcing = forcing)
+    isnothing(forcing) && return op
+    zero_load(t, u, v) = _zero_contribution(
+        AC.with_time(base_ctx, t), fmap, u, v, volume_sym)
+    return SpectralForcingTFEOperator(op, forcing, zero_load)
 end
 
 """
@@ -621,7 +620,6 @@ export FieldMap
 export detect_couplings
 export build_fe_operator
 export build_frequency_fe_operator, build_time_fe_operator
-export AlgebraicLinearTFEOperator
 export SpectralForcing, build_spectral_forcing
 export assemble_weakform
 export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs

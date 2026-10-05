@@ -110,17 +110,21 @@ end
                      u0 = zeros(3), u0t = zeros(3), u0tt = zeros(3))
   prob = SM.build_problem(tank, physics, PH.TimeDomainConfig(tf = 1.0); tconfig = tc)
   op = SM.get_fe_operator(prob)
-  @test op isa FO.AlgebraicLinearTFEOperator
+  @test op isa FO.SpectralForcingTFEOperator
   @test op.forcing isa FO.SpectralForcing
   @test length(op.forcing.ω) == 2
 
   X, Y, fmap = SM.get_trial_fe_space(prob), SM.get_test_fe_space(prob), SM.get_field_map(prob)
   ctx = SM.get_assembly_context(prob)
-  op_std = FO.build_time_fe_operator(physics, ctx, fmap, X, Y; algebraic_residual = false)
+  original_residual = Gridap.ODEs.get_res(op.op)
+  original_load(t, v) = original_residual(t, nothing, v)
+  op_std = Gridap.ODEs.TransientLinearFEOperator(
+    Gridap.ODEs.get_forms(op.op), original_load, X, Y;
+    constant_forms = (false, false, false))
 
   @testset "forcing equals the assembled right-hand side" begin
     V = Gridap.FESpaces.get_test(op_std)
-    res = Gridap.ODEs.get_res(op_std)
+    res = Gridap.ODEs.get_res(op.op)
     X0 = X(0.0)
     for t in (0.0, 0.35, 1.0, 7.3)
       F = assemble_vector(v -> res(t, zero(X0), v), V)
@@ -149,9 +153,11 @@ end
     phys2 = P.PhysicsParameters[P.PotentialFlow(fe = fe, boundary_conditions = bcs2), physics[2], physics[3]]
     @test FO._incident_seas(phys2) === nothing
     op2 = FO.build_time_fe_operator(phys2, ctx, fmap, X, Y)
-    @test op2 isa FO.AlgebraicLinearTFEOperator && op2.forcing === nothing
+    @test op2 isa Gridap.ODEs.TransientFEOperator
+    @test !(op2 isa FO.SpectralForcingTFEOperator)
     # a user rhs_fn also disables it
     op3 = FO.build_time_fe_operator(physics, ctx, fmap, X, Y; rhs_fn = (t, y) -> zeros(3))
-    @test op3.forcing === nothing
+    @test op3 isa Gridap.ODEs.TransientFEOperator
+    @test !(op3 isa FO.SpectralForcingTFEOperator)
   end
 end
