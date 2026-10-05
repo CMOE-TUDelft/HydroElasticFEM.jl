@@ -91,7 +91,7 @@ end
   μ₁(x) = 2.0 * (1 - x[1] / Ld)
   bcs = [P.PrescribedInletPotentialBC(domain = :dΓin, quantity = :velocity,
                                       forcing = P.incident_velocity(sea)),
-         P.DampingZoneBC(domain = :dΓd_1, μ₁, μ₂ = (x -> 1.0),
+         P.DampingZoneBC(domain = :dΓd_1, μ₁ = μ₁, μ₂ = (x -> 1.0),
                          η_in = P.incident_elevation(sea), vz_in = P.incident_vertical_velocity(sea)),
          P.DampingZoneBC(domain = :dΓd_2, μ₁ = (x -> 2.0), μ₂ = (x -> 1.0),
                          η_in = (x -> 0.0), vz_in = (x -> 0.0))]
