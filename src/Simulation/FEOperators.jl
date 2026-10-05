@@ -23,6 +23,9 @@ import ...AssemblyContexts as AC
 
 using Gridap
 using Gridap.ODEs
+using LinearAlgebra: mul!
+
+include("SpectralForcing.jl")
 
 # ─────────────────────────────────────────────────────────────
 # FieldMap — symbol-indexed wrapper for FE field tuples
@@ -533,7 +536,9 @@ Build a **time-domain** `TransientLinearFEOperator`.
 - `X` — trial multi-field FE space (transient)
 - `Y` — test multi-field FE space
 - `rhs_fn` — optional callable `rhs_fn(t, y::FieldMap) -> DomainContribution`;
-  if `nothing`, uses zero right-hand side (requires `:dΩ` in `dom`)
+  if `nothing`, uses zero right-hand side (requires `:dΩ` in `dom`). When
+  all time-dependent inputs come from one `IncidentSea`, the forcing is
+  precomputed by frequency and the returned operator uses the cached load.
 """
 function build_time_fe_operator(entities::Vector{<:P.PhysicsParameters},
                                 base_ctx::AC.TimeAssemblyContext,
@@ -567,8 +572,13 @@ function build_time_fe_operator(entities::Vector{<:P.PhysicsParameters},
         _assemble_rhs_total(entities, coupling_pairs, ctx, fmap, rhs_cb(ctx, FieldMap(y, fmap)), y)
     end
 
-    TransientLinearFEOperator((a, c, m), l, X, Y;
+    op = TransientLinearFEOperator((a, c, m), l, X, Y;
         constant_forms=(true, true, true))
+    if rhs_fn === nothing
+        forcing = build_spectral_forcing(entities, l, Y, Gridap.ODEs.get_assembler(op))
+        !isnothing(forcing) && return SpectralForcingTFEOperator(op, forcing)
+    end
+    return op
 end
 
 """
@@ -604,6 +614,8 @@ export FieldMap
 export detect_couplings
 export build_fe_operator
 export build_frequency_fe_operator, build_time_fe_operator
+export SpectralForcingTFEOperator
+export SpectralForcing, build_spectral_forcing
 export assemble_weakform
 export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
 export assemble_residual, assemble_jacobian, assemble_jacobian_t, assemble_jacobian_tt

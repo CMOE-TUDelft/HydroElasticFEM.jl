@@ -96,6 +96,8 @@ module HydroElasticFEM
   # Entity types — users construct instances of these
   export PhysicsParameters, print_parameters
   export PotentialFlow, FreeSurface, Membrane, EulerBernoulliBeam
+  export IncidentSea, incident_elevation, incident_potential
+  export incident_vertical_velocity, incident_velocity
   export TensionedEulerBernoulliBeam
   export KirchhoffLovePlate
   export TimoshenkoBeam
