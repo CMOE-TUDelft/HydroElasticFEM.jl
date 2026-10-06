@@ -307,7 +307,7 @@ function damping(ra::ResonatorArray, s::Structure,
         qₜi = x_t[variable_symbol(ri)]
         ξi  = y[variable_symbol(ri)]
         # force on structure from resonator velocity
-        val = _add_contribution(val, (ri.C / ri.ρw) * δi(v * ((qₜi ⋅ î1) - ηₜ)))
+        val = _add_contribution(val, (-ri.C / ri.ρw) * δi(v * ((qₜi ⋅ î1) - ηₜ)))
         # force on resonator from structure velocity
         val = _add_contribution(val, -ri.C * δi((ξi ⋅ î1) * ηₜ))
     end
