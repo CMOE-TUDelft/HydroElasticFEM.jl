@@ -331,7 +331,7 @@ weakform(s, ctx::AC.FrequencyAssemblyContext, x, y) =
         _sum_present(
             active_forms(ctx, s).mass ? (-AC.frequency(ctx)^2) * mass(s, ctx, x, y) : nothing,
             active_forms(ctx, s).damping ? (-im * AC.frequency(ctx)) * damping(s, ctx, x, y) : nothing,
-            active_forms(ctx, s).stiffness ? stiffness(s, ctx, x, y) : nothing,
+            active_forms(ctx, s).stiffness ? complex(1.0) * stiffness(s, ctx, x, y) : nothing,
         ),
         "weakform", s
     )
@@ -342,7 +342,7 @@ weakform(a, b, ctx::AC.FrequencyAssemblyContext, x, y) =
         _sum_present(
             active_forms(ctx, a, b).mass ? (-AC.frequency(ctx)^2) * mass(a, b, ctx, x, y) : nothing,
             active_forms(ctx, a, b).damping ? (-im * AC.frequency(ctx)) * damping(a, b, ctx, x, y) : nothing,
-            active_forms(ctx, a, b).stiffness ? stiffness(a, b, ctx, x, y) : nothing,
+            active_forms(ctx, a, b).stiffness ? complex(1.0) * stiffness(a, b, ctx, x, y) : nothing,
         ),
         "weakform", (a, b)
     )

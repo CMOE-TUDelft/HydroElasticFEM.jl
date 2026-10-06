@@ -79,3 +79,20 @@ end
   end
   @test qmax > 0
 end
+
+# The default zero forcing must stay type-consistent with the complex resonator
+# matrix terms in the frequency domain.
+@testset "ResonatorArray on a membrane — frequency-domain default forcing" begin
+  tank = G.TankDomain(L = 10.0, H = 2.0, nx = 20, ny = 2,
+    structure_domains = [G.StructureDomain(L = 4.0, x₀ = [3.0, 2.0])],
+    resonator_domains = [G.ResonatorDomain(location = [4.1, 2.0], delta_symbol = :δ1),
+                         G.ResonatorDomain(location = [5.7, 2.0], delta_symbol = :δ2)])
+  fe = PH.FESpaceConfig(vector_type = Vector{ComplexF64})
+  physics = P.PhysicsParameters[P.PotentialFlow(fe = fe),
+                                P.FreeSurface(fe = fe),
+                                P.Membrane(L = 4.0, mᵨ = 0.9, Tᵨ = 98.1, fe = fe),
+                                P.resonator_array(2, 100.0, 500.0, 5.0;
+                                                  delta_domain_symbols = [:δ1, :δ2], fe = fe)]
+  prob = SM.build_problem(tank, physics, SM.FreqDomainConfig(ω = 2.0))
+  @test prob !== nothing
+end
