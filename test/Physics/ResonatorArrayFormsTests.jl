@@ -36,7 +36,7 @@ import HydroElasticFEM.Simulation.FEOperators as FO
   k_ref(x, y) = sum(K[i] * δ[i](x[qs[i]] ⋅ y[qs[i]]) for i in 1:2)
   kc_ref(x, y) = sum((-K[i] / ρw) * δ[i](y[sη] * ((x[qs[i]] ⋅ e1) - x[sη])) -
                      K[i] * δ[i]((y[qs[i]] ⋅ e1) * x[sη]) for i in 1:2)
-  cc_ref(x, y) = sum((C[i] / ρw) * δ[i](y[sη] * ((x[qs[i]] ⋅ e1) - x[sη])) -
+  cc_ref(x, y) = sum((-C[i] / ρw) * δ[i](y[sη] * ((x[qs[i]] ⋅ e1) - x[sη])) -
                      C[i] * δ[i]((y[qs[i]] ⋅ e1) * x[sη]) for i in 1:2)
 
   for (name, pkg, ref) in (
