@@ -58,6 +58,16 @@ HydroElasticFEM.Physics.DampingZoneBC
 HydroElasticFEM.Physics.FreeSurface
 ```
 
+## Incident sea
+
+```@docs
+HydroElasticFEM.Physics.IncidentSea
+HydroElasticFEM.Physics.incident_elevation
+HydroElasticFEM.Physics.incident_potential
+HydroElasticFEM.Physics.incident_vertical_velocity
+HydroElasticFEM.Physics.incident_velocity
+```
+
 ## Hydroelastic structure abstraction
 
 `Membrane`, `EulerBernoulliBeam`, and `TensionedEulerBernoulliBeam` share one

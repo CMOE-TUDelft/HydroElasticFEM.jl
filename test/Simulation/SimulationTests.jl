@@ -13,6 +13,7 @@ import HydroElasticFEM.Geometry as G
 
 include("FEOperatorsTests.jl")
 include("FESpaceAssemblyTests.jl")
+include("SpectralForcingTests.jl")
 include("ZeroRhsTests.jl")
 include("TimeSchemeTests.jl")
 

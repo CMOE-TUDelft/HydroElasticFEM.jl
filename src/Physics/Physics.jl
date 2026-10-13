@@ -296,6 +296,7 @@ include("Structures/AbstractHydroelasticStructure.jl")
 
 # Entity files (struct definition + single-variable weak forms)
 include("Fluid/PotentialFlow.jl")
+include("Fluid/IncidentSea.jl")
 include("Fluid/FreeSurface.jl")
 include("Structures/Membrane.jl")
 include("Structures/EulerBernoulliBeam.jl")
@@ -494,5 +495,7 @@ export TimoshenkoBeam
 export build_kl_tensor, build_KL_tensor, check_major_symmetry
 export equivalent_beam_rigidity
 export AbstractPotentialFlowBC, RadiationBC, PrescribedInletPotentialBC, DampingZoneBC
+export IncidentSea, incident_elevation, incident_potential
+export incident_vertical_velocity, incident_velocity
 
 end # module Physics
