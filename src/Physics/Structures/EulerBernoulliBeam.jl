@@ -2,8 +2,8 @@
     JointRotationalSpring
 
 Rotational spring stiffness contribution at an interior joint of an
-`EulerBernoulliBeam` (or a [`TensionedEulerBernoulliBeam`](@ref)).  Each
-joint adds the term
+`EulerBernoulliBeam` (or a [`TensionedEulerBernoulliBeam`](@ref)), or along
+line joints of a [`KirchhoffLovePlate`](@ref).  Each joint adds the term
 
 ```math
 \\int_{\\Lambda_j} k_r \\,
@@ -20,7 +20,8 @@ connections.
 
 The `domain_symbol` and `normal_symbol` must match the keys registered in
 `IntegrationDomains` — this is done automatically by `get_integration_domains`
-when the corresponding `JointDomain` is declared in a 2D `TankDomain`.
+when the corresponding `JointDomain` (2D beam) or `JointLineDomain` (3D plate)
+is declared in the `TankDomain`.  For plates, `kᵣ` is per unit joint length.
 
 # Fields
 - `domain_symbol::Symbol` — Key for the joint skeleton `Measure` in
@@ -31,7 +32,9 @@ when the corresponding `JointDomain` is declared in a 2D `TankDomain`.
 
 # See also
 [`JointDomain`](@ref HydroElasticFEM.Geometry.JointDomain),
-[`EulerBernoulliBeam`](@ref), [`TensionedEulerBernoulliBeam`](@ref)
+[`JointLineDomain`](@ref HydroElasticFEM.Geometry.JointLineDomain),
+[`EulerBernoulliBeam`](@ref), [`TensionedEulerBernoulliBeam`](@ref),
+[`KirchhoffLovePlate`](@ref)
 """
 struct JointRotationalSpring
     domain_symbol::Symbol

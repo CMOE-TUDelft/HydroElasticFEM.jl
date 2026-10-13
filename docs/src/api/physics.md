@@ -96,6 +96,7 @@ HydroElasticFEM.Physics.JointRotationalSpring
 HydroElasticFEM.Physics.TensionedEulerBernoulliBeam
 HydroElasticFEM.Physics.KirchhoffLovePlate
 HydroElasticFEM.Physics.TimoshenkoBeam
+HydroElasticFEM.Physics.PlateConnection
 HydroElasticFEM.Physics.build_kl_tensor
 HydroElasticFEM.Physics.build_KL_tensor
 HydroElasticFEM.Physics.check_major_symmetry
@@ -107,4 +108,5 @@ HydroElasticFEM.Physics.equivalent_beam_rigidity
 ```@docs
 HydroElasticFEM.Physics.ResonatorSingle
 HydroElasticFEM.Physics.resonator_array
+HydroElasticFEM.Physics.attached_resonators
 ```

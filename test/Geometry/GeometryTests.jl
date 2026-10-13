@@ -11,5 +11,6 @@ using Test
   include("IntegrationDomainTests.jl")
   include("CartesianDomainGenericTests.jl")
   include("test_abstract_domain.jl")
+  include("PlateInterfaceSkeletonSpikeTests.jl")
 
 end

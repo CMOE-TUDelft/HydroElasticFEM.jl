@@ -177,11 +177,19 @@ function build_fe_spaces(entities,
         if entity isa P.ResonatorArray
             resn = entity.resonators
             isempty(resn) && throw(ArgumentError("Resonator array at position $ientity of the `entities` collection must be non-empty."))
+            # Resonators of one array may be hosted on different structures
+            # (each couples to the structure on its host domain).
             domain_symbol = resn[1].host_domain_symbol
-            found_symbols = unique(getfield.(resn, :host_domain_symbol))
-            length(found_symbols) > 1 &&
-                throw(ArgumentError("Resonator array at position $ientity in `entities` has inconsistent `host_domain_symbol` values. Expected all to be :$domain_symbol, but found: $found_symbols"))
-            trian = trians[domain_symbol]
+            for host in unique(getfield.(resn, :host_domain_symbol))
+                haskey(trians, host) ||
+                    throw(ArgumentError("Resonator host domain :$host not found in triangulations."))
+            end
+            # A resonator DOF is a single global unknown: its ConstantFESpace
+            # lives on the volume Ω.  A ConstantFESpace on a surface view such
+            # as :Γη cannot be restricted to the Dirac-delta triangulation
+            # (Gridap type-instability), while the point terms δᵢ built on the
+            # host surface assemble fine against a space on Ω.
+            trian = haskey(trians, :Ω) ? trians[:Ω] : trians[domain_symbol]
             Vs = build_test_fe_space(entity, trian, config)
             Us = build_trial_fe_space(entity, Vs, config)
             for (i, (Vi, Ui)) in enumerate(zip(Vs, Us))
@@ -191,6 +199,8 @@ function build_fe_spaces(entities,
                 fmap[P.variable_symbol(resn[i])] = idx
             end
         elseif entity isa P.PhysicsParameters
+            # Coupling entities without fields of their own (e.g. PlateConnection)
+            isempty(P.variable_symbols(entity)) && continue
             trian = trians[entity.space_domain_symbol]
             for (sym, fe_cfg) in zip(P.variable_symbols(entity),
                                      P.field_fe_configs(entity))
