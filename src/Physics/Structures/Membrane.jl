@@ -24,6 +24,8 @@ membrane's elastic operator, [`stiffness_operator`](@ref) (pre-tension), via
 - `symbol::Symbol`     — Field unknown symbol; default `:η_m`
 - `space_domain_symbol::Symbol` — Triangulation key for FE spaces; default `:Γη`
 - `fe::FESpaceConfig`  — FE discretisation parameters
+- `damping_zones::Vector{StructuralDampingZone}` — Position-dependent damping
+  zones (wave absorbers); default none. See [`StructuralDampingZone`](@ref).
 - `ωn1::Float64`       — First dry analytical natural frequency [rad/s], derived as
   `(π/L) * √(Tᵨ/mᵨ)` for the 1D canonical case
 
@@ -48,6 +50,7 @@ membrane's elastic operator, [`stiffness_operator`](@ref) (pre-tension), via
   symbol::Symbol = :η_m
   space_domain_symbol::Symbol = :Γη
   fe::FESpaceConfig = FESpaceConfig()
+  damping_zones::Vector{StructuralDampingZone} = StructuralDampingZone[]
 
   # 1st dry analytical natural frequency for the canonical 1D case.
   ωn1::Float64 = (π / L) * sqrt(Tᵨ / mᵨ)
@@ -100,9 +103,14 @@ reproduces the Rayleigh damping form `∫ Tρ·τ·∇v·∇ηₜ dΓ`.
 [A24] Agarwal et al. (2024), J. Fluids Struct., 129, 104167.
 """
 function stiffness_operator(m::Membrane, dom::IntegrationDomains, x, y)
+  stiffness_operator(m, dom, x, y, nothing)
+end
+
+function stiffness_operator(m::Membrane, dom::IntegrationDomains, x, y, weight)
   sym = variable_symbol(m)
   η = x[sym]
   v = y[sym]
   dΩ = _space_measure(dom, m)
-  ∫(m.Tᵨ * ∇(v) ⋅ ∇(η))dΩ
+  T = materialize(_weighted(m.Tᵨ, weight), get_triangulation(v))
+  ∫(T * ∇(v) ⋅ ∇(η))dΩ
 end

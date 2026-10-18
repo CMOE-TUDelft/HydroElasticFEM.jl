@@ -54,6 +54,8 @@ via [`extra_stiffness_form`](@ref) (not subject to Rayleigh damping).
 - `symbol::Symbol` — Field unknown symbol; default `:η_tb`
 - `space_domain_symbol::Symbol` — Triangulation key used for FE spaces; default `:Γη`
 - `fe::FESpaceConfig` — FE discretisation parameters
+- `damping_zones::Vector{StructuralDampingZone}` — Position-dependent damping
+  zones (wave absorbers); default none. See [`StructuralDampingZone`](@ref).
 - `ωn1::Union{Float64,Nothing}` — First dry analytical natural frequency
   [rad/s] for the canonical simply-supported 1D case, `√(EIᵨ/mᵨ·(π/L)⁴ +
   Tᵨ/mᵨ·(π/L)²)` (the same simply-supported convention as [`Membrane`](@ref)'s
@@ -89,6 +91,7 @@ See also: [`Membrane`](@ref), [`EulerBernoulliBeam`](@ref),
     symbol::Symbol = :η_tb
     space_domain_symbol::Symbol = :Γη
     fe::FESpaceConfig = FESpaceConfig()
+    damping_zones::Vector{StructuralDampingZone} = StructuralDampingZone[]
 
     # Derived quantity: dry natural frequency for the canonical simply-supported
     # 1D case, ω₁² = (EI/m)(π/L)⁴ + (T/m)(π/L)² — same convention as Membrane's ωn1.
@@ -133,11 +136,17 @@ Rayleigh damping is applied proportionally to both the bending and tension
 parts of the stiffness.
 """
 function stiffness_operator(s::TensionedEulerBernoulliBeam, dom::IntegrationDomains, x, y)
+    stiffness_operator(s, dom, x, y, nothing)
+end
+
+function stiffness_operator(s::TensionedEulerBernoulliBeam, dom::IntegrationDomains, x, y, weight)
     sym = variable_symbol(s)
     η = x[sym]
     v = y[sym]
     dΩ = _space_measure(dom, s)
-    _eb_bending_stiffness_operator(s.EIᵨ, s.fe.γ, η, v, dom, dΩ) + ∫(s.Tᵨ * ∇(v) ⋅ ∇(η))dΩ
+    EI = _weighted(s.EIᵨ, weight)
+    T = materialize(_weighted(s.Tᵨ, weight), get_triangulation(v))
+    _eb_bending_stiffness_operator(EI, s.fe.γ, η, v, dom, dΩ) + ∫(T * ∇(v) ⋅ ∇(η))dΩ
 end
 
 """
