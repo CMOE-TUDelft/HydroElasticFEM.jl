@@ -103,6 +103,8 @@ module HydroElasticFEM
   # Physics helper functions
   export build_kl_tensor, build_KL_tensor
   export equivalent_beam_rigidity
+  # Wave absorbers on structures
+  export StructuralDampingZone, ramp_profile
   # Extension interface — needed by users implementing new physics models
   export variable_symbol
   export has_mass_form, has_damping_form, has_stiffness_form, has_rhs_form
