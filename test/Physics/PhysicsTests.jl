@@ -34,6 +34,10 @@ end
   @testset "Resonator host coupling" include("ResonatorHostCouplingTests.jl")
   @testset "FreeSurface" include("FreeSurfaceTests.jl")
   @testset "DampingZone consistency" include("DampingZoneConsistencyTests.jl")
+  @testset "StructuralDampingZone" include("StructuralDampingZoneTests.jl")
+  @testset "StructuralDampingZone dispersion" include("StructuralDampingZoneDispersionTests.jl")
+  @testset "StructuralDampingZone time domain" include("StructuralDampingZoneTimeDomainTests.jl")
+  @testset "StructuralDampingZone 3D plate" include("StructuralDampingZone3DTests.jl")
   @testset "Helpers" include("HelpersTests.jl")
   @testset "Velocity Neumann BC" include("VelocityNeumannBCTests.jl")
 

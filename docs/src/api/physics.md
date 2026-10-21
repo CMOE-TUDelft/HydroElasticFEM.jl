@@ -103,6 +103,18 @@ HydroElasticFEM.Physics.check_major_symmetry
 HydroElasticFEM.Physics.equivalent_beam_rigidity
 ```
 
+## Structural damping zones
+
+Wave absorbers on a structure that models an infinite one: a viscous dashpot
+and/or a Kelvin-Voigt term, weighted by a zone profile, added to the
+structure's `damping` form.
+
+```@docs
+HydroElasticFEM.Physics.StructuralDampingZone
+HydroElasticFEM.Physics.ramp_profile
+HydroElasticFEM.Physics.damping_zones
+```
+
 ## Resonators
 
 ```@docs

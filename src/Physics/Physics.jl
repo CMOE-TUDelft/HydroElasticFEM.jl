@@ -292,6 +292,7 @@ _require_nonempty(val, kind, obj) =
 # Shared hydroelastic-structure abstraction (mass/hydrostatic-stiffness/rhs,
 # and stiffness-proportional Rayleigh damping, held in common). Must be
 # included before any Structure that subtypes it.
+include("Structures/StructuralDampingZone.jl")
 include("Structures/AbstractHydroelasticStructure.jl")
 
 # Entity files (struct definition + single-variable weak forms)
@@ -485,6 +486,7 @@ export weakform, residual, jacobian, jacobian_t, jacobian_tt
 # stiffness_operator instead of mass/damping/stiffness/rhs directly).
 export mass_density, damping_parameter, gravitational_acceleration
 export stiffness_operator, extra_stiffness_form
+export StructuralDampingZone, ramp_profile, damping_zones
 export PotentialFlow, FreeSurface, Membrane
 export JointRotationalSpring, EulerBernoulliBeam, Resonator
 export attached_resonators
