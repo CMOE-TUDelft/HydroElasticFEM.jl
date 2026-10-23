@@ -24,6 +24,7 @@ makedocs(
             "Architecture"             => "guide/architecture.md",
             "Adding a New Structure"   => "guide/adding_structure.md",
             "Debugging"                => "guide/debugging.md",
+            "Linear Solvers"           => "guide/linear_solvers.md",
         ],
         "API Reference" => [
             "Overview"          => "api/index.md",
