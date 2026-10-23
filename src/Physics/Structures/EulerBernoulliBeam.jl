@@ -2,8 +2,8 @@
     JointRotationalSpring
 
 Rotational spring stiffness contribution at an interior joint of an
-`EulerBernoulliBeam` (or a [`TensionedEulerBernoulliBeam`](@ref)).  Each
-joint adds the term
+`EulerBernoulliBeam` (or a [`TensionedEulerBernoulliBeam`](@ref)), or along
+line joints of a [`KirchhoffLovePlate`](@ref).  Each joint adds the term
 
 ```math
 \\int_{\\Lambda_j} k_r \\,
@@ -20,7 +20,8 @@ connections.
 
 The `domain_symbol` and `normal_symbol` must match the keys registered in
 `IntegrationDomains` — this is done automatically by `get_integration_domains`
-when the corresponding `JointDomain` is declared in a 2D `TankDomain`.
+when the corresponding `JointDomain` (2D beam) or `JointLineDomain` (3D plate)
+is declared in the `TankDomain`.  For plates, `kᵣ` is per unit joint length.
 
 # Fields
 - `domain_symbol::Symbol` — Key for the joint skeleton `Measure` in
@@ -31,7 +32,9 @@ when the corresponding `JointDomain` is declared in a 2D `TankDomain`.
 
 # See also
 [`JointDomain`](@ref HydroElasticFEM.Geometry.JointDomain),
-[`EulerBernoulliBeam`](@ref), [`TensionedEulerBernoulliBeam`](@ref)
+[`JointLineDomain`](@ref HydroElasticFEM.Geometry.JointLineDomain),
+[`EulerBernoulliBeam`](@ref), [`TensionedEulerBernoulliBeam`](@ref),
+[`KirchhoffLovePlate`](@ref)
 """
 struct JointRotationalSpring
     domain_symbol::Symbol
@@ -118,6 +121,8 @@ elastic operator via [`stiffness_operator`](@ref) (bending, via
 - `symbol::Symbol` — Field unknown symbol; default `:η_b`
 - `space_domain_symbol::Symbol` — Triangulation key used for FE spaces; default `:Γη`
 - `fe::FESpaceConfig` — FE discretisation parameters
+- `damping_zones::Vector{StructuralDampingZone}` — Position-dependent damping
+  zones (wave absorbers); default none. See [`StructuralDampingZone`](@ref).
 - `ωn1::Union{Float64,Nothing}` — First dry analytical natural frequency [rad/s], derived
   from `EIᵨ` and `mᵨ` for clamped-free; `nothing` when `EIᵨ` is a `Function`
 
@@ -145,6 +150,7 @@ See also: [`JointRotationalSpring`](@ref), [`JointDomain`](@ref),
     symbol::Symbol = :η_b
     space_domain_symbol::Symbol = :Γη
     fe::FESpaceConfig = FESpaceConfig()
+    damping_zones::Vector{StructuralDampingZone} = StructuralDampingZone[]
 
     # Derived quantities
     ωn1::Union{Float64, Nothing} = EIᵨ isa Float64 ? 22.3733 * sqrt(EIᵨ / (mᵨ * L^4)) : nothing
@@ -182,11 +188,16 @@ since `τ` commutes linearly through `mean`/`jump`/`∫`.
 [C23] Colomés et al. (2023), Section 3.1, Eq. (16)-(20).
 """
 function stiffness_operator(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y)
+    stiffness_operator(s, dom, x, y, nothing)
+end
+
+function stiffness_operator(s::EulerBernoulliBeam, dom::IntegrationDomains, x, y, weight)
     sym = variable_symbol(s)
     η = x[sym]
     v = y[sym]
     dΩ = _space_measure(dom, s)
-    _eb_bending_stiffness_operator(s.EIᵨ, s.fe.γ, η, v, dom, dΩ)
+    EI = _weighted(s.EIᵨ, weight)
+    _eb_bending_stiffness_operator(EI, s.fe.γ, η, v, dom, dΩ)
 end
 
 """

@@ -17,6 +17,8 @@ HydroElasticFEM.ParameterHandler.FESpaceConfig
 
 ```@docs
 HydroElasticFEM.ParameterHandler.TimeConfig
+HydroElasticFEM.ParameterHandler.time_integration_parameters
+HydroElasticFEM.ParameterHandler.stabilization_αₕ 
 ```
 
 ## Simulation configuration

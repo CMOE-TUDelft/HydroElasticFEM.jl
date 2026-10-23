@@ -54,15 +54,16 @@ end
 
 Solve a fully assembled **time-domain** hydroelastic problem.
 
-Builds a `GeneralizedAlpha2` ODE solver from `tconfig`, interpolates initial
-conditions, and integrates the system over `[t₀, tf]`.  Returns the ODE solution
+Builds the ODE solver selected by `tconfig.scheme` (`GeneralizedAlpha2` with
+`ρ∞`, or `Newmark` with `γ`, `β`), interpolates initial conditions (zero
+fields when `u0 = nothing`), and integrates the system over `[t₀, tf]`.  Returns the ODE solution
 wrapped in a `SimResult`.
 
 # Arguments
 - `problem::HEFEM_Problem{TimeDomainConfig}`: assembled problem container returned
   by `build_problem` with a `TimeDomainConfig` simulation config
-- `tconfig::TimeConfig`: time-stepping parameters (time step `Δt`, spectral radius
-  `ρ∞`, initial conditions `u0`, `u0t`, `u0tt`, time window `t₀` to `tf`)
+- `tconfig::TimeConfig`: time-stepping parameters (time step `Δt`, `scheme` and
+  its parameters, initial conditions `u0`, `u0t`, `u0tt`, time window `t₀` to `tf`)
 
 # Returns
 - `result::SimResult`: contains FE spaces, transient operator, and ODE solution iterator
@@ -91,15 +92,23 @@ function simulate(problem::HEFEM_Problem{PH.TimeDomainConfig}, tconfig::TimeConf
     config = get_sim_config(problem)
 
     ls = isnothing(config.solver) ? LUSolver() : config.solver
-    ode_solver = GeneralizedAlpha2(ls, tconfig.Δt, tconfig.ρ∞)
+    ode_solver = _ode_solver(tconfig, ls)
 
-    # Interpolate initial conditions
+    # Interpolate initial conditions (`u0 = nothing`: start from rest)
     X0 = X(tconfig.t₀)
-    u0   = interpolate_everywhere(tconfig.u0, X0)
-    u0t  = isnothing(tconfig.u0t) ? interpolate_everywhere(tconfig.u0, X0) : interpolate_everywhere(tconfig.u0t, X0)
-    u0tt = isnothing(tconfig.u0tt) ? interpolate_everywhere(tconfig.u0, X0) : interpolate_everywhere(tconfig.u0tt, X0)
+    _init(v) = isnothing(v) ? zero(X0) : interpolate_everywhere(v, X0)
+    u0   = _init(tconfig.u0)
+    u0t  = isnothing(tconfig.u0t)  ? _init(tconfig.u0) : _init(tconfig.u0t)
+    u0tt = isnothing(tconfig.u0tt) ? _init(tconfig.u0) : _init(tconfig.u0tt)
 
     solution = solve(ode_solver, op, tconfig.t₀, tconfig.tf, (u0, u0t, u0tt))
 
     SimResult(X, Y, fmap, op, solution)
+end
+
+function _ode_solver(tconfig::TimeConfig, ls)
+    if tconfig.scheme === :newmark
+        return Newmark(ls, tconfig.Δt, tconfig.γ, tconfig.β)
+    end
+    return GeneralizedAlpha2(ls, tconfig.Δt, tconfig.ρ∞)
 end

@@ -124,8 +124,9 @@ the assembled system matrices are dimensionally consistent with the
 `mass`, the hydrostatic part of `stiffness`, and `rhs` are inherited from
 [`AbstractHydroelasticStructure`](@ref); this file only supplies
 [`mass_density`](@ref) and the elastic Hessian C/DG
-[`stiffness_operator`](@ref). `has_damping_form(::KirchhoffLovePlate) =
-false`, so `damping_parameter` is not implemented.
+[`stiffness_operator`](@ref). The plate has no uniform structural damping
+(`damping_parameter = 0`); `has_damping_form` is `true` only when it has
+enabled `damping_zones`.
 
 # Fields
 - `E::Float64`            — Young's modulus [Pa]
@@ -139,6 +140,13 @@ false`, so `damping_parameter` is not implemented.
 - `symbol::Symbol`        — Field unknown symbol; default `:η`
 - `space_domain_symbol::Symbol` — Triangulation key used for FE spaces; default `:Γη`
 - `fe::FESpaceConfig`     — FE discretisation parameters
+- `joints::Vector{JointRotationalSpring}` — rotational springs on plate line
+  joints declared with a `JointLineDomain` (default: none).  `kᵣ` is the
+  moment per unit joint length per radian divided by the fluid density,
+  `[N·m/rad/m / ρ]`.  A free hinge needs only the `JointLineDomain` (no
+  spring, or `kᵣ = 0`); a rigid connection is simply not declared as a joint.
+- `damping_zones::Vector{StructuralDampingZone}` — Position-dependent damping
+  zones (wave absorbers); default none. See [`StructuralDampingZone`](@ref).
 - `C`                     — Constitutive tensor `SymFourthOrderTensorValue{ambient_dim}`,
                             computed automatically via [`build_kl_tensor`](@ref).
                             The scalar `C[1,1,1,1] = D/ρ` where `D = E·h³/(12(1-ν²))`.
@@ -149,6 +157,12 @@ false`, so `damping_parameter` is not implemented.
 - `ambient_dim = 3, manifold_dim = 2` is the canonical 3D floating plate.
 - The rotational penalty coefficient `γ` in `fe.γ` should be set to
   `O(p²)` (the default `10 * p^2` in `FESpaceConfig` is recommended).
+  `γ = p(p+1)` (e.g. `γ = 6.0` for `p = 2`) reproduces the hand-written 3D
+  plate scripts that use that convention.
+- Joint facets (from a `JointLineDomain`) are excluded from the C/DG
+  skeleton, so the slope may jump there; the joint term is
+  `∫ kᵣ [[∇v⋅n]] [[∇η⋅n]] dΛj`, which for a C0 deflection equals
+  `∫ kᵣ [[∇v]]⋅[[∇η]] dΛj`.
 
 # Example
 ```julia
@@ -181,6 +195,8 @@ See also: [`build_kl_tensor`](@ref), [`equivalent_beam_rigidity`](@ref)
   symbol::Symbol = :η
   space_domain_symbol::Symbol = :Γη
   fe::FESpaceConfig = FESpaceConfig()
+  joints::Vector{JointRotationalSpring} = JointRotationalSpring[]
+  damping_zones::Vector{StructuralDampingZone} = StructuralDampingZone[]
   C = build_kl_tensor(ambient_dim, manifold_dim, E, ν, hb, ρ)
 end
 
@@ -215,7 +231,8 @@ end
 #
 # The Kirchhoff-Love plate is discretised with an interior-penalty C/DG
 # approach (Engel et al. 2002; Colomes et al. 2023, §3.2, eqs. 24-25).
-# No intrinsic structural damping is implemented (has_damping_form = false).
+# No uniform structural damping; damping forms only come from
+# `damping_zones` (has_damping_form = true only when zones are enabled).
 # Fluid-structure coupling damping is inherited via Structure <: PhysicsParameters
 # through the PotentialFlow↔Structure pair in CouplingTerms.jl.
 #
@@ -247,12 +264,15 @@ end
 # ==========================================================================
 
 """
-    has_damping_form(::KirchhoffLovePlate)
+    has_damping_form(plate::KirchhoffLovePlate)
 
-The plate has no structural damping term; returns `false`.
-FSI coupling damping is provided separately via `CouplingTerms.jl`.
+`true` only when the plate has enabled [`StructuralDampingZone`](@ref)s:
+the plate has no uniform structural damping. FSI coupling damping is
+provided separately via `CouplingTerms.jl`.
 """
-has_damping_form(::KirchhoffLovePlate) = false
+has_damping_form(plate::KirchhoffLovePlate) = has_damping_zones(plate)
+
+damping_parameter(::KirchhoffLovePlate) = 0.0
 
 """
     mass_density(plate::KirchhoffLovePlate) -> Float64
@@ -273,27 +293,56 @@ the shared [`stiffness`](@ref) default, via
 
 Uses interior-penalty stabilisation with penalty coefficient
 `(γ / h) * C[1,1,1,1]` where γ comes from `plate.fe.γ`.
+
+The skeleton measure, normal and element size are those of the plate's own
+space domain (see `Geometry.skeleton_keys`): the global `:dΛη`/`:n_Λ_η`/`:h_η`
+when `space_domain_symbol == :Γη`, and `:dΛ_<sym>`/`:n_Λ_<sym>`/`:h_<sym>`
+for a plate living on its own structure domain, so that several plates with
+separate fields do not share C/DG facets.
 """
 function stiffness_operator(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
+  stiffness_operator(s, dom, x, y, nothing)
+end
+
+# Moment `C ⊙ ∇∇η`, multiplied by the weight σ when one is given.
+_scaled(a, ::Nothing) = a
+_scaled(a, σ) = σ * a
+
+function stiffness_operator(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y, weight)
   sym  = variable_symbol(s)
   η    = x[sym]
   v    = y[sym]
   D_ρ  = s.C[1, 1, 1, 1]   # bending stiffness / ρ_fluid = D/ρ [m⁴/s²]
   γ    = s.fe.γ
-  h    = dom[:h_η]
-  n_Λ  = dom[:n_Λ_η]
+  dΛ_key, n_key, h_key = skeleton_keys(s.space_domain_symbol)
+  h    = dom[h_key]
+  n_Λ  = dom[n_key]
+  dΛ   = dom[dΛ_key]
   dΩ   = _space_measure(dom, s)
+  σ    = isnothing(weight) ? nothing : materialize(weight, get_triangulation(v))
+  σ_Λ  = isnothing(σ) ? nothing : mean(σ)
 
   # Kirchhoff-Love plate C/DG formulation.
   # Bulk term: ∫_Γb ∇∇v ⊙ (C ⊙ ∇∇η) dΓ.
   # Skeleton terms: consistency + symmetry + penalty.
   # Reference: [C23] Section 3.2, Eq. (24)-(25).
-  bulk = ∫(∇∇(v) ⊙ (s.C ⊙ ∇∇(η)))dΩ
+  bulk = ∫(∇∇(v) ⊙ _scaled(s.C ⊙ ∇∇(η), σ))dΩ
 
   skeleton = ∫(
-    -jump(∇(v)) ⊙ (mean(s.C ⊙ ∇∇(η))⋅n_Λ.⁺) 
-    - (mean((s.C ⊙ ∇∇(v)))⋅n_Λ.⁺) ⊙ jump(∇(η)) 
-    + D_ρ*γ/h*jump(∇(v))⊙jump(∇(η)) )dom[:dΛη]
+    -jump(∇(v)) ⊙ (mean(_scaled(s.C ⊙ ∇∇(η), σ))⋅n_Λ.⁺) 
+    - (mean(_scaled(s.C ⊙ ∇∇(v), σ))⋅n_Λ.⁺) ⊙ jump(∇(η)) 
+    + _scaled(D_ρ*γ/h*jump(∇(v))⊙jump(∇(η)), σ_Λ) )dΛ
 
   return bulk + skeleton
+end
+
+"""
+    extra_stiffness_form(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
+
+Rotational-spring joint contributions at `s.joints` (plate line joints), via
+the shared `_joint_stiffness_form`.  Returns `nothing` without joints.
+"""
+function extra_stiffness_form(s::KirchhoffLovePlate, dom::IntegrationDomains, x, y)
+  sym = variable_symbol(s)
+  _joint_stiffness_form(s.joints, x[sym], y[sym], dom)
 end

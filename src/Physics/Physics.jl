@@ -292,14 +292,17 @@ _require_nonempty(val, kind, obj) =
 # Shared hydroelastic-structure abstraction (mass/hydrostatic-stiffness/rhs,
 # and stiffness-proportional Rayleigh damping, held in common). Must be
 # included before any Structure that subtypes it.
+include("Structures/StructuralDampingZone.jl")
 include("Structures/AbstractHydroelasticStructure.jl")
 
 # Entity files (struct definition + single-variable weak forms)
 include("Fluid/PotentialFlow.jl")
+include("Fluid/IncidentSea.jl")
 include("Fluid/FreeSurface.jl")
 include("Structures/Membrane.jl")
 include("Structures/EulerBernoulliBeam.jl")
 include("Structures/KirchhoffLovePlate.jl")
+include("Structures/PlateConnection.jl")
 include("Structures/Resonator.jl")
 include("Structures/TimoshenkoBeam.jl")
 
@@ -330,7 +333,7 @@ weakform(s, ctx::AC.FrequencyAssemblyContext, x, y) =
         _sum_present(
             active_forms(ctx, s).mass ? (-AC.frequency(ctx)^2) * mass(s, ctx, x, y) : nothing,
             active_forms(ctx, s).damping ? (-im * AC.frequency(ctx)) * damping(s, ctx, x, y) : nothing,
-            active_forms(ctx, s).stiffness ? stiffness(s, ctx, x, y) : nothing,
+            active_forms(ctx, s).stiffness ? complex(1.0) * stiffness(s, ctx, x, y) : nothing,
         ),
         "weakform", s
     )
@@ -341,7 +344,7 @@ weakform(a, b, ctx::AC.FrequencyAssemblyContext, x, y) =
         _sum_present(
             active_forms(ctx, a, b).mass ? (-AC.frequency(ctx)^2) * mass(a, b, ctx, x, y) : nothing,
             active_forms(ctx, a, b).damping ? (-im * AC.frequency(ctx)) * damping(a, b, ctx, x, y) : nothing,
-            active_forms(ctx, a, b).stiffness ? stiffness(a, b, ctx, x, y) : nothing,
+            active_forms(ctx, a, b).stiffness ? complex(1.0) * stiffness(a, b, ctx, x, y) : nothing,
         ),
         "weakform", (a, b)
     )
@@ -483,13 +486,18 @@ export weakform, residual, jacobian, jacobian_t, jacobian_tt
 # stiffness_operator instead of mass/damping/stiffness/rhs directly).
 export mass_density, damping_parameter, gravitational_acceleration
 export stiffness_operator, extra_stiffness_form
+export StructuralDampingZone, ramp_profile, damping_zones
 export PotentialFlow, FreeSurface, Membrane
 export JointRotationalSpring, EulerBernoulliBeam, Resonator
+export attached_resonators
 export TensionedEulerBernoulliBeam
 export KirchhoffLovePlate
+export PlateConnection
 export TimoshenkoBeam
 export build_kl_tensor, build_KL_tensor, check_major_symmetry
 export equivalent_beam_rigidity
 export AbstractPotentialFlowBC, RadiationBC, PrescribedInletPotentialBC, DampingZoneBC
+export IncidentSea, incident_elevation, incident_potential
+export incident_vertical_velocity, incident_velocity
 
 end # module Physics

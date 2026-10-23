@@ -23,6 +23,12 @@ import ...AssemblyContexts as AC
 
 using Gridap
 using Gridap.ODEs
+using Gridap.FESpaces: SingleFieldFESpace
+using Gridap.MultiField: MultiFieldFESpace
+using LinearAlgebra: mul!
+
+include("SpectralForcing.jl")
+include("SpectralForcingOperator.jl")
 
 # ─────────────────────────────────────────────────────────────
 # FieldMap — symbol-indexed wrapper for FE field tuples
@@ -283,7 +289,8 @@ function _assemble_rhs_total(entities, coupling_pairs, ctx::AC.AbstractAssemblyC
             val = P._add_contribution(val, P.rhs(ea, eb, ctx, fd, yd))
         end
     end
-    isnothing(val) && error("No active rhs contributions found")
+    # All forcing is zero (no rhs_fn, no forcing BCs): empty linear form.
+    isnothing(val) && return Gridap.CellData.DomainContribution()
     return val
 end
 
@@ -486,7 +493,8 @@ function _adapt_time_rhs(rhs_fn)
     (ctx, y) -> applicable(rhs_fn, AC.current_time(ctx), y) ? rhs_fn(AC.current_time(ctx), y) : rhs_fn(ctx, y)
 end
 
-_zero_rhs(fmap) = (ctx, y) -> zeros(length(fmap))
+# Complex so that point terms stay type-consistent with the complex frequency-domain matrices.
+_zero_rhs(fmap, T=Float64) = (ctx, y) -> zeros(T, length(fmap))
 
 # ─────────────────────────────────────────────────────────────
 # FE operator construction
@@ -512,7 +520,7 @@ function build_frequency_fe_operator(entities::Vector{<:P.PhysicsParameters},
                                      fmap::Dict{Symbol,Int}, X, Y;
                                      rhs_fn=nothing)
     coupling_pairs = detect_couplings(entities, ctx)
-    rhs_cb = rhs_fn === nothing ? _zero_rhs(fmap) : _adapt_frequency_rhs(rhs_fn)
+    rhs_cb = rhs_fn === nothing ? _zero_rhs(fmap, ComplexF64) : _adapt_frequency_rhs(rhs_fn)
 
     a(x, y) = _assemble_bilinear(entities, coupling_pairs, ctx, fmap, x, y)
     l(y) = _assemble_rhs_total(entities, coupling_pairs, ctx, fmap, rhs_cb(ctx, FieldMap(y, fmap)), y)
@@ -533,6 +541,11 @@ Build a **time-domain** `TransientLinearFEOperator`.
 - `Y` — test multi-field FE space
 - `rhs_fn` — optional callable `rhs_fn(t, y::FieldMap) -> DomainContribution`;
   if `nothing`, uses zero right-hand side (requires `:dΩ` in `dom`)
+- If all time dependence comes from one `IncidentSea` (and no `rhs_fn` is
+    given), the forcing is precomputed per wave frequency
+    ([`build_spectral_forcing`](@ref)); otherwise the native Gridap operator is
+    returned unchanged. Gridap handles algebraic residual evaluation for
+    constant forms.
 """
 function build_time_fe_operator(entities::Vector{<:P.PhysicsParameters},
                                 base_ctx::AC.TimeAssemblyContext,
@@ -566,8 +579,14 @@ function build_time_fe_operator(entities::Vector{<:P.PhysicsParameters},
         _assemble_rhs_total(entities, coupling_pairs, ctx, fmap, rhs_cb(ctx, FieldMap(y, fmap)), y)
     end
 
-    TransientLinearFEOperator((a, c, m), l, X, Y;
+    op = TransientLinearFEOperator((a, c, m), l, X, Y;
         constant_forms=(true, true, true))
+    forcing = rhs_fn === nothing ?
+        build_spectral_forcing(entities, l, Y, Gridap.ODEs.get_assembler(op)) : nothing
+    isnothing(forcing) && return op
+    zero_load(t, u, v) = _zero_contribution(
+        AC.with_time(base_ctx, t), fmap, u, v, volume_sym)
+    return SpectralForcingTFEOperator(op, forcing, zero_load)
 end
 
 """
@@ -603,6 +622,7 @@ export FieldMap
 export detect_couplings
 export build_fe_operator
 export build_frequency_fe_operator, build_time_fe_operator
+export SpectralForcing, build_spectral_forcing
 export assemble_weakform
 export assemble_mass, assemble_damping, assemble_stiffness, assemble_rhs
 export assemble_residual, assemble_jacobian, assemble_jacobian_t, assemble_jacobian_tt

@@ -25,8 +25,8 @@ Access entries with `trians[:key]` or `haskey(trians, :key)`.
 | `:Γ_structures`  | `Vector`         | One entry per `StructureDomain`, same order          |
 | `:Γ_dampings`    | `Vector`         | One entry per `DampingZone` / damping group          |
 | `:Λη`            | `Triangulation`  | Beam skeleton on `Γη` (excluding joint facets)       |
-| `:Λ_joints`      | `Vector`         | One skeleton sub-triangulation per `JointDomain`     |
-| `:joint_domains` | `Vector`         | `JointDomain` objects in the same order as `:Λ_joints` |
+| `:Λ_joints`      | `Vector`         | One skeleton sub-triangulation per joint descriptor   |
+| `:joint_domains` | `Vector`         | Joint descriptors in the same order as `:Λ_joints`    |
 | `:resonator_domains` | `Vector`    | `ResonatorDomain` point descriptors                  |
 | `:Λ_structures`  | `Vector`         | Interior skeleton of each structure (joint facets excluded) |
 | `:∂Γ_structures` | `Vector`         | Boundary of each structure (2D end points, 3D edge curve) |

@@ -120,6 +120,42 @@ function stiffness_operator(s::AbstractHydroelasticStructure, dom::IntegrationDo
 end
 
 """
+    stiffness_operator(s::AbstractHydroelasticStructure, dom::IntegrationDomains, x, y, weight)
+
+Elastic stiffness operator with every material coefficient multiplied by the
+space function `weight(x)` (bulk and skeleton terms alike). `weight =
+nothing` is the unweighted operator. Used by the Kelvin-Voigt part of a
+[`StructuralDampingZone`](@ref), whose coefficient varies in space and so
+cannot be factored out of the operator like the scalar `τ`.
+
+Structures without a weighted implementation support `weight = nothing`
+only.
+"""
+function stiffness_operator(s::AbstractHydroelasticStructure, dom::IntegrationDomains, x, y, weight)
+    isnothing(weight) && return stiffness_operator(s, dom, x, y)
+    error("weighted stiffness_operator not implemented for $(typeof(s))")
+end
+
+# Material coefficient `c` (number or space function) multiplied by the
+# space function `w`; `w = nothing` leaves `c` unchanged.
+_weighted(c, ::Nothing) = c
+_weighted(c::Number, w::Function) = x -> c * w(x)
+_weighted(c::Function, w::Function) = x -> c(x) * w(x)
+
+"""
+    damping_zones(s::AbstractHydroelasticStructure) -> Vector{StructuralDampingZone}
+
+The structure's [`StructuralDampingZone`](@ref)s (its `damping_zones` field),
+or an empty vector for a structure without that field.
+"""
+function damping_zones(s::AbstractHydroelasticStructure)
+    hasproperty(s, :damping_zones) ? s.damping_zones : StructuralDampingZone[]
+end
+
+has_damping_zones(s::AbstractHydroelasticStructure) =
+    !isempty(_enabled_zones(damping_zones(s)))
+
+"""
     extra_stiffness_form(s::AbstractHydroelasticStructure, dom::IntegrationDomains, x, y)
 
 Optional additional stiffness contribution that is *not* subject to
@@ -165,10 +201,41 @@ This is exact — not approximate — because `stiffness_operator` is linear in
 its material coefficients (a scalar factor commutes with `mean`, `jump`, and
 `∫`), so scaling the whole operator by `τ` is algebraically identical to
 scaling each material coefficient inside it by `τ` before assembling.
+
+Enabled [`StructuralDampingZone`](@ref)s add a dashpot `∫ c(x) v ∂ₜη dΓ`
+and a Kelvin-Voigt term with a space-dependent `τ(x)`; the latter needs
+the weighted [`stiffness_operator`](@ref) (5-argument form). Without zones
+the form is exactly the one above.
 Concrete subtypes do not need to implement `damping` themselves.
 """
 function damping(s::AbstractHydroelasticStructure, dom::IntegrationDomains, x_t, y)
-    damping_parameter(s) * stiffness_operator(s, dom, x_t, y)
+    zones = _enabled_zones(damping_zones(s))
+    τ = damping_parameter(s)
+    isempty(zones) && return τ * stiffness_operator(s, dom, x_t, y)
+    uniform = iszero(τ) ? nothing : τ * stiffness_operator(s, dom, x_t, y)
+    return _add_contribution(uniform,
+                             _damping_zone_form(s, zones, dom, x_t, y))
+end
+
+"""
+    _damping_zone_form(s, zones, dom, x_t, y)
+
+Damping contribution of the enabled [`StructuralDampingZone`](@ref)s:
+the dashpot `∫ c(x) v ηₜ dΓ` with `c(x) = Σ cᵨ σ(x)`, plus the weighted
+elastic operator `k_op^τ(ηₜ, v)` with `τ(x) = Σ τ σ(x)`.
+"""
+function _damping_zone_form(s::AbstractHydroelasticStructure, zones,
+                            dom::IntegrationDomains, x_t, y)
+    sym = variable_symbol(s)
+    ηₜ = x_t[sym]
+    v = y[sym]
+    c = _zone_coefficient(zones, z -> z.cᵨ)
+    τ = _zone_coefficient(zones, z -> z.τ)
+    dashpot = isnothing(c) ? nothing :
+        ∫(materialize(c, get_triangulation(v)) * v * ηₜ)_space_measure(dom, s)
+    kelvin_voigt = isnothing(τ) ? nothing :
+        stiffness_operator(s, dom, x_t, y, τ)
+    return _add_contribution(dashpot, kelvin_voigt)
 end
 
 """
@@ -209,6 +276,5 @@ Concrete subtypes do not need to implement `rhs` themselves.
 function rhs(s::AbstractHydroelasticStructure, dom::IntegrationDomains, f, y)
     sym = variable_symbol(s)
     v = y[sym]
-    dΩ = _space_measure(dom, s)
-    ∫(v * f[sym])dΩ
+    _forcing_contribution(f[sym], v, _space_measure(dom, s))
 end

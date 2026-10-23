@@ -268,9 +268,22 @@ end
 # =========================================================================
 
 # Resonator-structure coupling has damping and stiffness terms only.
-# Return false for empty arrays to avoid BoundsError in form functions.
-has_damping_form(ra::ResonatorArray, ::Structure) = !isempty(ra.resonators)
-has_stiffness_form(ra::ResonatorArray, ::Structure) = !isempty(ra.resonators)
+# A resonator is attached to the structure whose space domain is its host
+# (`host_domain_symbol == space_domain_symbol`), so each resonator couples to
+# exactly one structure, also when several structures have separate fields.
+# The coupling forms are active only if at least one resonator is attached.
+
+"""
+    attached_resonators(ra::ResonatorArray, s::Structure) -> Vector{ResonatorSingle}
+
+Resonators of `ra` hosted on the space domain of `s`
+(`r.host_domain_symbol == s.space_domain_symbol`).
+"""
+attached_resonators(ra::ResonatorArray, s::Structure) =
+    filter(r -> r.host_domain_symbol === s.space_domain_symbol, ra.resonators)
+
+has_damping_form(ra::ResonatorArray, s::Structure) = !isempty(attached_resonators(ra, s))
+has_stiffness_form(ra::ResonatorArray, s::Structure) = !isempty(attached_resonators(ra, s))
 
 """
     damping(ra::ResonatorArray, s::Structure, dom::IntegrationDomains, x_t, y)
@@ -278,28 +291,25 @@ has_stiffness_form(ra::ResonatorArray, ::Structure) = !isempty(ra.resonators)
 Resonator-structure coupling damping form.
 
 Contributes cross-damping terms between each resonator DOF `q_i` and the
-structural displacement `η` at resonator attachment points.
+structural displacement `η` at resonator attachment points.  Only the
+resonators hosted on `s` (see [`attached_resonators`](@ref)) contribute.
 """
 function damping(ra::ResonatorArray, s::Structure,
                  dom::IntegrationDomains, x_t, y)
-    resn  = ra.resonators
+    resn  = attached_resonators(ra, s)
     η_sym = variable_symbol(s)
     ηₜ    = x_t[η_sym]
     v     = y[η_sym]
     î1    = VectorValue(1.0)
-    ξ1    = y[variable_symbol(resn[1])]
-    q1    = x_t[variable_symbol(resn[1])]
-    δ_p1 = dom[resn[1].delta_domain_symbol]
-    dΩ  = dom[Symbol("d",resn[1].host_domain_symbol)]
-    val   = ∫((ξ1 ⋅ q1) * 0.0)dΩ
+    val = nothing
     for (i, ri) in enumerate(resn)
         δi = dom[ri.delta_domain_symbol]
         qₜi = x_t[variable_symbol(ri)]
         ξi  = y[variable_symbol(ri)]
         # force on structure from resonator velocity
-        val += (ri.C / ri.ρw) * δi(v * ((qₜi ⋅ î1) - ηₜ))
+        val = _add_contribution(val, (-ri.C / ri.ρw) * δi(v * ((qₜi ⋅ î1) - ηₜ)))
         # force on resonator from structure velocity
-        val += -ri.C * δi((ξi ⋅ î1) * ηₜ)
+        val = _add_contribution(val, -ri.C * δi((ξi ⋅ î1) * ηₜ))
     end
     return val
 end
@@ -310,28 +320,25 @@ end
 Resonator-structure coupling stiffness form.
 
 Contributes cross-stiffness terms between each resonator DOF `q_i` and the
-structural displacement `η` at resonator attachment points.
+structural displacement `η` at resonator attachment points.  Only the
+resonators hosted on `s` (see [`attached_resonators`](@ref)) contribute.
 """
 function stiffness(ra::ResonatorArray, s::Structure,
                    dom::IntegrationDomains, x, y)
-    resn  = ra.resonators
+    resn  = attached_resonators(ra, s)
     η_sym = variable_symbol(s)
     η     = x[η_sym]
     v     = y[η_sym]
     î1    = VectorValue(1.0)
-    ξ1    = y[variable_symbol(resn[1])]
-    q1    = x[variable_symbol(resn[1])]
-    δ_p1 = dom[resn[1].delta_domain_symbol]
-    dΩ  = dom[Symbol("d",resn[1].host_domain_symbol)]
-    val   = ∫((ξ1 ⋅ q1) * 0.0)dΩ
+    val = nothing
     for (i, ri) in enumerate(resn)
         δi = dom[ri.delta_domain_symbol]
         qi = x[variable_symbol(ri)]
         ξi = y[variable_symbol(ri)]
         # force on structure from resonator displacement
-        val += (-ri.K / ri.ρw) * δi(v * ((qi ⋅ î1) - η))
+        val = _add_contribution(val, (-ri.K / ri.ρw) * δi(v * ((qi ⋅ î1) - η)))
         # force on resonator from structure displacement
-        val += -ri.K * δi((ξi ⋅ î1) * η)
+        val = _add_contribution(val, -ri.K * δi((ξi ⋅ î1) * η))
     end
     return val
 end

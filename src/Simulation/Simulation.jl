@@ -205,7 +205,6 @@ function build_time_context(domains::G.IntegrationDomains,
                             tconfig)
     if _has_damping_zone_bc(physics)
         isnothing(tconfig) && error("Time-domain damping-zone problems require `tconfig` to be passed to `build_problem`.")
-        isnothing(tconfig.αₕ) && error("Time-domain damping-zone problems require `TimeConfig.αₕ`.")
     end
 
 for entity in physics
@@ -215,8 +214,22 @@ for entity in physics
 end
 
     t₀ = isnothing(tconfig) ? config.t₀ : tconfig.t₀
-    αₕ = isnothing(tconfig) ? nothing : tconfig.αₕ
+    αₕ = isnothing(tconfig) ? nothing : _resolve_αₕ(tconfig, physics)
     AC.TimeAssemblyContext(domains, t₀, αₕ)
+end
+
+# αₕ from TimeConfig: a number is used as given; `:auto`, or `nothing` in a
+# damping-zone problem (where αₕ is required), is computed from the scheme and
+# the FreeSurface entity's g and βₕ.
+function _resolve_αₕ(tconfig::PH.TimeConfig, physics::Vector{P.PhysicsParameters})
+    αₕ = tconfig.αₕ
+    αₕ isa Real && return Float64(αₕ)
+    (αₕ === :auto || _has_damping_zone_bc(physics)) || return nothing
+    i = findfirst(p -> p isa P.FreeSurface, physics)
+    isnothing(i) && error("Computing `αₕ` automatically requires a FreeSurface entity; " *
+                          "set `TimeConfig.αₕ` explicitly.")
+    fs = physics[i]
+    return PH.stabilization_αₕ(tconfig, fs.g, fs.βₕ)
 end
 
 function _entity_ambient_dimension(entity::P.PhysicsParameters)
