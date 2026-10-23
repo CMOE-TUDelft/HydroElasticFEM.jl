@@ -50,3 +50,4 @@ end
 @testset "PlateConnection" include("PlateConnectionTests.jl")
 @testset "KirchhoffLovePlate line joints" include("KirchhoffLovePlateJointTests.jl")
 @testset "TimoshenkoBeam" include("TimoshenkoBeamTests.jl")
+@testset "RigidBody spike" include("RigidBodySpikeTests.jl")
