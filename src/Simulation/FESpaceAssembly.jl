@@ -130,6 +130,70 @@ build_trial_fe_space(ra::P.ResonatorArray, Vs::Vector, ::PH.FreqDomainConfig) = 
 build_trial_fe_space(ra::P.ResonatorArray, Vs::Vector, ::PH.TimeDomainConfig) = [TransientTrialFESpace(V) for V in Vs]
 
 # ─────────────────────────────────────────────────────────────
+# Per-entity space hook used by `build_fe_spaces`
+# ─────────────────────────────────────────────────────────────
+
+"""
+    build_entity_spaces(entity, ientity, trians, config) -> Vector{Tuple{Symbol,V,U}}
+
+The `(symbol, test space, trial space)` triples contributed by `entity`
+(at position `ientity` of the entity list), in field order.  Field entities
+build one space per `variable_symbols`/`field_fe_configs` pair on
+`trians[entity.space_domain_symbol]`; entities with global unknowns
+(`ResonatorArray`, `AbstractRigidBody`) build `ConstantFESpace`s on `:Ω`.
+Field-less coupling entities (e.g. `PlateConnection`) contribute nothing.
+"""
+function build_entity_spaces(entity::P.PhysicsParameters, ientity, trians, config)
+    # Coupling entities without fields of their own (e.g. PlateConnection)
+    isempty(P.variable_symbols(entity)) && return Tuple{Symbol,Any,Any}[]
+    trian = trians[entity.space_domain_symbol]
+    out = Tuple{Symbol,Any,Any}[]
+    for (sym, fe_cfg) in zip(P.variable_symbols(entity), P.field_fe_configs(entity))
+        V = _build_fe_test_space(fe_cfg, trian, config)
+        push!(out, (sym, V, _build_fe_trial_space(fe_cfg, V, config)))
+    end
+    return out
+end
+
+function build_entity_spaces(entity::P.ResonatorArray, ientity, trians, config)
+    resn = entity.resonators
+    isempty(resn) && throw(ArgumentError("Resonator array at position $ientity of the `entities` collection must be non-empty."))
+    # Resonators of one array may be hosted on different structures
+    # (each couples to the structure on its host domain).
+    domain_symbol = resn[1].host_domain_symbol
+    for host in unique(getfield.(resn, :host_domain_symbol))
+        haskey(trians, host) ||
+            throw(ArgumentError("Resonator host domain :$host not found in triangulations."))
+    end
+    # A resonator DOF is a single global unknown: its ConstantFESpace
+    # lives on the volume Ω.  A ConstantFESpace on a surface view such
+    # as :Γη cannot be restricted to the Dirac-delta triangulation
+    # (Gridap type-instability), while the point terms δᵢ built on the
+    # host surface assemble fine against a space on Ω.
+    trian = haskey(trians, :Ω) ? trians[:Ω] : trians[domain_symbol]
+    Vs = build_test_fe_space(entity, trian, config)
+    Us = build_trial_fe_space(entity, Vs, config)
+    return [(P.variable_symbol(resn[i]), Vi, Ui) for (i, (Vi, Ui)) in enumerate(zip(Vs, Us))]
+end
+
+"""
+    build_entity_spaces(b::P.AbstractRigidBody, ientity, trians, config)
+
+One `ConstantFESpace` with a `VectorValue{n}` value (n = number of active
+modes) on `:Ω`, integrated on the body's wetted surface.
+"""
+function build_entity_spaces(b::P.AbstractRigidBody, ientity, trians, config)
+    haskey(trians, b.space_domain_symbol) ||
+        throw(ArgumentError("Rigid body wetted surface :$(b.space_domain_symbol) not found in triangulations."))
+    config isa PH.FreqDomainConfig && (@assert b.fe.vector_type == Vector{ComplexF64} "Frequency-domain simulations require complex-valued FE spaces.")
+    V = ConstantFESpace(trians[:Ω];
+        vector_type = b.fe.vector_type,
+        field_type  = VectorValue{P.num_modes(b), Float64})
+    U = config isa PH.TimeDomainConfig ? TransientTrialFESpace(V) : TrialFESpace(V)
+    return [(P.variable_symbol(b), V, U)]
+end
+
+# ─────────────────────────────────────────────────────────────
 # Main manager function
 # ─────────────────────────────────────────────────────────────
 
@@ -174,45 +238,13 @@ function build_fe_spaces(entities,
     idx  = 0
 
     for (ientity, entity) in enumerate(entities)
-        if entity isa P.ResonatorArray
-            resn = entity.resonators
-            isempty(resn) && throw(ArgumentError("Resonator array at position $ientity of the `entities` collection must be non-empty."))
-            # Resonators of one array may be hosted on different structures
-            # (each couples to the structure on its host domain).
-            domain_symbol = resn[1].host_domain_symbol
-            for host in unique(getfield.(resn, :host_domain_symbol))
-                haskey(trians, host) ||
-                    throw(ArgumentError("Resonator host domain :$host not found in triangulations."))
-            end
-            # A resonator DOF is a single global unknown: its ConstantFESpace
-            # lives on the volume Ω.  A ConstantFESpace on a surface view such
-            # as :Γη cannot be restricted to the Dirac-delta triangulation
-            # (Gridap type-instability), while the point terms δᵢ built on the
-            # host surface assemble fine against a space on Ω.
-            trian = haskey(trians, :Ω) ? trians[:Ω] : trians[domain_symbol]
-            Vs = build_test_fe_space(entity, trian, config)
-            Us = build_trial_fe_space(entity, Vs, config)
-            for (i, (Vi, Ui)) in enumerate(zip(Vs, Us))
-                idx += 1
-                push!(test_spaces, Vi)
-                push!(trial_spaces, Ui)
-                fmap[P.variable_symbol(resn[i])] = idx
-            end
-        elseif entity isa P.PhysicsParameters
-            # Coupling entities without fields of their own (e.g. PlateConnection)
-            isempty(P.variable_symbols(entity)) && continue
-            trian = trians[entity.space_domain_symbol]
-            for (sym, fe_cfg) in zip(P.variable_symbols(entity),
-                                     P.field_fe_configs(entity))
-                V = _build_fe_test_space(fe_cfg, trian, config)
-                U = _build_fe_trial_space(fe_cfg, V, config)
-                idx += 1
-                push!(test_spaces, V)
-                push!(trial_spaces, U)
-                fmap[sym] = idx
-            end
-        else
+        entity isa P.PhysicsParameters ||
             throw(ArgumentError("Unsupported entity type in `build_fe_spaces`: $(typeof(entity))"))
+        for (sym, V, U) in build_entity_spaces(entity, ientity, trians, config)
+            idx += 1
+            push!(test_spaces, V)
+            push!(trial_spaces, U)
+            fmap[sym] = idx
         end
     end
 
@@ -225,6 +257,6 @@ end
 # Exports
 # ─────────────────────────────────────────────────────────────
 
-export build_fe_spaces, build_test_fe_space, build_trial_fe_space
+export build_fe_spaces, build_test_fe_space, build_trial_fe_space, build_entity_spaces
 
 end # module FESpaceAssembly

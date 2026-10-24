@@ -100,6 +100,7 @@ module HydroElasticFEM
   export KirchhoffLovePlate
   export TimoshenkoBeam
   export ResonatorSingle, ResonatorArray, resonator_array
+  export AbstractRigidBody, RigidBody
   # Physics helper functions
   export build_kl_tensor, build_KL_tensor
   export equivalent_beam_rigidity
@@ -123,7 +124,7 @@ module HydroElasticFEM
   # ── Simulation public API ───────────────────────────────────────────────────
   # Primary simulation entry points — users call build_problem then simulate
   export build_problem
-  export SimResult
+  export SimResult, body_motion
   export simulate
 
   # ── PostProcessing public API ───────────────────────────────────────────────

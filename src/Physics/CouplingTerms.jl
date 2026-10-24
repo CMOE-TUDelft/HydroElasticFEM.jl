@@ -53,6 +53,39 @@ function damping(pf::PotentialFlow, s::Structure, dom::IntegrationDomains, x_t, 
 end
 
 # =========================================================================
+# Fluid ↔ RigidBody coupling (kinematic / dynamic BC on the wetted surface)
+#
+# Same structure as the fluid ↔ structure coupling, with the deflection η
+# replaced by the normal displacement ξ·N of the rigid body (N is the
+# generalized normal, see `RigidBody.jl`):
+#     ∫_Γb ( (ζ·N) ∂tϕ − w (∂tξ·N) ) dΓ
+# The first term is the pressure force on each mode (p/ρ = −∂tϕ), the second
+# the Neumann condition ∂ₙϕ = ∂tξ·N.
+# =========================================================================
+
+has_damping_form(::PotentialFlow, ::AbstractRigidBody) = true
+
+"""
+    damping(pf::PotentialFlow, b::AbstractRigidBody, dom::IntegrationDomains, x_t, y)
+
+Fluid–rigid-body coupling on the wetted surface `Γ_b`:
+
+    ∫_Γb ( (ζ·N) ∂tϕ − w (∂tξ·N) ) dΓ
+
+with `N` the generalized normal of the active modes.
+"""
+function damping(pf::PotentialFlow, b::AbstractRigidBody, dom::IntegrationDomains, x_t, y)
+    ϕ_sym = variable_symbol(pf)
+    ξ_sym = variable_symbol(b)
+    ϕₜ = x_t[ϕ_sym]
+    ξₜ = x_t[ξ_sym]
+    w  = y[ϕ_sym]
+    ζ  = y[ξ_sym]
+    N  = _generalized_normal_field(b, dom)
+    ∫((ζ ⋅ N) * ϕₜ - w * (ξₜ ⋅ N))_space_measure(dom, b)
+end
+
+# =========================================================================
 # Fluid ↔ FreeSurface coupling (linearised free-surface BC on Γ_fs)
 #
 # Frequency domain:

@@ -382,8 +382,10 @@ function get_integration_degrees(trians::G.TankTriangulations, physics::Vector{P
     degrees = Dict{Symbol, Int}()
     for p in physics
         # exclude ResonatorSingle and ResonatorArray from degree calculations, 
-        # since they are pointwise and don't require integration
-        ( isa(p, P.ResonatorSingle) || isa(p, P.ResonatorArray) ) && continue
+        # since they are pointwise and don't require integration; rigid bodies
+        # have constant unknowns, so their wetted surface takes the default
+        # (highest entity) degree needed by the fluid coupling
+        ( isa(p, P.ResonatorSingle) || isa(p, P.ResonatorArray) || isa(p, P.AbstractRigidBody) ) && continue
         fe = p.fe
         if fe !== nothing
             domain_symbol = p.space_domain_symbol
@@ -415,7 +417,7 @@ end
 include("SimResult.jl")
 include("simulate.jl")
 
-export SimResult
+export SimResult, body_motion
 export simulate
 export build_problem
 export build_frequency_context, build_time_context

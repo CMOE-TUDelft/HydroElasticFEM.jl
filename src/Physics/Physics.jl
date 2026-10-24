@@ -312,6 +312,9 @@ include("Structures/TimoshenkoBeam.jl")
 # in EulerBernoulliBeam.jl), so it must be included after both.
 include("Structures/TensionedEulerBernoulliBeam.jl")
 
+# Rigid bodies (global-DOF entities, not `Structure`s)
+include("Bodies/RigidBody.jl")
+
 # Coupling weak forms (cross-terms between pairs of entities)
 include("CouplingTerms.jl")
 
@@ -494,6 +497,9 @@ export TensionedEulerBernoulliBeam
 export KirchhoffLovePlate
 export PlateConnection
 export TimoshenkoBeam
+export AbstractRigidBody, RigidBody, rigid_body_modes, num_modes
+export rigid_body_mass_matrix, rigid_body_displacement
+export generalized_normal, vertical_shape
 export build_kl_tensor, build_KL_tensor, check_major_symmetry
 export equivalent_beam_rigidity
 export AbstractPotentialFlowBC, RadiationBC, PrescribedInletPotentialBC, DampingZoneBC

@@ -31,3 +31,14 @@ struct SimResult
     op
     solution
 end
+
+"""
+    body_motion(result::SimResult, body::AbstractRigidBody) -> NamedTuple
+
+Complex amplitudes (frequency domain) of the active modes of `body`, keyed by
+mode name, e.g. `body_motion(res, body).heave`.
+"""
+function body_motion(result::SimResult, body::P.AbstractRigidBody)
+    ξh = result.solution[result.fmap[P.variable_symbol(body)]]
+    NamedTuple{body.modes}(Tuple(get_free_dof_values(ξh)))
+end
