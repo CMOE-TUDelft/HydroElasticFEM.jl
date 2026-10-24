@@ -85,6 +85,26 @@ function damping(pf::PotentialFlow, b::AbstractRigidBody, dom::IntegrationDomain
     ∫((ζ ⋅ N) * ϕₜ - w * (ξₜ ⋅ N))_space_measure(dom, b)
 end
 
+has_rhs_form(::PotentialFlow, ::PrescribedRigidMotion) = true
+
+"""
+    rhs(pf::PotentialFlow, pm::PrescribedRigidMotion, ctx::FrequencyAssemblyContext, f, y)
+
+Neumann data of a forced rigid-body motion `ξ̂` on the wetted surface:
+`−iω ∫_Γb w (ξ̂·N) dΓ` (the coupling term `−∫ w (∂tξ·N)` with `ξ` known).
+"""
+function rhs(pf::PotentialFlow, pm::PrescribedRigidMotion, ctx::AC.FrequencyAssemblyContext, f, y)
+    dom = AC.domains(ctx)
+    ω = AC.frequency(ctx)
+    w = y[variable_symbol(pf)]
+    N = _generalized_normal_field(pm.body, dom)
+    ξ̂ = VectorValue(Tuple(pm.amplitudes))
+    ∫(-im * ω * w * (N ⋅ ξ̂))_space_measure(dom, pm.body)
+end
+
+rhs(::PotentialFlow, ::PrescribedRigidMotion, ::AC.TimeAssemblyContext, f, y) =
+    error("PrescribedRigidMotion is a frequency-domain entity")
+
 # =========================================================================
 # Fluid ↔ FreeSurface coupling (linearised free-surface BC on Γ_fs)
 #

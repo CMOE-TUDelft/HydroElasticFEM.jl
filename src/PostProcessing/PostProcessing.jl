@@ -58,11 +58,14 @@ module PostProcessing
 
 using LinearAlgebra
 using Printf
-using Gridap: Point
+using Gridap: Point, VectorValue, ∫
 using Gridap.CellData
+import ..Physics as P
+import ..Simulation as SM
 
 include("WaveDecomposition.jl")
 include("Coefficients.jl")
+include("RigidBodyCoefficients.jl")
 
 export WaveProbeFit, fit_wave_components
 export suggest_probe_offsets, probe_positions, sample_probe_line
@@ -70,5 +73,7 @@ export ReflectionTransmissionResult, reflection_transmission_coefficients
 export absorption_coefficient
 export group_velocity, energy_flux
 export absorption_from_dissipated_power, resonator_dissipated_power
+export hydrodynamic_force, excitation_force, solve_radiation, radiation_coefficients
+export rigid_body_response, rigid_body_dissipated_power
 
 end # module PostProcessing

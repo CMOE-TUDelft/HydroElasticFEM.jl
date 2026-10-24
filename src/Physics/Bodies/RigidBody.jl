@@ -343,3 +343,72 @@ function stiffness(b::RigidBody, dom::IntegrationDomains, x, y)
     end
     return val
 end
+
+"""
+    restoring_matrix(b::RigidBody, dom::IntegrationDomains) -> Matrix{Float64}
+
+Dimensional restoring matrix of the active modes: hydrostatics
+(`ρw g ∫_Γb N Nᵀ dΓ` for `:zero_draft`, or the user matrix) plus `K_ext`.
+"""
+function restoring_matrix(b::RigidBody, dom::IntegrationDomains)
+    K = _active_block(b, b.hydrostatics isa Matrix ? b.hydrostatics + b.K_ext : b.K_ext)
+    b.hydrostatics === :zero_draft || return K
+    N = _generalized_normal_field(b, dom)
+    dΓ = _space_measure(dom, b)
+    n = num_modes(b)
+    e(i) = VectorValue(ntuple(k -> float(k == i), n))
+    C = [sum(∫((N ⋅ e(i)) * (N ⋅ e(j)))dΓ) for i in 1:n, j in 1:n]
+    return K + b.ρw * b.g * C
+end
+
+# ==========================================================================
+# PrescribedRigidMotion — forced motion of a rigid body (radiation problem)
+# ==========================================================================
+
+"""
+    PrescribedRigidMotion(body; mode = nothing, amplitudes = nothing)
+
+Frequency-domain forced motion of `body` with complex displacement
+amplitudes `ξ̂` (ordered as `body.modes`; `mode = :heave` is a unit amplitude
+in that mode).  The body has no unknowns: the entity only adds the Neumann
+data `∂ₙϕ = ∂tξ̂·N` on the wetted surface to the fluid equation, i.e. the
+right-hand side `−iω ∫_Γb w (ξ̂·N) dΓ` (time dependence `e^{−iωt}`).
+
+Used to solve radiation problems for added mass and damping (see
+`PostProcessing.radiation_coefficients`).  The diffraction problem needs no
+entity: leave the body out of the physics and its wetted surface is a fixed
+wall.
+"""
+struct PrescribedRigidMotion{B<:AbstractRigidBody} <: PhysicsParameters
+    body::B
+    amplitudes::Vector{ComplexF64}
+    fe::Nothing
+end
+
+function PrescribedRigidMotion(body::AbstractRigidBody; mode = nothing, amplitudes = nothing)
+    (isnothing(mode) == isnothing(amplitudes)) &&
+        throw(ArgumentError("PrescribedRigidMotion: give exactly one of `mode` and `amplitudes`"))
+    if !isnothing(mode)
+        j = findfirst(==(mode), body.modes)
+        isnothing(j) && throw(ArgumentError("PrescribedRigidMotion: :$mode is not an active mode of the body $(body.modes)"))
+        amplitudes = [i == j ? 1.0 + 0im : 0.0 + 0im for i in 1:num_modes(body)]
+    end
+    length(amplitudes) == num_modes(body) ||
+        throw(ArgumentError("PrescribedRigidMotion: need $(num_modes(body)) amplitudes, got $(length(amplitudes))"))
+    PrescribedRigidMotion(body, Vector{ComplexF64}(amplitudes), nothing)
+end
+
+function print_parameters(pm::PrescribedRigidMotion)
+    @printf("\n[MSG] Prescribed motion of rigid body :%s\n", variable_symbol(pm.body))
+    println("[VAL] ", NamedTuple{pm.body.modes}(Tuple(pm.amplitudes)))
+end
+
+# Field-less entity: no unknowns, only the fluid right-hand side.
+variable_symbol(::PrescribedRigidMotion) = nothing
+variable_symbols(::PrescribedRigidMotion) = ()
+field_fe_configs(::PrescribedRigidMotion) = ()
+ambient_dimension(pm::PrescribedRigidMotion) = pm.body.ambient_dim
+has_mass_form(::PrescribedRigidMotion) = false
+has_damping_form(::PrescribedRigidMotion) = false
+has_stiffness_form(::PrescribedRigidMotion) = false
+has_rhs_form(::PrescribedRigidMotion) = false
