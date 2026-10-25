@@ -12,5 +12,6 @@ using Test
   include("CartesianDomainGenericTests.jl")
   include("test_abstract_domain.jl")
   include("PlateInterfaceSkeletonSpikeTests.jl")
+  @testset "BodyCutout" include("BodyCutoutTests.jl")
 
 end

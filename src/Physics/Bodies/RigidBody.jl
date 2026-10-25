@@ -69,8 +69,11 @@ forms divide them by `ρw`, like the other entities.
 - `modes` — active modes (default: all for `ambient_dim`).
 - `hydrostatics = :zero_draft` — `:zero_draft` (restoring `∫ g (ζ·N)(ξ·N)` on
   the wetted surface, exact for a body of zero draft and identical to the
-  hydrostatic term of the elastic structures), `:none`, or a full-mode
-  restoring matrix (dimensional).
+  hydrostatic term of the elastic structures), `:from_mesh` (the full
+  hydrostatic matrix of a finite-draft body from its wetted surface, see
+  [`hydrostatic_matrix`](@ref)), `:none`, or a full-mode restoring matrix
+  (dimensional).
+- `z_surface = 0.0` — still-water level, used by `:from_mesh`.
 - `K_ext`, `B_ext` — external stiffness (moorings) and damping (PTO), full-mode
   matrices about `x_ref` (dimensional; default zero).
 - `ρw = 1025.0`, `g = 9.81`.
@@ -96,6 +99,7 @@ struct RigidBody <: AbstractRigidBody
     ambient_dim::Int
     modes::Tuple{Vararg{Symbol}}
     hydrostatics::Union{Symbol,Matrix{Float64}}
+    z_surface::Float64
     K_ext::Matrix{Float64}
     B_ext::Matrix{Float64}
     ρw::Float64
@@ -109,6 +113,7 @@ function RigidBody(; mass::Real, inertia, x_G::AbstractVector{<:Real},
                    x_ref::AbstractVector{<:Real} = x_G,
                    modes = rigid_body_modes(length(x_G)),
                    hydrostatics::Union{Symbol,AbstractMatrix{<:Real}} = :zero_draft,
+                   z_surface::Real = 0.0,
                    K_ext::Union{Nothing,AbstractMatrix{<:Real}} = nothing,
                    B_ext::Union{Nothing,AbstractMatrix{<:Real}} = nothing,
                    ρw::Real = 1025.0, g::Real = 9.81,
@@ -137,11 +142,11 @@ function RigidBody(; mass::Real, inertia, x_G::AbstractVector{<:Real},
     B = _full(B_ext, "B_ext")
     hs = hydrostatics isa Symbol ? hydrostatics : _full(hydrostatics, "hydrostatics")
     if hs isa Symbol
-        hs in (:zero_draft, :none) ||
-            throw(ArgumentError("RigidBody: hydrostatics must be :zero_draft, :none or a matrix, got :$hs"))
+        hs in (:zero_draft, :from_mesh, :none) || throw(ArgumentError(
+            "RigidBody: hydrostatics must be :zero_draft, :from_mesh, :none or a matrix, got :$hs"))
     end
     body = RigidBody(Float64(mass), Iner, Vector{Float64}(x_G), Vector{Float64}(x_ref), D,
-                     modes, hs, K, B, Float64(ρw), Float64(g), symbol, space_domain_symbol, fe)
+                     modes, hs, Float64(z_surface), K, B, Float64(ρw), Float64(g), symbol, space_domain_symbol, fe)
     _check_restrained(body)
     return body
 end
@@ -326,14 +331,83 @@ damping(b::RigidBody, dom::IntegrationDomains, x_t, y) =
     _constant_matrix_form(b, dom, _active_block(b, b.B_ext) / b.ρw, x_t, y)
 
 """
+    hydrostatic_matrix(b::RigidBody, dom::IntegrationDomains) -> Matrix{Float64}
+
+Full-mode hydrostatic restoring matrix (dimensional, about `b.x_ref`) of a
+body floating at the still-water level `z_s = b.z_surface`, from integrals
+over its wetted surface Γ_b only.  With `n` the fluid normal (into the
+body), the divergence theorem on the submerged volume gives the waterplane
+integrals and the displaced volume
+
+    ∫_wp f(x, y) dA = ∫_Γb f n_z dΓ,      V = −∫_Γb (z − z_s) n_z dΓ,
+    V (z_B − z_s) = −∫_Γb (z − z_s)²/2 n_z dΓ,   V x_B = −∫_Γb x (z − z_s) n_z dΓ.
+
+With `x, y` relative to `x_ref` and `z_B, z_G` relative to `z_ref`, the
+non-zero entries (3D, Newman 1977 / WAMIT) are
+
+    C₃₃ = ρgA_wp,  C₃₄ = C₄₃ = ρg∫y,  C₃₅ = C₅₃ = −ρg∫x,  C₄₅ = C₅₄ = −ρg∫xy,
+    C₄₄ = ρg∫y² + ρgV z_B − m g z_G,  C₅₅ = ρg∫x² + ρgV z_B − m g z_G,
+    C₄₆ = −ρgV x_B + m g x_G,          C₅₆ = −ρgV y_B + m g y_G;
+
+in 2D, the heave–pitch block (indices 2, 3) of the same matrix (V is then
+the submerged area).  Warns once if the body is not in equilibrium
+(`ρV ≠ m` or centres of buoyancy and gravity not on one vertical; not
+checked for zero-draft bodies, `V = 0`).
+"""
+function hydrostatic_matrix(b::RigidBody, dom::IntegrationDomains)
+    dΓ = _space_measure(dom, b)
+    Γ = get_triangulation(dΓ.quad)
+    X = get_physical_coordinate(Γ)
+    nΓ = get_normal_vector(Γ)
+    D = b.ambient_dim
+    zs, xr, xG = b.z_surface, b.x_ref, b.x_G
+    I(f) = sum(∫(Operation(f)(X, nΓ))dΓ)
+    ρg, mg = b.ρw * b.g, b.mass * b.g
+    V = -I((x, n) -> (x[D] - zs) * n[D])
+    zB = V == 0 ? zs : zs - I((x, n) -> (x[D] - zs)^2 / 2 * n[D]) / V
+    xB = [V == 0 ? xG[i] : -I((x, n) -> x[i] * (x[D] - zs) * n[D]) / V for i in 1:D-1]
+    rB = ρg * V * (zB - xr[D]) - mg * (xG[D] - xr[D])
+    if V > 0 && (abs(b.ρw * V - b.mass) > 1e-3 * b.mass ||
+                 any(abs.(xB .- xG[1:D-1]) .> 1e-3 * max(1.0, sqrt(abs(I((x, n) -> n[D]))))))
+        @warn "RigidBody :$(b.symbol): not in hydrostatic equilibrium (ρV = $(b.ρw * V), " *
+              "m = $(b.mass), x_B = $xB, x_G = $(xG[1:D-1]))." maxlog = 1
+    end
+    if D == 2
+        C = zeros(3, 3)
+        C[2, 2] = ρg * I((x, n) -> n[2])
+        C[2, 3] = C[3, 2] = -ρg * I((x, n) -> (x[1] - xr[1]) * n[2])
+        C[3, 3] = ρg * I((x, n) -> (x[1] - xr[1])^2 * n[2]) + rB
+        return C
+    end
+    rx(x) = x[1] - xr[1]
+    ry(x) = x[2] - xr[2]
+    C = zeros(6, 6)
+    C[3, 3] = ρg * I((x, n) -> n[3])
+    C[3, 4] = C[4, 3] = ρg * I((x, n) -> ry(x) * n[3])
+    C[3, 5] = C[5, 3] = -ρg * I((x, n) -> rx(x) * n[3])
+    C[4, 5] = C[5, 4] = -ρg * I((x, n) -> rx(x) * ry(x) * n[3])
+    C[4, 4] = ρg * I((x, n) -> ry(x)^2 * n[3]) + rB
+    C[5, 5] = ρg * I((x, n) -> rx(x)^2 * n[3]) + rB
+    C[4, 6] = -ρg * V * (xB[1] - xr[1]) + mg * (xG[1] - xr[1])
+    C[5, 6] = -ρg * V * (xB[2] - xr[2]) + mg * (xG[2] - xr[2])
+    return C
+end
+
+# Full-mode restoring matrix without the :zero_draft integral term.
+_restoring_full(b::RigidBody, dom::IntegrationDomains) =
+    b.hydrostatics isa Matrix ? b.hydrostatics + b.K_ext :
+    b.hydrostatics === :from_mesh ? hydrostatic_matrix(b, dom) + b.K_ext : b.K_ext
+
+"""
     stiffness(b::RigidBody, dom::IntegrationDomains, x, y)
 
 Hydrostatic and external stiffness.  With `hydrostatics = :zero_draft`, the
-restoring term is `∫_Γb g (ζ·N)(ξ·N) dΓ`; with a matrix `C_hs` it is
-`ζ·(C_hs ξ)/ρw`.  `K_ext/ρw` is added in all cases.
+restoring term is `∫_Γb g (ζ·N)(ξ·N) dΓ`; with `:from_mesh` or a matrix
+`C_hs` it is `ζ·(C_hs ξ)/ρw` (see [`hydrostatic_matrix`](@ref)).  `K_ext/ρw`
+is added in all cases.
 """
 function stiffness(b::RigidBody, dom::IntegrationDomains, x, y)
-    K = b.hydrostatics isa Matrix ? b.hydrostatics + b.K_ext : b.K_ext
+    K = _restoring_full(b, dom)
     val = _constant_matrix_form(b, dom, _active_block(b, K) / b.ρw, x, y)
     if b.hydrostatics === :zero_draft
         N = _generalized_normal_field(b, dom)
@@ -348,10 +422,11 @@ end
     restoring_matrix(b::RigidBody, dom::IntegrationDomains) -> Matrix{Float64}
 
 Dimensional restoring matrix of the active modes: hydrostatics
-(`ρw g ∫_Γb N Nᵀ dΓ` for `:zero_draft`, or the user matrix) plus `K_ext`.
+(`ρw g ∫_Γb N Nᵀ dΓ` for `:zero_draft`, [`hydrostatic_matrix`](@ref) for
+`:from_mesh`, or the user matrix) plus `K_ext`.
 """
 function restoring_matrix(b::RigidBody, dom::IntegrationDomains)
-    K = _active_block(b, b.hydrostatics isa Matrix ? b.hydrostatics + b.K_ext : b.K_ext)
+    K = _active_block(b, _restoring_full(b, dom))
     b.hydrostatics === :zero_draft || return K
     N = _generalized_normal_field(b, dom)
     dΓ = _space_measure(dom, b)

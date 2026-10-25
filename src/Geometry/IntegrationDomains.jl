@@ -240,6 +240,12 @@ function get_integration_domains(
     d[:nΓlateral] = get_normal_vector(tri[:Γlateral])
   end
 
+  # Wetted surfaces of cut-out bodies (e.g. :dΓ_b, :nΓ_b)
+  for sym in get(tri, :body_symbols, Symbol[])
+    d[_measure_key(sym)] = Measure(tri[sym], get_deg(sym))
+    d[_normal_key(sym)] = get_normal_vector(tri[sym])
+  end
+
   # Per-damping-zone measures (:dΓd_1, :dΓd_2, …)
   for (i, Γd) in enumerate(tri[:Γ_dampings])
     d[Symbol("dΓd_$i")] = Measure(Γd, get_deg(Symbol("dΓd_$i")))

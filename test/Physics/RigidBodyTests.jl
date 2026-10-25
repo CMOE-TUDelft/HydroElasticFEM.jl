@@ -199,3 +199,76 @@ end
   probes = [Point(x, z) for x in (5.0, 20.0, 45.0, 55.0) for z in (0.0, -5.0)]
   @test maximum(abs, ϕb(probes) .- ϕr(probes)) < 1e-3 * maximum(abs, ϕr(probes))
 end
+
+# --------------------------------------------------------------------------
+# hydrostatics = :from_mesh on finite-draft boxes (BodyCutout) against the
+# closed-form restoring matrix of a box (Newman 1977, §6.16)
+# --------------------------------------------------------------------------
+
+@testset "RigidBody — hydrostatics from the mesh" begin
+  ρw, g = 1025.0, 9.81
+  ρg = ρw * g
+  @test P.RigidBody(mass = 1.0, inertia = 2.0, x_G = [1.0, 0.0], hydrostatics = :from_mesh).z_surface == 0.0
+
+  # 2D box x ∈ [3, 5], draft 0.5 (submerged area V = 1), free surface z = 0
+  B, d = 2.0, 0.5
+  tank = G.TankDomain(L = 8.0, H = 2.0, nx = 32, ny = 8, map = x -> VectorValue(x[1], x[2] - 2.0),
+                      body_cutouts = [G.BodyCutout(L = B, d = d, x₀ = [3.0, 0.0])])
+  tr = G.build_triangulations(tank, G.build_model(tank))
+  dom = G.get_integration_domains(tr)
+  fe = PH.FESpaceConfig(vector_type = Vector{ComplexF64})
+  xG, xr = [4.0, -0.1], [4.5, 0.2]              # reference point off the body centre
+  body = P.RigidBody(mass = ρw * B * d, inertia = 1.0, x_G = xG, x_ref = xr,
+                     hydrostatics = :from_mesh, ρw = ρw, g = g, fe = fe)
+  rx = 4.0 - xr[1]                             # waterplane centre relative to x_ref
+  C = zeros(3, 3)
+  C[2, 2] = ρg * B
+  C[2, 3] = C[3, 2] = -ρg * B * rx
+  C[3, 3] = ρg * (B^3 / 12 + B * rx^2) + ρg * B * d * (-d / 2 - xr[2]) - ρg * B * d * (xG[2] - xr[2])
+  Ch = @test_logs P.hydrostatic_matrix(body, dom)   # in equilibrium: no warning
+  @test Ch ≈ C rtol = 1e-12
+  @test P.restoring_matrix(body, dom) ≈ C rtol = 1e-12
+
+  # assembled stiffness block = (C + K_ext)/ρw; surge is coupled to the fluid
+  # through the walls, so it needs no restraint
+  Kx = zeros(3, 3); Kx[1, 1] = 1.0e3
+  bk = P.RigidBody(mass = ρw * B * d, inertia = 1.0, x_G = xG, x_ref = xr, K_ext = Kx,
+                   hydrostatics = :from_mesh, ρw = ρw, g = g, fe = fe)
+  physics = P.PhysicsParameters[P.PotentialFlow(fe = fe), P.FreeSurface(fe = fe), bk]
+  X, Y, fmap = SM.build_fe_spaces(physics, tr, PH.FreqDomainConfig(ω = 1.0))
+  K = assemble_matrix((x, y) -> P.stiffness(bk, dom, FO.FieldMap(x, fmap), FO.FieldMap(y, fmap)), X, Y)
+  n0 = sum(num_free_dofs(Y.spaces[i]) for i in 1:fmap[:ξ]-1)
+  @test Matrix(K[n0+1:end, n0+1:end]) ≈ (C + Kx) / ρw rtol = 1e-12
+  Cc = assemble_matrix((x, y) -> P.damping(physics[1], bk, dom, FO.FieldMap(x, fmap), FO.FieldMap(y, fmap)), X, Y)
+  @test norm(Cc[1:num_free_dofs(Y.spaces[1]), n0+1]) > 0   # surge column of the fluid coupling
+
+  # zero draft: :from_mesh reduces to :zero_draft when z_G = z_ref
+  tz = G.TankDomain(L = 8.0, H = 1.0, nx = 16, ny = 2,
+    structure_domains = [G.StructureDomain(L = 2.0, x₀ = [3.0, 1.0], domain_symbol = :Γ_b)])
+  domz = G.get_integration_domains(G.build_triangulations(tz, G.build_model(tz)); degree = Dict(:dΩ => 4, :Γ_b => 4))
+  kw = (mass = 1.0, inertia = 1.0, x_G = [4.0, 1.0], x_ref = [3.5, 1.0], modes = (:heave, :pitch), ρw = ρw, g = g)
+  @test P.restoring_matrix(P.RigidBody(; kw..., hydrostatics = :from_mesh, z_surface = 1.0), domz) ≈
+        P.restoring_matrix(P.RigidBody(; kw...), domz) rtol = 1e-12
+
+  # 3D box x ∈ [3, 5], y ∈ [1, 3], draft 0.5 (V = 2)
+  t3 = G.TankDomain(L = 8.0, W = 4.0, H = 2.0, nx = 16, ny = 8, nz = 4,
+                    map = x -> VectorValue(x[1], x[2], x[3] - 2.0),
+                    body_cutouts = [G.BodyCutout(L = 2.0, W = 2.0, d = 0.5, x₀ = [3.0, 1.0, 0.0])])
+  dom3 = G.get_integration_domains(G.build_triangulations(t3, G.build_model(t3)))
+  xG3, xr3, V = [4.0, 2.0, -0.1], [4.5, 1.75, 0.2], 2.0
+  b3 = P.RigidBody(mass = ρw * V, inertia = Matrix(1.0I, 3, 3), x_G = xG3, x_ref = xr3,
+                   hydrostatics = :from_mesh, ρw = ρw, g = g)
+  cx, cy = 4.0 - xr3[1], 2.0 - xr3[2]          # waterplane centre, 2 × 2 square
+  A, Ixx = 4.0, 2.0^4 / 12
+  rB = ρg * V * (-0.25 - xr3[3]) - ρg * V * (xG3[3] - xr3[3])
+  C3 = zeros(6, 6)
+  C3[3, 3] = ρg * A
+  C3[3, 4] = C3[4, 3] = ρg * A * cy
+  C3[3, 5] = C3[5, 3] = -ρg * A * cx
+  C3[4, 5] = C3[5, 4] = -ρg * A * cx * cy
+  C3[4, 4] = ρg * (Ixx + A * cy^2) + rB
+  C3[5, 5] = ρg * (Ixx + A * cx^2) + rB
+  C3[4, 6] = -ρg * V * (4.0 - xr3[1]) + ρg * V * (xG3[1] - xr3[1])   # = 0: x_B = x_G
+  C3[5, 6] = -ρg * V * (2.0 - xr3[2]) + ρg * V * (xG3[2] - xr3[2])
+  @test P.hydrostatic_matrix(b3, dom3) ≈ C3 rtol = 1e-12
+end

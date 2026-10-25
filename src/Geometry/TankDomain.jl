@@ -314,6 +314,62 @@ tank = TankDomain(L = 8.0, W = 4.0, H = 1.0, nx = 8, ny = 8, nz = 2,
 end
 
 """
+    BodyCutout(; L, W=nothing, d, x₀, domain_symbol=:Γ_b)
+
+Surface-piercing box body cut out of the tank mesh (finite-draft rigid body).
+
+The box spans `x₀[1] ≤ x ≤ x₀[1] + L` (and `x₀[2] ≤ y ≤ x₀[2] + W` in 3D)
+and `z_s − d ≤ z ≤ z_s`, with `z_s = x₀[end]` the free-surface height (the
+top of the tank).  [`build_model`](@ref) removes the fluid cells inside the
+box and tags the wetted body faces with `String(domain_symbol)`;
+[`build_triangulations`](@ref) stores their `Boundary` under `domain_symbol`
+(normal pointing out of the fluid, into the body).  The free surface over
+the body is removed with the cells.
+
+The box faces must lie on mesh lines (planes): choose `nx`, `ny` (and `nz`)
+and `map` accordingly.  `build_model` checks the wetted area and errors
+otherwise.
+
+# Fields
+- `L::Float64`               — length along x
+- `W::Union{Float64,Nothing}` — width along y (3D only)
+- `d::Float64`               — draft
+- `x₀::Vector{Float64}`      — waterline corner `[x, z_s]` (2D) or `[x, y, z_s]` (3D)
+- `domain_symbol::Symbol`    — tag and triangulation key of the wetted surface
+
+# Example
+```julia
+barge = BodyCutout(L = 10.0, d = 2.0, x₀ = [35.0, 0.0])
+tank = TankDomain(L = 80.0, H = 10.0, nx = 160, ny = 20,
+                  map = x -> VectorValue(x[1], x[2] - 10.0), body_cutouts = [barge])
+```
+"""
+@with_kw struct BodyCutout
+  L::Float64
+  W::Union{Float64,Nothing} = nothing
+  d::Float64
+  x₀::Vector{Float64}
+  domain_symbol::Symbol = :Γ_b
+  @assert L > 0 "BodyCutout: L must be positive"
+  @assert d > 0 "BodyCutout: draft d must be positive"
+  @assert length(x₀) in (2, 3) "BodyCutout: x₀ must have length 2 (2D) or 3 (3D)"
+  @assert (length(x₀) == 3) == (W !== nothing) "BodyCutout: give W in 3D (length(x₀) == 3) only"
+  @assert W === nothing || W > 0 "BodyCutout: W must be positive"
+end
+
+# Horizontal bounds (lo, hi) and surface height of a cut-out box.
+function _cutout_bounds(b::BodyCutout)
+  if length(b.x₀) == 2
+    return [b.x₀[1]], [b.x₀[1] + b.L], b.x₀[2]
+  end
+  return b.x₀[1:2], [b.x₀[1] + b.L, b.x₀[2] + b.W], b.x₀[3]
+end
+
+# Wetted area (length in 2D) of a cut-out box.
+_cutout_wetted_area(b::BodyCutout) =
+  b.W === nothing ? b.L + 2b.d : b.L * b.W + 2b.d * (b.L + b.W)
+
+"""
     TankDomain{D} <: AbstractDomain
 
 Structured Cartesian tank domain with embedded sub-domain descriptors.
@@ -325,6 +381,8 @@ optional lists of sub-domain descriptors:
 - `damping_zones`     — numerical wave absorbers on the free surface
 - `joint_domains`     — rotational-spring joints between beam segments
 - `resonator_domains` — point interactions for lumped resonators
+- `body_cutouts`      — surface-piercing box bodies cut out of the mesh
+  ([`BodyCutout`](@ref))
 
 At `build_triangulations` time, the top-surface `Boundary` is partitioned
 into named sub-triangulations using coordinate masks derived from each
@@ -362,13 +420,14 @@ backwards compatibility: `domain.L`, `domain.H`, `domain.nx`, `domain.ny`,
 These are read-only derived values; the canonical data lives in
 `domain.cartesian`.
 """
-struct TankDomain{D, C, SZ, DZ, JZ, RZ, CZ} <: AbstractDomain
+struct TankDomain{D, C, SZ, DZ, JZ, RZ, CZ, BZ} <: AbstractDomain
   cartesian::C
   structure_domains::SZ
   damping_zones::DZ
   joint_domains::JZ
   resonator_domains::RZ
   structure_connections::CZ
+  body_cutouts::BZ
 end
 
 function _validate_tank_domain_inputs(
@@ -378,8 +437,10 @@ function _validate_tank_domain_inputs(
   joint_domains,
   resonator_domains,
   structure_connections = StructureConnection[],
+  body_cutouts = BodyCutout[],
 ) where {D}
   _validate_structure_connections(structure_domains, structure_connections)
+  _validate_body_cutouts(Val(D), structure_domains, damping_zones, body_cutouts)
   for zone in Iterators.flatten((structure_domains, damping_zones))
     zone.ambient_dim == D || error(
       "$(nameof(typeof(zone))) :$(zone.domain_symbol) has ambient_dim=$(zone.ambient_dim) " *
@@ -391,6 +452,21 @@ function _validate_tank_domain_inputs(
     joint isa AbstractJointDomain ||
       error("joint_domains entries must be JointDomain or JointLineDomain, got $(typeof(joint)).")
     _validate_joint_dimension(Val(D), joint)
+  end
+  nothing
+end
+
+function _validate_body_cutouts(::Val{D}, structure_domains, damping_zones, cutouts) where {D}
+  for b in cutouts
+    b isa BodyCutout || error("body_cutouts entries must be BodyCutout, got $(typeof(b)).")
+    length(b.x₀) == D ||
+      error("BodyCutout :$(b.domain_symbol) has length(x₀)=$(length(b.x₀)) but the tank is $(D)D.")
+  end
+  syms = [b.domain_symbol for b in cutouts]
+  allunique(syms) || error("Duplicate domain_symbol in body_cutouts: $syms.")
+  zsyms = [z.domain_symbol for z in Iterators.flatten((structure_domains, damping_zones))]
+  for s in syms
+    s in zsyms && error("BodyCutout :$s clashes with a surface zone domain_symbol.")
   end
   nothing
 end
@@ -431,6 +507,7 @@ for a one-shot variant that builds the `CartesianDomain` internally.
   (2D beam point joints) or `JointLineDomain` (3D plate line joints)
 - `resonator_domains::Vector{ResonatorDomain}`: point interactions for lumped resonators
 - `structure_connections::Vector{StructureConnection}`: interfaces between structures with separate fields
+- `body_cutouts::Vector{BodyCutout}`: surface-piercing box bodies cut out of the mesh
 
 # Returns
 - `TankDomain{D,...}`: configured tank domain
@@ -448,6 +525,7 @@ function TankDomain(
   joint_domains = AbstractJointDomain[],
   resonator_domains = ResonatorDomain[],
   structure_connections = StructureConnection[],
+  body_cutouts = BodyCutout[],
 )
   D = ambient_dimension(cartesian)
   _validate_tank_domain_inputs(
@@ -457,6 +535,7 @@ function TankDomain(
     joint_domains,
     resonator_domains,
     structure_connections,
+    body_cutouts,
   )
   TankDomain{
     D,
@@ -466,6 +545,7 @@ function TankDomain(
     typeof(joint_domains),
     typeof(resonator_domains),
     typeof(structure_connections),
+    typeof(body_cutouts),
   }(
     cartesian,
     structure_domains,
@@ -473,6 +553,7 @@ function TankDomain(
     joint_domains,
     resonator_domains,
     structure_connections,
+    body_cutouts,
   )
 end
 
@@ -501,6 +582,7 @@ and `nz` to create a 3D domain; omit them for 2D.
 - `joint_domains`: joint descriptors, `JointDomain` (2D) or `JointLineDomain` (3D)
 - `resonator_domains::Vector{ResonatorDomain}`: point interactions for lumped resonators
 - `structure_connections::Vector{StructureConnection}`: interfaces between structures with separate fields
+- `body_cutouts::Vector{BodyCutout}`: surface-piercing box bodies cut out of the mesh
 
 # Returns
 - `TankDomain{D,...}` with D = 2 (no `W`/`nz`) or D = 3
@@ -524,6 +606,7 @@ function TankDomain(;
   joint_domains = AbstractJointDomain[],
   resonator_domains = ResonatorDomain[],
   structure_connections = StructureConnection[],
+  body_cutouts = BodyCutout[],
 )
   cartesian = CartesianDomain(
     L = L,
@@ -542,6 +625,7 @@ function TankDomain(;
     joint_domains = joint_domains,
     resonator_domains = resonator_domains,
     structure_connections = structure_connections,
+    body_cutouts = body_cutouts,
   )
 end
 
@@ -589,6 +673,7 @@ function _tank_public_property_names(::Val{D}) where {D}
     :joint_domains,
     :resonator_domains,
     :structure_connections,
+    :body_cutouts,
     _tank_legacy_property_names(Val(D))...,
   )
 end
@@ -611,9 +696,56 @@ Build a `CartesianDiscreteModel` from the wrapped `CartesianDomain`.
 
 For `D=2`, the model spans `[0,L]×[0,H]` with `nx×ny` elements.
 For `D=3`, the model spans `[0,L]×[0,W]×[0,H]` with `nx×ny×nz` elements.
+
+With `body_cutouts`, the cells inside each [`BodyCutout`](@ref) box are
+removed and the result is an `UnstructuredDiscreteModel` carrying the
+standard tank labels plus one tag per body on its wetted faces.
 """
 function build_model(domain::TankDomain{D}) where {D}
-  build_model(_cartesian_domain(domain))
+  model = build_model(_cartesian_domain(domain))
+  isempty(domain.body_cutouts) && return model
+  _label_tank_model!(model)
+  _cut_bodies(model, domain.body_cutouts)
+end
+
+# Remove the cells inside the cut-out boxes and tag the new wetted faces.
+function _cut_bodies(model, cutouts)
+  D = num_cell_dims(model)
+  vertical(x) = x[D]
+  ztop = maximum(vertical, Gridap.Geometry.get_node_coordinates(model))
+  centroid(c) = sum(c) / length(c)
+  inside(x, b, tol) = begin
+    lo, hi, zs = _cutout_bounds(b)
+    all(lo[i] - tol < x[i] < hi[i] + tol for i in 1:D-1) && zs - b.d - tol < x[D] < zs + tol
+  end
+  scale(b) = max(b.L, b.d, something(b.W, 0.0))
+  for b in cutouts
+    abs(b.x₀[end] - ztop) ≤ 1e-8 * max(1.0, abs(ztop)) || error(
+      "BodyCutout :$(b.domain_symbol): x₀[end] = $(b.x₀[end]) must be the free-surface " *
+      "height $(ztop) (only surface-piercing bodies are supported).")
+  end
+  cc = vec([centroid(c) for c in get_cell_coordinates(Triangulation(model))])
+  keep = findall(x -> !any(inside(x, b, -1e-10 * scale(b)) for b in cutouts), cc)
+  length(keep) < length(cc) || error("body_cutouts removed no cells: check the box positions.")
+  cut = Gridap.Geometry.UnstructuredDiscreteModel(Gridap.Geometry.DiscreteModelPortion(model, keep))
+
+  labels = get_face_labeling(cut)
+  f2c = Gridap.ReferenceFEs.get_faces(Gridap.Geometry.get_grid_topology(cut), D - 1, D)
+  fc = [centroid(c) for c in get_cell_coordinates(Triangulation(Gridap.ReferenceFEs.ReferenceFE{D - 1}, cut))]
+  dface_to_entity = labels.d_to_dface_to_entity[D]
+  for b in cutouts
+    faces = [f for f in eachindex(fc) if length(f2c[f]) == 1 && inside(fc[f], b, 1e-8 * scale(b))]
+    isempty(faces) && error("BodyCutout :$(b.domain_symbol) has no wetted faces.")
+    ent = maximum(maximum, labels.d_to_dface_to_entity) + 1
+    dface_to_entity[faces] .= ent
+    Gridap.Geometry.add_tag!(labels, String(b.domain_symbol), [ent])
+    area = sum(∫(1)Measure(Boundary(cut, tags = String(b.domain_symbol)), 1))
+    expected = _cutout_wetted_area(b)
+    isapprox(area, expected; rtol = 1e-8) || error(
+      "BodyCutout :$(b.domain_symbol): wetted area $(area) ≠ $(expected). The box faces " *
+      "must lie on mesh lines (planes) of the tank; adjust nx, ny, nz or the box.")
+  end
+  cut
 end
 
 
@@ -1269,6 +1401,19 @@ function build_triangulations(domain::TankDomain{D}, model) where {D}
     joint_partition.symbols,
     joint_partition.Λ_joints,
     "joint",
+  )
+  # Wetted surfaces of cut-out bodies (tagged by build_model)
+  body_symbols = [b.domain_symbol for b in domain.body_cutouts]
+  for sym in body_symbols
+    String(sym) in get_face_labeling(model).tag_to_name || error(
+      "BodyCutout :$sym is not tagged on the model; build it with build_model(domain).")
+  end
+  trian_dict[:body_symbols] = body_symbols
+  _add_triangulations_by_symbol!(
+    trian_dict,
+    body_symbols,
+    [Boundary(model, tags = String(sym)) for sym in body_symbols],
+    "body cut-out",
   )
   return TankTriangulations(trian_dict)
 end
