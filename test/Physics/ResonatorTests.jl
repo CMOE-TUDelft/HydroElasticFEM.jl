@@ -38,3 +38,18 @@ end
   @test !P.has_stiffness_form(empty_resn)
   @test !P.has_rhs_form(empty_resn)
 end
+
+@testset "ResonatorArray forcing opt-in (forced)" begin
+  r = P.ResonatorSingle(M = 1.0, K = 2.0)
+  # Default: no rhs form (backward compatible)
+  @test !P.ResonatorArray([r]).forced
+  @test !P.has_rhs_form(P.ResonatorArray([r]))
+  @test !P.has_rhs_form(P.resonator_array(2, 1.0, 2.0, 0.0))
+  @test !P.has_rhs_form(P.resonator_array(2, [1.0, 1.0], [2.0, 2.0], [0.0, 0.0]))
+  # Opt-in
+  @test P.has_rhs_form(P.ResonatorArray([r]; forced = true))
+  @test P.has_rhs_form(P.ResonatorArray([r], true))
+  @test P.has_rhs_form(P.resonator_array(2, 1.0, 2.0, 0.0; forced = true))
+  @test P.has_rhs_form(P.resonator_array(2, [1.0, 1.0], [2.0, 2.0], [0.0, 0.0]; forced = true))
+  @test !P.has_rhs_form(P.ResonatorArray(P.ResonatorSingle[]; forced = true))
+end

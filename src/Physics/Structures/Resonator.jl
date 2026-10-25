@@ -47,12 +47,22 @@ iteration, delegating to the wrapped `resonators` vector.
 
 # Fields
 - `resonators::Vector{ResonatorSingle}` — the individual resonators, in DOF order
+- `forced::Bool` — whether external point forces on the resonator DOFs are
+  assembled (`has_rhs_form` returns `forced`); default `false`. See
+  `rhs(::ResonatorArray, …)` for the force convention.
+
+# Constructors
+    ResonatorArray(resonators; forced=false)
+    ResonatorArray(resonators, forced)
 
 See also: [`resonator_array`](@ref)
 """
 struct ResonatorArray <: PhysicsParameters
     resonators::Vector{ResonatorSingle}
+    forced::Bool
 end
+
+ResonatorArray(resonators; forced::Bool = false) = ResonatorArray(resonators, forced)
 
 Base.length(ra::ResonatorArray) = length(ra.resonators)
 Base.isempty(ra::ResonatorArray) = isempty(ra.resonators)
@@ -80,7 +90,7 @@ function print_parameters(ra::ResonatorArray)
 end
 
 """
-    resonator_array(N, M, K, C; ρw=1025.0, fe=FESpaceConfig()) -> ResonatorArray
+    resonator_array(N, M, K, C; ρw=1025.0, fe=FESpaceConfig(), forced=false) -> ResonatorArray
 
 Create `N` identical resonator DOFs.
 
@@ -100,13 +110,16 @@ create multiple `ResonatorArray` objects, one for each host domain.
 - `variable_symbols::Vector{Symbol}` — Symbols for the resonator DOF unknowns; default `[:q\$i for i in 1:N]`
 - `ρw::Real` — Fluid density [kg/m³]; default 1025.0
 - `fe::FESpaceConfig` — FE space parameters; default `FESpaceConfig()`
+- `forced::Bool` — assemble external point forces on the resonator DOFs
+  (see `rhs(::ResonatorArray, …)`); default `false`
 """
 function resonator_array(N::Int, M::Real, K::Real, C::Real;
     host_domain_symbol::Symbol = :Γη,
     delta_domain_symbols::Vector{Symbol} = [Symbol("δ_p$i") for i in 1:N],
     variable_symbols::Vector{Symbol} = [Symbol("q$i") for i in 1:N],
     ρw::Real=1025.0,
-    fe::FESpaceConfig=FESpaceConfig())
+    fe::FESpaceConfig=FESpaceConfig(),
+    forced::Bool=false)
     N > 0 || throw(ArgumentError("N must be positive (got $N)"))
     length(delta_domain_symbols) == N || throw(ArgumentError(
     "delta_domain_symbols must be of length N (got $(length(delta_domain_symbols)))"))
@@ -119,12 +132,13 @@ function resonator_array(N::Int, M::Real, K::Real, C::Real;
             delta_domain_symbol=delta_domain_symbols[i], 
             symbol=variable_symbols[i],
             fe=fe
-        ) for (i, _) in enumerate(1:N)]
+        ) for (i, _) in enumerate(1:N)];
+        forced=forced
     )
 end
 
 """
-    resonator_array(N, M, K, C; ρw=1025.0, fe=FESpaceConfig()) -> ResonatorArray
+    resonator_array(N, M::Vector, K::Vector, C::Vector; ρw=1025.0, fe=FESpaceConfig(), forced=false) -> ResonatorArray
 
 Create `N` resonators with individually specified parameters.
 
@@ -138,6 +152,8 @@ Create `N` resonators with individually specified parameters.
 - `variable_symbols::Vector{Symbol}` — Symbols for the resonator DOF unknowns; default `[:q\$i for i in 1:N]`
 - `ρw::Real`          — Fluid density [kg/m³]; default 1025.0
 - `fe::FESpaceConfig` — FE space parameters; default `FESpaceConfig()`
+- `forced::Bool` — assemble external point forces on the resonator DOFs
+  (see `rhs(::ResonatorArray, …)`); default `false`
 """
 function resonator_array(N::Int, M::Vector{<:Real}, K::Vector{<:Real},
     C::Vector{<:Real};
@@ -145,7 +161,8 @@ function resonator_array(N::Int, M::Vector{<:Real}, K::Vector{<:Real},
     delta_domain_symbols::Vector{Symbol} = [Symbol("δ_p$i") for i in 1:N],
     variable_symbols::Vector{Symbol} = [Symbol("q$i") for i in 1:N],
     ρw::Real=1025.0, 
-    fe::FESpaceConfig=FESpaceConfig())
+    fe::FESpaceConfig=FESpaceConfig(),
+    forced::Bool=false)
     N > 0 || throw(ArgumentError("N must be positive (got $N)"))
     (length(M) == N && length(K) == N && length(C) == N && length(delta_domain_symbols) == N) ||
     throw(ArgumentError("M, K, C, and delta_domain_symbols must be of length N"))
@@ -158,7 +175,8 @@ function resonator_array(N::Int, M::Vector{<:Real}, K::Vector{<:Real},
     delta_domain_symbol=delta_domain_symbols[i], 
     symbol=variable_symbols[i], 
     fe=fe
-        ) for (i, (m, k, c)) in enumerate(zip(M, K, C))]
+        ) for (i, (m, k, c)) in enumerate(zip(M, K, C))];
+        forced=forced
     )
 end
 
@@ -265,26 +283,41 @@ end
 """
     rhs(ra::ResonatorArray, dom::IntegrationDomains, f, y)
 
-Resonator array right-hand side (external forcing) linear form.
-
-Assembles point loads on each resonator DOF using the delta distributions:
+Resonator array right-hand side (external forcing) linear form: a prescribed
+point force on each resonator DOF,
 
 ```math
-\\sum_i \\delta_i(f_i \\cdot \\xi_i)
+\\sum_i \\delta_i(F_i \\, \\xi_i \\cdot \\hat{e}_1)
 ```
 
-Returns `false` for the form-presence trait (`has_rhs_form` returns `false`);
-this method is only called when an external resonator forcing is explicitly
-provided.
+where `F_i = f[variable_symbol(ra[i])]` is read from the forcing `FieldMap`
+(i.e. the entry of the resonator field in the vector returned by the
+`rhs_fn` passed to `build_problem` / `build_fe_operator`).
+
+This form is only assembled when the array is constructed with
+`forced = true` (`has_rhs_form(ra) == ra.forced`); with the default
+`forced = false` any forcing given for the resonator fields is ignored.
+
+# Force convention
+Resonator rows are assembled **dimensionally** (not divided by the fluid
+density): the resonator equation reads
+`M_i q̈_i + C_i (q̇_i - η̇) + K_i (q_i - η) = F_i`, so `F_i` is a force in
+newtons (frequency domain: complex amplitude). This differs from the
+structure rows, whose loads are per unit fluid density `ρw`. A static check:
+a single resonator on a clamped (zero) host gives `K_i q_i = F_i`.
+
+`F_i` may be a `Number` (scalar force, the usual case), or a
+`VectorValue{1}` / `CellField` compatible with the resonator field, in which
+case `δ_i(F_i ⋅ ξ_i)` is assembled. A numeric zero contributes nothing.
 
 # Arguments
 - `ra::ResonatorArray`: array of resonator entities
-- `dom::IntegrationDomains`: integration measures (requires `:δ_p`, `:dΩ`)
+- `dom::IntegrationDomains`: integration measures (requires the resonators' `δ` keys)
 - `f`: forcing `FieldMap`
 - `y`: test `FieldMap`
 
 # Returns
-- `Gridap.FESpaces.DomainContribution`
+- `Gridap.FESpaces.DomainContribution`, or `nothing` if all forces are zero
 """
 function rhs(ra::ResonatorArray, dom::IntegrationDomains, f, y)
     resn = ra.resonators
@@ -293,14 +326,18 @@ function rhs(ra::ResonatorArray, dom::IntegrationDomains, f, y)
         δi = dom[ri.delta_domain_symbol]
         fi = f[variable_symbol(ri)]
         ξi = y[variable_symbol(ri)]
-        val = _add_contribution(val, δi(fi ⋅ ξi))
+        val = _add_contribution(val, _resonator_force_contribution(fi, ξi, δi))
     end
     return val
 end
+
+_resonator_force_contribution(fi::Number, ξi, δi) =
+    iszero(fi) ? nothing : δi(fi * (ξi ⋅ VectorValue(1.0)))
+_resonator_force_contribution(fi, ξi, δi) = δi(fi ⋅ ξi)
 
 # Form-presence traits for ResonatorArray
 # (dedicated methods since defaults for PhysicsParameters assume a single field)
 has_mass_form(ra::ResonatorArray) = !isempty(ra.resonators)
 has_damping_form(ra::ResonatorArray) = !isempty(ra.resonators)
 has_stiffness_form(ra::ResonatorArray) = !isempty(ra.resonators)
-has_rhs_form(::ResonatorArray) = false
+has_rhs_form(ra::ResonatorArray) = ra.forced && !isempty(ra.resonators)

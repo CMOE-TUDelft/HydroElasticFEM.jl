@@ -6,6 +6,7 @@ import HydroElasticFEM.Physics as P
 import HydroElasticFEM.ParameterHandler as PH
 import HydroElasticFEM.Simulation as SM
 import HydroElasticFEM.Simulation.FEOperators as FO
+import HydroElasticFEM.AssemblyContexts as AC
 
 # ResonatorArray self and resonator↔structure forms must equal the sum of the
 # point (Dirac) terms only: no host-surface integral is involved.
@@ -95,4 +96,79 @@ end
                                                   delta_domain_symbols = [:δ1, :δ2], fe = fe)]
   prob = SM.build_problem(tank, physics, SM.FreqDomainConfig(ω = 2.0))
   @test prob !== nothing
+end
+
+# Point forces on resonator DOFs are assembled only for `forced = true`
+# (dimensional force F_i in the resonator row), and are ignored by default.
+@testset "ResonatorArray point forcing" begin
+  tank = G.TankDomain(L = 10.0, H = 2.0, nx = 20, ny = 2,
+    structure_domains = [G.StructureDomain(L = 4.0, x₀ = [3.0, 2.0])],
+    resonator_domains = [G.ResonatorDomain(location = [4.1, 2.0], delta_symbol = :δ1),
+                         G.ResonatorDomain(location = [5.7, 2.0], delta_symbol = :δ2)])
+  trians = G.build_triangulations(tank, G.build_model(tank))
+  dom = G.get_integration_domains(trians; degree = 2)
+  M, K, C = [100.0, 150.0], [500.0, 700.0], [5.0, 8.0]
+  F = [3.0, -7.0]
+
+  @testset "load vector (time-domain spaces)" begin
+    fe = PH.FESpaceConfig(vector_type = Vector{Float64})
+    mem = P.Membrane(L = 4.0, mᵨ = 0.9, Tᵨ = 98.1, fe = fe)
+    for forced in (false, true)
+      ra = P.resonator_array(2, M, K, C; delta_domain_symbols = [:δ1, :δ2],
+                             fe = fe, forced = forced)
+      physics = P.PhysicsParameters[mem, ra]
+      X, Y, fmap = SM.build_fe_spaces(physics, trians, PH.TimeDomainConfig())
+      ctx = AC.TimeAssemblyContext(dom, 0.0, nothing)
+      pairs = SM.detect_couplings(physics, ctx)
+      f = zeros(length(fmap))
+      f[fmap[:q1]], f[fmap[:q2]] = F
+      l(y) = FO._assemble_rhs_total(physics, pairs, ctx, fmap, f, y)
+      b = assemble_vector(l, Y)
+      if forced
+        # one constant DOF per resonator: entry = F_i, nothing else loaded
+        @test sum(b) ≈ sum(F)
+        @test sort(b[abs.(b) .> 0]) ≈ sort(F)
+      else
+        @test iszero(b)   # default: resonator forcing ignored, as before
+      end
+      # zero forcing gives an empty load also when forced
+      @test iszero(assemble_vector(
+        y -> FO._assemble_rhs_total(physics, pairs, ctx, fmap, zeros(length(fmap)), y), Y))
+    end
+  end
+
+  # End to end through build_frequency_fe_operator + solve, resonators on a
+  # membrane. The solved resonator rows must satisfy the hand-written
+  # resonator equation (K - ω²M - iωC) q_i - (K - iωC) η(x_i) = F_i
+  # (package time convention e^{-iωt}; ω = 0: static spring K (q_i - η(x_i)) = F_i).
+  @testset "solved response satisfies the resonator equation" begin
+    fe = PH.FESpaceConfig(vector_type = Vector{ComplexF64})
+    mem = P.Membrane(L = 4.0, mᵨ = 0.9, Tᵨ = 98.1, fe = fe)
+    sη = P.variable_symbol(mem)
+    δ = [dom[:δ1], dom[:δ2]]
+    for ω in (0.0, 1.3), forced in (true, false)
+      ra = P.resonator_array(2, M, K, C; delta_domain_symbols = [:δ1, :δ2],
+                             fe = fe, forced = forced)
+      physics = P.PhysicsParameters[mem, ra]
+      X, Y, fmap = SM.build_fe_spaces(physics, trians, SM.FreqDomainConfig(ω = ω))
+      ctx = AC.FrequencyAssemblyContext(dom, ω, nothing)
+      fvec = zeros(ComplexF64, length(fmap))
+      fvec[fmap[:q1]], fvec[fmap[:q2]] = F
+      rhs_fn(y) = fvec
+      uh = solve(FO.build_frequency_fe_operator(physics, ctx, fmap, X, Y; rhs_fn = rhs_fn))
+      u = FO.FieldMap(uh, fmap)
+      if forced
+        for i in 1:2
+          qi = only(get_free_dof_values(uh[fmap[Symbol("q$i")]]))
+          ηi = sum(δ[i](u[sη]))
+          @test abs(ηi) > 0
+          @test (K[i] - ω^2 * M[i] - im * ω * C[i]) * qi -
+                (K[i] - im * ω * C[i]) * ηi ≈ F[i]
+        end
+      else
+        # default: the resonator forcing is ignored, as before this change
+        @test iszero(get_free_dof_values(uh))
+      end
+    end
+  end
 end
