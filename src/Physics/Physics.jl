@@ -304,6 +304,7 @@ include("Structures/EulerBernoulliBeam.jl")
 include("Structures/KirchhoffLovePlate.jl")
 include("Structures/PlateConnection.jl")
 include("Structures/Resonator.jl")
+include("Structures/ResonatorField.jl")
 include("Structures/TimoshenkoBeam.jl")
 
 # TensionedEulerBernoulliBeam combines Membrane's tension operator with
@@ -490,6 +491,7 @@ export StructuralDampingZone, ramp_profile, damping_zones
 export PotentialFlow, FreeSurface, Membrane
 export JointRotationalSpring, EulerBernoulliBeam, Resonator
 export attached_resonators
+export ResonatorField, effective_mass_density, hosts
 export TensionedEulerBernoulliBeam
 export KirchhoffLovePlate
 export PlateConnection

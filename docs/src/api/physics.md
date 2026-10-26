@@ -122,3 +122,12 @@ HydroElasticFEM.Physics.ResonatorSingle
 HydroElasticFEM.Physics.resonator_array
 HydroElasticFEM.Physics.attached_resonators
 ```
+
+A dense population can be modelled as a homogenised field on the host
+structure (any structure, 2D or 3D) instead of individual point DOFs:
+
+```@docs
+HydroElasticFEM.Physics.ResonatorField
+HydroElasticFEM.Physics.effective_mass_density
+HydroElasticFEM.Physics.hosts
+```

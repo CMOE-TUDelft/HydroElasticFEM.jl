@@ -100,6 +100,7 @@ module HydroElasticFEM
   export KirchhoffLovePlate
   export TimoshenkoBeam
   export ResonatorSingle, ResonatorArray, resonator_array
+  export ResonatorField, effective_mass_density
   # Physics helper functions
   export build_kl_tensor, build_KL_tensor
   export equivalent_beam_rigidity

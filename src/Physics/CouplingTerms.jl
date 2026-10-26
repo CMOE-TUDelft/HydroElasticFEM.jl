@@ -342,3 +342,48 @@ function stiffness(ra::ResonatorArray, s::Structure,
     end
     return val
 end
+
+# =========================================================================
+# ResonatorField ↔ Structure coupling
+#
+# Cross and η-η parts of ∫ n p/ρw (q − η)(ξ − v) dΓ, p = K (stiffness) or
+# C (damping); the q-q part is the single-entity ResonatorField form.
+# The field couples to the structure on its own space domain.
+# =========================================================================
+
+"""
+    hosts(rf::ResonatorField, s::Structure) -> Bool
+
+Whether `s` carries the resonator field `rf` (same `space_domain_symbol`).
+"""
+hosts(rf::ResonatorField, s::Structure) =
+    hasproperty(s, :space_domain_symbol) && s.space_domain_symbol === rf.space_domain_symbol
+
+has_stiffness_form(rf::ResonatorField, s::Structure) = hosts(rf, s)
+has_damping_form(rf::ResonatorField, s::Structure) = hosts(rf, s) && !_rf_iszero(rf.C)
+
+function _rf_coupling_form(rf::ResonatorField, s::Structure, p, dom::IntegrationDomains, x, y)
+    q_sym, η_sym = variable_symbol(rf), variable_symbol(s)
+    q, η = x[q_sym], x[η_sym]
+    ξ, v = y[q_sym], y[η_sym]
+    c = _rf_coefficient(rf, p, get_triangulation(ξ))
+    ∫(c * (η * v - q * v - η * ξ))_space_measure(dom, rf)
+end
+
+"""
+    stiffness(rf::ResonatorField, s::Structure, dom, x, y)
+
+Spring coupling `∫ n K/ρw (η v − q v − η ξ) dΓ` between the resonator field
+and its host structure (see [`ResonatorField`](@ref)).
+"""
+stiffness(rf::ResonatorField, s::Structure, dom::IntegrationDomains, x, y) =
+    _rf_coupling_form(rf, s, rf.K, dom, x, y)
+
+"""
+    damping(rf::ResonatorField, s::Structure, dom, x_t, y)
+
+Dashpot coupling `∫ n C/ρw (η̇ v − q̇ v − η̇ ξ) dΓ` between the resonator
+field and its host structure (see [`ResonatorField`](@ref)).
+"""
+damping(rf::ResonatorField, s::Structure, dom::IntegrationDomains, x_t, y) =
+    _rf_coupling_form(rf, s, rf.C, dom, x_t, y)

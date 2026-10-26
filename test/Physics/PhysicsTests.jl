@@ -32,6 +32,7 @@ end
   @testset "Resonator" include("ResonatorTests.jl")
   @testset "ResonatorArray forms" include("ResonatorArrayFormsTests.jl")
   @testset "Resonator host coupling" include("ResonatorHostCouplingTests.jl")
+  @testset "ResonatorField" include("ResonatorFieldTests.jl")
   @testset "FreeSurface" include("FreeSurfaceTests.jl")
   @testset "DampingZone consistency" include("DampingZoneConsistencyTests.jl")
   @testset "StructuralDampingZone" include("StructuralDampingZoneTests.jl")
