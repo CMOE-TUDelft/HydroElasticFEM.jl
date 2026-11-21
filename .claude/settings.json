@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "extraKnownMarketplaces": {
+    "cmoe-research": {
+      "source": {
+        "source": "github",
+        "repo": "CMOE-TUDelft/cmoe-research-plugin"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "cmoe-research@cmoe-research": true
+  },
+  "permissions": {
+    "deny": [
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git merge *)",
+      "Bash(git tag *)",
+      "Bash(gh pr merge *)",
+      "Bash(gh release *)",
+      "Bash(gh repo edit *)",
+      "Bash(gh repo delete *)"
+    ],
+    "ask": [
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(gh pr create *)"
+    ]
+  }
+}
